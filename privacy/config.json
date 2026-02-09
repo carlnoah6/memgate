@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "review": {
+    "enabled": true,
+    "llm_self_review": false,
+    "block_on_violation": true
+  },
+  "defaults": {
+    "visibility": "private",
+    "always_private_categories": ["calendar", "family", "finance", "health", "auth", "contact_private", "dm_content"]
+  },
+  "users": {},
+  "channels": {}
+}
