@@ -164,58 +164,39 @@ with urllib.request.urlopen(req) as resp:
 
 **如果任何检查项未通过，立即修正，不要带着已知问题交付。**
 
-## 第七步：交付（四个渠道，缺一不可）
+## 第七步：交付（一条命令，自动处理所有渠道）
 
-### ⚠️ 格式规范（最重要！）
-- **绝对不要用 "————————————————" 这种分隔线！** 丑且无意义
-- **不要在内容中用 markdown 的 `**bold**` 语法**，除了 Lark 聊天的 post 格式
-- Wiki block 的粗体用 `text_element_style: {bold: true}`，不是 `**`
-- 邮件用纯文本，粗体用 「」或 CAPS 强调，不用 `**`
-- 日报标题用 `YYYY-MM-DD 日报`（简洁，不要加 📋 emoji 前缀）
+### ⚠️ 格式规范
+- 日报用**标准 markdown** 格式写入本地文件
+- **可以用 `**bold**` markdown 语法**（代码会自动转换为各渠道正确格式）
+- **不要用 "————————————————" 这种分隔线！**
+- 日报标题用 `YYYY-MM-DD 日报`
 
-### 1. 本地文件
-保存到 `/home/ubuntu/.openclaw/workspace/memory/daily-reports/{date_str}.md`（标准 markdown 格式）
+### 交付流程（2 步）
 
-### 2. Lark 聊天（⚠️ 必须用 post 富文本格式！）
+**第 1 步：保存 markdown 文件**
 ```bash
-# 将 markdown 日报通过管道转换为 post 格式发送
-cat /home/ubuntu/.openclaw/workspace/memory/daily-reports/{date_str}.md | \
-  /home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh "oc_453c88ec52dd029845c46249837e3ba0" --post
-```
-**不要用纯 text 格式发送！** `--post` 参数会自动将 markdown 转换为 Lark 富文本（粗体、标题、链接都能正确渲染）。
-
-### 3. Wiki 文档
-- Space: `7604126789916479197`（Luna 协同知识库）
-- 父节点: `EUeRwKmjJiRlDHkRUTelNFVHgRb`（📋 日报）
-- 用 user_access_token
-- 标题：`YYYY-MM-DD 日报`（不要加 emoji 前缀）
-- **⚠️ 粗体文本必须用 `text_element_style: {"bold": true}` 设置！不要在内容中包含 `**`！**
-- 示例：
-```json
-{
-  "elements": [
-    {"text_run": {"content": "重要内容", "text_element_style": {"bold": true}}},
-    {"text_run": {"content": " — 这是普通文本"}}
-  ]
-}
+# 将日报保存到本地文件（标准 markdown 格式）
+# 文件路径必须是: /home/ubuntu/.openclaw/workspace/memory/daily-reports/{date_str}.md
 ```
 
-### 4. 邮件
+**第 2 步：执行交付脚本（自动处理 Lark 聊天 + Wiki + 邮件）**
 ```bash
-himalaya send --account gmail << EOF
-From: Luna <luna@openclaw.local>
-To: adam429.lee@gmail.com
-Subject: 🌙 Luna 日报 - YYYY-MM-DD（周X）
-Content-Type: text/plain; charset=utf-8
-
-（日报纯文本内容，不要用 ** 标记，用 • 列表格式，用「」强调重点）
-EOF
+bash /home/ubuntu/.openclaw/workspace/scripts/deliver-daily-report.sh {date_str}
 ```
+
+交付脚本会自动：
+1. ✅ 本地文件已存在
+2. 📱 Lark 聊天：markdown → post 富文本（粗体/标题/链接自动渲染）
+3. 📖 Wiki：markdown → DocX blocks（粗体用 text_element_style.bold=true）
+4. 📧 邮件：markdown → 纯文本（`**` 自动转为「」）
+
+**你不需要手动处理格式转换！脚本全自动完成。**
 
 ## 注意事项
-- **不要用 `message` 工具发飞书消息**，用脚本
-- **Wiki 操作必须用 user_access_token**
-- **任何渠道失败不要停止，继续其他渠道，最后报告成功/失败**
+- **不要用 `message` 工具发飞书消息**
+- **不要手动调 Wiki API 创建 blocks** — 用 `deliver-daily-report.sh`
+- **不要手动发邮件** — 用 `deliver-daily-report.sh`
+- **任何渠道失败脚本会继续其他渠道，最后报告成功/失败**
 - **复盘才是核心，日报只是复盘的输出物**
 - **runTimeoutSeconds=300，合理分配时间：复盘 ~180s，日报生成+交付 ~120s**
-- **绝对不要用 "————" 分隔线、不要在 Wiki/邮件内容中用 `**bold**`**
