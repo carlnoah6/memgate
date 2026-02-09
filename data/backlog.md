@@ -4,7 +4,32 @@
 
 ## 待办
 
-### P1 - 重要
+### 🔧 OpenClaw 优化
+
+#### Privacy Guard — 多用户隐私隔离框架
+- [x] 1. 调研现有方案 ✅ 2026-02-10 → 无现有插件，学术论文 Collaborative Memory (arxiv 2505.18279) 最相关
+- [x] 2. 设计框架文档 ✅ 2026-02-10 → `docs/privacy-framework.md` + [Wiki](https://fg9w9yu3odc.sg.larksuite.com/wiki/D1GEwdu2EiTmA3kI63KlDQEageb)
+- [x] 3. 核心模块（知识存储 + 上下文隔离 + 输出审查）✅ 2026-02-10 → `privacy/`
+- [x] 4. 自我攻防测试（18/18 通过）✅ 2026-02-10 → `privacy/tests/test_isolation.py`
+- [ ] 5. 集成到 Luna 实际运行（session 注入 + memory_search 过滤）
+- [ ] 6. 抽象为通用 OpenClaw 插件并发布
+
+#### API 代理层 Fallback — 到限额自动切换
+- **问题**：OpenClaw 内置 fallback 机制有严重问题
+  - 切换慢：额度用完后反复聊天仍用旧模型
+  - 状态不稳定：成功切到备用模型后又会自动切回去
+- **方案**：在 api-proxy 层实现 fallback
+  - 代理收到 429/额度用尽错误 → 自动切备用 key/endpoint → 重试
+  - 对 OpenClaw 完全透明，无需感知
+- **位置**：`/home/ubuntu/api-proxy/server.py`
+- **状态**：待实现
+- **记录日期**：2026-02-09
+
+#### 重启来源追踪 & 回复路由
+- **问题**：重启可能从任何 session 触发，但重启后汇报只回到主 session
+- **方案**：`mark-restart.sh` 记录触发来源，重启后路由到正确 session
+- **状态**：待实现
+- **记录日期**：2026-02-09
 
 #### 🚀 每天消耗 1B Token 的 AI 系统架构
 - [x] 1. 供给端分析 ✅ 2026-02-09 → `memory/research/1b-token-daily-architecture-2026-02-09.md`
