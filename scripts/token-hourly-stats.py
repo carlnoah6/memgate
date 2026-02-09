@@ -192,6 +192,16 @@ def scan_day(target_date):
     return scan_hour(day_start, day_end)
 
 
+def find_hourly_row(token, target_date_str, target_hour_str):
+    """在每小时明细表中查找指定日期+时段的行号，返回 (row_number, exists)"""
+    # Read date column (A) and hour column (B)
+    rows = read_sheet(token, f"{HOURLY_SHEET}!A1:B500")
+    for i, row in enumerate(rows, 1):
+        if row and len(row) >= 2 and row[0] == target_date_str and row[1] == target_hour_str:
+            return i, True
+    return None, False
+
+
 def append_to_sheet(token, sheet_range, rows):
     """批量追加行到表格"""
     url = f"https://open.larksuite.com/open-apis/sheets/v2/spreadsheets/{SPREADSHEET_ID}/values_append"
@@ -199,6 +209,27 @@ def append_to_sheet(token, sheet_range, rows):
     payload = {"valueRange": {"range": sheet_range, "values": rows}}
     r = requests.post(url, headers=headers, json=payload)
     return r.status_code, r.text[:300]
+
+
+def upsert_hourly_row(token, row):
+    """写入每小时明细行：如果已存在则更新，否则追加（防止重复）"""
+    date_str = row[0]  # e.g. "2026-02-09"
+    hour_str = row[1]  # e.g. "14:00-14:59"
+    
+    row_num, exists = find_hourly_row(token, date_str, hour_str)
+    if exists:
+        # Update existing row
+        num_cols = len(row)
+        col_letter = chr(ord('A') + num_cols - 1)
+        cell_range = f"{HOURLY_SHEET}!A{row_num}:{col_letter}{row_num}"
+        status, text = update_cells(token, cell_range, [row])
+        print(f"Updated existing hourly row {row_num} ({date_str} {hour_str}): {status}")
+        return status, text
+    else:
+        # Append new row
+        status, text = append_to_sheet(token, HOURLY_SHEET, [row])
+        print(f"Appended new hourly row ({date_str} {hour_str}): {status}")
+        return status, text
 
 
 def update_cells(token, sheet_range, values):
@@ -296,8 +327,9 @@ def main():
             if not token:
                 print("ERROR: Failed to get tenant token")
                 sys.exit(1)
-            status, text = append_to_sheet(token, HOURLY_SHEET, rows)
-            print(f"Appended {len(rows)} hourly rows: {status} {text}")
+            # Upsert each hourly row (prevents duplicates on re-run)
+            for row in rows:
+                upsert_hourly_row(token, row)
 
             # 更新涉及的每一天的每日汇总（不只是今天）
             dates_seen = set()
@@ -337,10 +369,9 @@ def main():
             print("ERROR: Failed to get tenant token")
             sys.exit(1)
 
-        # 写入每小时明细（总是写入，即使没有请求也记录配额状态）
+        # 写入每小时明细（upsert 防重复）
         row = make_hourly_row(hour_start, inp, out, tot, cnt, quota_data)
-        status, text = append_to_sheet(token, HOURLY_SHEET, [row])
-        print(f"Appended hourly (with quota): {status} {text}")
+        upsert_hourly_row(token, row)
 
         # 更新当天的每日汇总
         update_daily_summary(token, now)
@@ -352,6 +383,71 @@ def main():
             print(json.dumps({k: v for k, v in quota_data.items() if not k.startswith("_")}, indent=2))
         else:
             print("Failed to fetch quota data")
+
+    elif mode == "dedup":
+        # 清理每小时表中的重复行 — 一次性重写整个 sheet
+        token = get_tenant_token()
+        if not token:
+            print("ERROR: Failed to get tenant token")
+            sys.exit(1)
+        
+        rows = read_sheet(token, f"{HOURLY_SHEET}!A1:K500")
+        
+        # Keep header row (if exists) + unique data rows
+        seen = set()
+        clean_rows = []
+        header = None
+        duplicates = 0
+        empty_rows = 0
+        
+        for i, row in enumerate(rows):
+            # Skip empty rows
+            if not row or not row[0] or row[0] is None:
+                empty_rows += 1
+                continue
+            
+            # Keep header (first row with text that isn't a date)
+            if i == 0 and not row[0][:2].isdigit():
+                header = row
+                continue
+            
+            key = f"{row[0]}|{row[1]}" if len(row) >= 2 else str(row[0])
+            if key in seen:
+                duplicates += 1
+                continue
+            seen.add(key)
+            clean_rows.append(row)
+        
+        print(f"Original: {len(rows)} rows")
+        print(f"Duplicates: {duplicates}, Empty: {empty_rows}")
+        print(f"Clean: {len(clean_rows)} data rows" + (" + header" if header else ""))
+        
+        if duplicates == 0 and empty_rows == 0:
+            print("No cleanup needed!")
+            return
+        
+        # Rebuild: header + clean data rows
+        all_rows = []
+        if header:
+            all_rows.append(header)
+        all_rows.extend(clean_rows)
+        
+        # Pad rows to same width
+        max_cols = max(len(r) for r in all_rows) if all_rows else 11
+        for r in all_rows:
+            while len(r) < max_cols:
+                r.append("")
+        
+        # Clear the entire sheet range first
+        clear_rows = [[""] * max_cols] * len(rows)
+        col_letter = chr(ord('A') + max_cols - 1)
+        status, text = update_cells(token, f"{HOURLY_SHEET}!A1:{col_letter}{len(rows)}", clear_rows)
+        print(f"Cleared sheet: {status}")
+        
+        # Write clean data
+        status, text = update_cells(token, f"{HOURLY_SHEET}!A1:{col_letter}{len(all_rows)}", all_rows)
+        print(f"Wrote {len(all_rows)} clean rows: {status}")
+        print(f"Removed {duplicates + empty_rows} rows total")
 
 
 if __name__ == "__main__":
