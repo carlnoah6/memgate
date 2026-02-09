@@ -54,6 +54,7 @@
 | 从零训练模型 | 7604150806383693538 | OZmqwn4yviwsY2k1JBblkgTYg5c | Carl 私人知识库 → AI 研究 → 从头训练模型 |
 | AI 玩小丑牌 | 7604150806383693538 | HDiUwEllbiJIdskrKAZlojadgsc | Carl 私人知识库 → AI 研究 → 小丑牌 |
 | 1B Token 俱乐部 | 7604150806383693538 | V2hNwrjTtipsdLk0fVKlBjGQgcz | Carl 私人知识库 → AI 研究 → 1B Token 俱乐部 |
+| OpenClaw 优化 | 7604126789916479197 | IUBdwFzDhisMDrkm1fAltnOhgGd | Luna 协同知识库 → OpenClaw 优化 |
 | 内部参考文档 | — | — | 不上传 Wiki，仅存本地 |
 
 ## 消息目标映射（子任务参考）
