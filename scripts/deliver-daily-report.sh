@@ -116,14 +116,9 @@ else
     EMAIL_TEXT=$(python3 "$SCRIPTS/md-to-email-text.py" --file "$REPORT_FILE")
     SUBJECT="🌙 Luna 日报 - ${DATE}（${DOW}）"
     
-    if echo "$EMAIL_TEXT" | himalaya message send --account gmail \
-        --to "$EMAIL" \
-        --subject "$SUBJECT" -- - 2>&1; then
-        RESULTS="$RESULTS\n邮件: ✅"
-    else
-        # Fallback: raw MIME
-        echo "$EMAIL_TEXT" | (
-            cat << MIMEEOF
+    # Send via himalaya with raw MIME
+    if echo "$EMAIL_TEXT" | (
+        cat << MIMEEOF
 From: Luna <luna@openclaw.local>
 To: $EMAIL
 Subject: $SUBJECT
@@ -131,9 +126,11 @@ Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 8bit
 
 MIMEEOF
-            cat
-        ) | EDITOR=cat himalaya message send --account gmail 2>&1 && \
-        RESULTS="$RESULTS\n邮件: ✅" || \
+        cat
+    ) | EDITOR=cat himalaya message send --account gmail 2>&1; then
+        RESULTS="$RESULTS\n邮件: ✅"
+    else
+        echo "  ⚠️ 邮件发送失败"
         RESULTS="$RESULTS\n邮件: ❌"
     fi
 fi

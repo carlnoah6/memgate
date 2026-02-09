@@ -129,6 +129,7 @@ def write_blocks(token, obj_token, blocks):
 def create_wiki_node(token, space_id, parent_token, title):
     """Create a new Wiki node and return (node_token, obj_token)"""
     result = api(token, "POST", f"/wiki/v2/spaces/{space_id}/nodes", {
+        "node_type": "origin",
         "obj_type": "docx",
         "parent_node_token": parent_token,
         "title": title
@@ -139,11 +140,32 @@ def create_wiki_node(token, space_id, parent_token, title):
     print(f"Failed to create wiki node: {result}", file=sys.stderr)
     return None, None
 
+def find_existing_node(token, space_id, parent_token, title):
+    """Find existing node by title in parent, return (node_token, obj_token) or (None, None)"""
+    # Try exact match first, then partial match
+    page_token = ""
+    while True:
+        url = f"/wiki/v2/spaces/{space_id}/nodes?parent_node_token={parent_token}"
+        if page_token:
+            url += f"&page_token={page_token}"
+        result = api(token, "GET", url)
+        if result.get("code") != 0:
+            break
+        for node in result.get("data", {}).get("items", []):
+            node_title = node.get("title", "")
+            # Match "YYYY-MM-DD 日报" or "📋 YYYY-MM-DD ... 日报"
+            if title in node_title or node_title.replace("📋 ", "").replace(" 周一", "").replace(" 周二", "").replace(" 周三", "").replace(" 周四", "").replace(" 周五", "").replace(" 周六", "").replace(" 周日", "").startswith(title):
+                return node["node_token"], node["obj_token"]
+        page_token = result.get("data", {}).get("page_token", "")
+        if not page_token:
+            break
+    return None, None
+
 def main():
     parser = argparse.ArgumentParser(description='Markdown → Lark Wiki DocX')
     parser.add_argument('obj_token', nargs='?', help='Existing document obj_token')
     parser.add_argument('--file', '-f', help='Input markdown file (default: stdin)')
-    parser.add_argument('--create', action='store_true', help='Create new Wiki node')
+    parser.add_argument('--create', action='store_true', help='Create new Wiki node (or update existing)')
     parser.add_argument('--space', help='Wiki space ID (for --create)')
     parser.add_argument('--parent', help='Parent node token (for --create)')
     parser.add_argument('--title', help='Document title (for --create)')
@@ -167,10 +189,15 @@ def main():
         if not all([args.space, args.parent, args.title]):
             print("--create requires --space, --parent, and --title", file=sys.stderr)
             sys.exit(1)
-        node_token, obj_token = create_wiki_node(token, args.space, args.parent, args.title)
-        if not obj_token:
-            sys.exit(1)
-        print(f"Created wiki node: node={node_token} obj={obj_token}")
+        # Check if exists
+        node_token, obj_token = find_existing_node(token, args.space, args.parent, args.title)
+        if obj_token:
+            print(f"Found existing wiki node: node={node_token} obj={obj_token}")
+        else:
+            node_token, obj_token = create_wiki_node(token, args.space, args.parent, args.title)
+            if not obj_token:
+                sys.exit(1)
+            print(f"Created wiki node: node={node_token} obj={obj_token}")
     
     if not obj_token:
         print("No obj_token provided", file=sys.stderr)
