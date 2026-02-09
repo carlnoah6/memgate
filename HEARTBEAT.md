@@ -77,6 +77,9 @@ python3 patches/fix-streaming-silent-reply.py
 # 修复流式卡片串台（onAgentEvent 全局广播 → 加 sessionKey 过滤）
 python3 patches/fix-streaming-cross-session.py
 
+# 全局 lane 并发从 1 改为 4（解决群聊等私聊排队问题）
+python3 patches/fix-lane-concurrency.py
+
 # 输出 "✅ Patch already applied." → 无需操作
 # 输出 "🔧 Patch needed/applied" → 需要重启
 ```
