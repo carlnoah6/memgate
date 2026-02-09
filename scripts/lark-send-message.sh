@@ -1,20 +1,45 @@
 #!/bin/bash
-# 飞书消息发送脚本 — 给子任务用
-# 用法: ./lark-send-message.sh <chat_id> "<消息内容>"
-#   或: echo "长消息内容" | ./lark-send-message.sh <chat_id> -
-# 例: ./lark-send-message.sh oc_453c88ec52dd029845c46249837e3ba0 "✅ 研究完成！"
+# 飞书消息发送脚本（支持 text 和 post 富文本格式）
+# 用法:
+#   ./lark-send-message.sh <chat_id> "纯文本消息"
+#   ./lark-send-message.sh <chat_id> - < message.txt          (stdin 纯文本)
+#   ./lark-send-message.sh <chat_id> --post < report.md       (stdin markdown → post 富文本)
+#   ./lark-send-message.sh <chat_id> --post-json '{"zh_cn":...}'  (直接 post JSON)
 
 CHAT_ID="$1"
-MESSAGE="$2"
+MODE="$2"
+MESSAGE="$3"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 if [ -z "$CHAT_ID" ]; then
     echo "Usage: $0 <chat_id> <message>"
     echo "   or: echo 'message' | $0 <chat_id> -"
+    echo "   or: cat report.md | $0 <chat_id> --post"
+    echo "   or: $0 <chat_id> --post-json '{\"zh_cn\":{...}}'"
     exit 1
 fi
 
-# 支持 stdin 输入（用 - 表示从 stdin 读取）
-if [ "$MESSAGE" = "-" ] || [ -z "$MESSAGE" ]; then
+MSG_TYPE="text"
+POST_JSON=""
+
+if [ "$MODE" = "--post" ]; then
+    # Read markdown from stdin, convert to post format
+    MSG_TYPE="post"
+    POST_JSON=$(python3 "$SCRIPT_DIR/md-to-lark-post.py")
+    MESSAGE=""
+elif [ "$MODE" = "--post-json" ]; then
+    # Direct post JSON
+    MSG_TYPE="post"
+    POST_JSON="$MESSAGE"
+    MESSAGE=""
+elif [ "$MODE" = "-" ] || [ -z "$MODE" ]; then
+    # Plain text from stdin
+    if [ "$MODE" = "-" ]; then
+        MESSAGE=$(cat)
+    fi
+fi
+
+if [ "$MSG_TYPE" = "text" ] && [ -z "$MESSAGE" ]; then
     if [ -t 0 ]; then
         echo "ERROR: No message provided and stdin is a terminal"
         exit 1
@@ -22,14 +47,21 @@ if [ "$MESSAGE" = "-" ] || [ -z "$MESSAGE" ]; then
     MESSAGE=$(cat)
 fi
 
-if [ -z "$MESSAGE" ]; then
+if [ "$MSG_TYPE" = "text" ] && [ -z "$MESSAGE" ]; then
     echo "ERROR: Empty message"
     exit 1
 fi
 
-# 用环境变量传递参数给 Python，避免 shell 转义问题
+if [ "$MSG_TYPE" = "post" ] && [ -z "$POST_JSON" ]; then
+    echo "ERROR: Empty post content"
+    exit 1
+fi
+
+# 用环境变量传递参数给 Python
 export LARK_CHAT_ID="$CHAT_ID"
 export LARK_MESSAGE="$MESSAGE"
+export LARK_MSG_TYPE="$MSG_TYPE"
+export LARK_POST_JSON="$POST_JSON"
 export LARK_APP_ID="cli_a90c3a6163785ed2"
 export LARK_APP_SECRET="***LARK_SECRET_REMOVED***"
 
@@ -39,7 +71,7 @@ import json, os, sys, urllib.request, urllib.error
 chat_id = os.environ["LARK_CHAT_ID"]
 app_id = os.environ["LARK_APP_ID"]
 app_secret = os.environ["LARK_APP_SECRET"]
-message = os.environ["LARK_MESSAGE"]
+msg_type = os.environ["LARK_MSG_TYPE"]
 
 BASE = "https://open.larksuite.com/open-apis"
 
@@ -61,11 +93,20 @@ if not tenant_token:
     print(f"ERROR: No tenant_access_token in response: {token_data}", file=sys.stderr)
     sys.exit(1)
 
-# 发送消息 — json.dumps 自动处理换行、引号等特殊字符
+# 构建消息内容
+if msg_type == "post":
+    content = os.environ["LARK_POST_JSON"]
+elif msg_type == "text":
+    content = json.dumps({"text": os.environ["LARK_MESSAGE"]})
+else:
+    print(f"ERROR: Unknown msg_type: {msg_type}", file=sys.stderr)
+    sys.exit(1)
+
+# 发送消息
 send_body = json.dumps({
     "receive_id": chat_id,
-    "msg_type": "text",
-    "content": json.dumps({"text": message})
+    "msg_type": msg_type,
+    "content": content
 })
 
 send_req = urllib.request.Request(

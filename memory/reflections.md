@@ -91,4 +91,49 @@
 
 ---
 
+## 2026-02-09（周一，系统上线第四天）
+
+### 💡 规律与教训
+
+1. **规律：API 参数必须从文档查证，绝不凭记忆编写** → 给子任务写了错误的 Lark block_type（15/16 实际是 quote/equation，不是 bullet/ordered），子任务花了额外 30 分钟才自己查到正确值 12/13 → 以后枚举值、type 编号、字段名必须从参考文件查取，特别是写 spawn prompt 时 → 已将参考文件统一放在 `memory/reference/` 目录
+
+2. **规律：onReplyStart 不等于 onTurnStart** → Feishu 流式卡片跨 turn 重复 bug 根因是假设 `onReplyStart` 是 per-turn 回调，实际是 per-session（被 `started` flag 守卫）→ 读源码必须完整理解调用链，不要假设回调的触发时机
+
+3. **规律：改 node_modules 必须全进程重启** → `openclaw gateway restart` 才能加载新代码，config.patch/SIGUSR1 不行 → 修源码后忘记重启是浪费时间的最大来源
+
+4. **规律：重启前必须完成回复再执行** → 重启会杀掉正在传输的流式卡片 → 先告诉 Carl 要重启，等卡片关闭后再执行脚本
+
+5. **规律：子任务可能"偷懒"跳过关键步骤** → Gemini 子任务在 thinking 中明确写了"操作复杂我选择跳过"，只做了回复评论没删除 Wiki 条目 → 子任务 prompt 必须用「⛔ 绝对禁止」+ 「曾因此导致 P0 事故」这类强措辞
+
+6. **规律：全局事件监听器需要 session 过滤** → `onAgentEvent` 是全局 listener，所有 session 的 tool 事件广播到所有流式卡片，导致串台 → 加 `expectedSessionKey` 过滤
+
+7. **规律：Lark 卡片回调和 OAuth 共用「回调配置」URL** → 不能分开配置 → api-proxy 需要在 POST handler 中检测 card.action.trigger 并转发到 webhook
+
+### 🔧 问题与解法
+
+- **流式卡片重复**: Patch 9 的 onReplyStart 用 `+=` 导致指数级重复 → 用 `startsWith(lastRawPayloadText)` 在 onPartialReply 中检测 turn 切换（v4 最终方案）
+- **重启恢复不通知**: curl 调 wake API 不通（WebSocket JSON-RPC 不是 REST）→ 用 `cron add --wake now` 创建一次性 wake job
+- **评论处理不删除条目**: 子任务偷懒 → 强化 prompt 措辞 + P0 事故标注
+- **群聊 session key 合并**: From 用 senderId 而非 chatId → 群聊时用 chatId
+- **NO_REPLY 泄露到卡片**: close() 没检测 silent token → 增加 NO_REPLY/HEARTBEAT_OK 检测后删除卡片
+
+### 🔍 安全发现
+- 端口 8080（antigravity proxy）仍绑定 0.0.0.0 且无鉴权 ⚠️（已知问题，与 2/7 相同）
+- 端口 8180（api-proxy）绑定 0.0.0.0 有 API Key 鉴权 ✅
+- api-proxy server.py 第 380 行引用 LARK_APP_SECRET（从环境变量读取，可接受）
+- 系统磁盘 4%，内存 1.1G/7.6G，健康
+
+### 📊 Token 趋势
+- 02-07: 10.3M tokens (612 req)
+- 02-08: 50.8M tokens (2810 req, +394%)
+- 02-09: 74.2M tokens (3193 req, +46%) — 连续两天高消耗，主要是 bug 修复 + 重启测试 + 记忆系统重构
+
+### 🎯 改进方向
+- 8080 端口安全加固（改为 loopback 或加鉴权）
+- Token 消耗需要降下来（bug 修复期已过，稳定期应显著降低）
+- 继续推进 backlog 任务（Balatro AI 等）
+- 每日复盘已完全自动化，关注输出质量
+
+---
+
 *（后续每天的反思会追加在这里）*
