@@ -2,7 +2,7 @@
   "access_token": "***TOKEN_REMOVED***",
   "refresh_token": "***TOKEN_REMOVED***",
   "token_type": "Bearer",
-  "expires_in": 7199,
-  "refresh_expires_in": 2591999,
+  "expires_in": 7200,
+  "refresh_expires_in": 2592000,
   "scope": "auth:user.id:read calendar:calendar calendar:calendar:readonly docx:document docx:document:readonly drive:drive sheets:spreadsheet task:task:write task:tasklist:read task:tasklist:write wiki:wiki wiki:wiki:readonly"
 }

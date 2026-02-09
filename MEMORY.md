@@ -91,15 +91,26 @@
 
 ### 重启后主动汇报
 - 心跳检测 `scripts/check-restart.sh` → 立刻汇报，不要让用户等
-- 重启前必须：1) `mark-restart.sh` 写标记 2) `cron add`（at: +20s, wakeMode: "now"）3) 执行重启
-- curl 调 wake API 不通（gateway 用 WebSocket JSON-RPC），只能用 `cron` 工具
-- 工具调用在用户端不可见 → 要么完整说明，要么等做完再汇报
+- **重启必须用统一脚本**: `bash scripts/restart-gateway.sh "原因"`（自动 mark + cron wake now + sleep 5s + restart）
+- **重启前必须先完成回复**：先告诉 Carl 要重启了，等流式卡片关闭后再执行脚本，避免文字被截断
+- **绝不要手动分步执行**，手动容易漏 wakeMode 导致重启后不汇报
+- curl 调 wake API 不通（gateway 用 WebSocket JSON-RPC），只能用 `openclaw cron add --wake now`
 
 ### Feishu 流式卡片 Patch
 - 原始 Patch 9 有 bug（内容重复），已用 Luna fix v4 修复
 - Patch 脚本：`patches/apply-feishu-streaming-fix.py`（每次 OpenClaw 更新后运行）
 - `onReplyStart` 是 per-session 回调（不是 per-turn），turn 切换检测在 `onPartialReply` 内完成
 - 改 node_modules 必须用 `openclaw gateway restart`（全进程重启），config.patch/SIGUSR1 不加载新代码
+
+### 流式卡片串台修复
+- **根因**：`onAgentEvent` 用全局 `listeners$1`，所有 session 的 tool 事件广播到所有流式卡片
+- **修复**：加 `expectedSessionKey` 过滤，只处理本 session 的事件
+- Patch: `patches/fix-streaming-cross-session.py`
+
+### 流式卡片 NO_REPLY 泄露修复
+- **根因**：`close()` 时 `currentText` 为 "NO_REPLY"（非空），卡片正常关闭而不是删除
+- **修复**：`close()` 检测 NO_REPLY/HEARTBEAT_OK，匹配时删除卡片
+- Patch: `patches/fix-streaming-silent-reply.py`
 
 ### Lark 卡片按钮（交互式确认）
 - 脚本：`scripts/send-confirm-card.sh <chat_id> "<标题>" "<内容>" "按钮文字:value" ...`
@@ -153,6 +164,13 @@
   - 关键：回调走「回调配置」URL（`/api/oauth/callback`），不是事件 webhook
   - 解决：api-proxy 转发 card.action.trigger 到 webhook
 - **教训：API 参数必须查证** — 错误的 block_type 导致子任务浪费 30 分钟
+- **修复 5 个 Feishu 多 session bug**（晚间集中修复）：
+  1. 群聊 session key 合并 — `From` 用 senderId 改为 chatId → `patches/fix-feishu-group-session-key.py`
+  2. 误报"前一条消息在处理" — 3s 超时太短，禁用 timer → `patches/disable-queue-notification.py`
+  3. NO_REPLY 泄露到流式卡片 — close() 没检测 silent token → `patches/fix-streaming-silent-reply.py`
+  4. 流式卡片串台 — onAgentEvent 全局广播，加 sessionKey 过滤 → `patches/fix-streaming-cross-session.py`
+  5. 重启后不汇报 — wake job 没用 `--wake now`，创建统一脚本 `scripts/restart-gateway.sh`
+- **建立完整重启流程**：先说→等流式卡片关闭→脚本(mark+cron wake now+sleep 5s+restart)→15s 后自动汇报
 
 ### 2026-02-08
 - Carl 定义: Luna 是自主协作者，不是指令执行器

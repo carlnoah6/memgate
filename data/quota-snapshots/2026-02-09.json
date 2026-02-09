@@ -284,5 +284,31 @@
       "fraction": 1,
       "isRateLimited": false
     }
+  },
+  "22:00": {
+    "timestamp": "2026-02-09T22:05:01.816364+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "20%",
+      "fraction": 0.2,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "23:00": {
+    "timestamp": "2026-02-09T23:05:01.157173+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "0%",
+      "fraction": 0,
+      "isRateLimited": true
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
   }
 }

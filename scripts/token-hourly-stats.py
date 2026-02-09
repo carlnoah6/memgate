@@ -55,7 +55,10 @@ def scan_sessions(dirs, target_start, target_end):
     for session_dir in dirs:
         if not os.path.isdir(session_dir):
             continue
-        for fpath in glob.glob(os.path.join(session_dir, "**", "*.jsonl"), recursive=True):
+        # Match both active (.jsonl) and completed/deleted (.jsonl.deleted.*) sessions
+        files = glob.glob(os.path.join(session_dir, "**", "*.jsonl"), recursive=True) + \
+                glob.glob(os.path.join(session_dir, "**", "*.jsonl.deleted.*"), recursive=True)
+        for fpath in files:
             try:
                 with open(fpath) as f:
                     for line in f:
@@ -296,8 +299,16 @@ def main():
             status, text = append_to_sheet(token, HOURLY_SHEET, rows)
             print(f"Appended {len(rows)} hourly rows: {status} {text}")
 
-            # 同时更新每日汇总
-            update_daily_summary(token, now)
+            # 更新涉及的每一天的每日汇总（不只是今天）
+            dates_seen = set()
+            current = start_dt
+            while current < now:
+                dates_seen.add(current.strftime("%Y-%m-%d"))
+                current += timedelta(hours=1)
+            dates_seen.add(now.strftime("%Y-%m-%d"))
+            for date_str in sorted(dates_seen):
+                day_dt = datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=SGT, hour=12)
+                update_daily_summary(token, day_dt)
         else:
             print("No hourly data to append")
 

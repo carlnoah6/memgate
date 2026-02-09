@@ -19,35 +19,69 @@ OpenClaw cron 有 bug（`every` 类型 job 永远不执行），在修复前不�
 
 ## ⚠️ 重启操作流程（必须严格遵守）
 
-每次需要重启时，**必须按以下顺序执行**，缺一不可：
+### 重启前检查（必做）
+
+执行重启脚本**之前**，必须先检查是否有其他 session 在工作：
 
 ```
-1. bash scripts/mark-restart.sh "重启原因"     # 写标记文件
-2. cron add:                                    # 创建 wake job
-   - schedule: { kind: "at", at: "<UTC+20s>" }  # 20秒后触发
-   - payload: { kind: "systemEvent", text: "心跳 prompt" }
-   - sessionTarget: "main"
-   - wakeMode: "now"                            # ← 关键！立即触发心跳
-3. openclaw gateway restart                     # 执行重启
+sessions_list(activeMinutes=2, messageLimit=0)
 ```
 
-**为什么需要 cron wake job？**
+- 如果只有当前 session → 可以直接重启
+- 如果有**子任务 (subagent)** 正在运行 → **等待完成或通知 Carl 确认**后再重启
+- 如果有**其他群聊 session** 活跃 → 可以重启（群聊消息会自动重新排队）
+- **config.patch（SIGUSR1 热重载）不影响其他 session**，优先使用。仅改 node_modules 时才需要全进程重启
+
+### 执行重启
+
+**重启前必须先完成回复！** 不要在回复还在流式输出时就执行重启。正确流程：
+1. 先告诉 Carl 「我要重启了，原因是 XXX，重启后会自动汇报」
+2. 等当前回复完全输出（流式卡片关闭）
+3. 然后执行重启脚本
+
+```bash
+bash scripts/restart-gateway.sh "重启原因"
+```
+
+脚本自动完成：
+1. 写重启标记（`mark-restart.sh`）
+2. 通过 `openclaw cron add --wake now` 创建 wake job（重启后 15 秒触发心跳）
+3. 等待 5 秒（让流式卡片关闭）
+4. 执行 `openclaw gateway restart`
+
+**绝不要手动分步执行这些操作！** 用脚本才能保证 wakeMode 等参数正确。
+
+**背景说明**：
 - `openclaw gateway restart` 是全进程重启，不会自动发 GatewayRestart 消息
 - `config.patch` 是 SIGUSR1 热重载，会自动发 GatewayRestart（但不能加载 node_modules 改动）
-- cron job 持久化在磁盘，重启后自动加载 → wakeMode:"now" 立即触发心跳 → check-restart.sh → 汇报
+- cron job 持久化在磁盘，重启后自动加载 → `--wake now` 立即触发心跳 → check-restart.sh → 汇报
 - **不能用 curl 调 wake API**（gateway 用 WebSocket JSON-RPC，不是 REST）
 
 ## ⚠️ OpenClaw 更新后必须检查 Patch
 
-每次 OpenClaw 更新（`update.run` 或手动 `npm update`）后，**必须检查并重新应用 Feishu 流式卡片 patch**：
+每次 OpenClaw 更新（`update.run` 或手动 `npm update`）后，**必须检查并重新应用所有 patch**：
 
 ```bash
+# Feishu 流式卡片 patch
 python3 patches/apply-feishu-streaming-fix.py
+
+# Feishu 群聊 session key patch（From 用 chatId 而非 senderId）
+python3 patches/fix-feishu-group-session-key.py
+
+# 禁用误导性的队列通知（thinking model 下 3 秒超时太短导致误报）
+python3 patches/disable-queue-notification.py
+
+# 修复流式卡片泄露 NO_REPLY/HEARTBEAT_OK 文字
+python3 patches/fix-streaming-silent-reply.py
+
+# 修复流式卡片串台（onAgentEvent 全局广播 → 加 sessionKey 过滤）
+python3 patches/fix-streaming-cross-session.py
+
 # 输出 "✅ Patch already applied." → 无需操作
-# 输出 "🔧 Patch needed" → 自动应用，然后重启
+# 输出 "🔧 Patch needed/applied" → 需要重启
 ```
 
-如果 patch 应用后需要重启，按上方「重启操作流程」执行。
+如果 patch 应用后需要重启，用统一脚本：`bash scripts/restart-gateway.sh "重新应用 Feishu patch"`
 
 1. 运行调度脚本：`python3 scripts/heartbeat-scheduler.py`
 2. 脚本输出 JSON，`due` 数组列出到期任务名
