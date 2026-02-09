@@ -1,0 +1,288 @@
+{
+  "00:00": {
+    "timestamp": "2026-02-09T00:05:01.922099+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "60%",
+      "fraction": 0.6,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "01:00": {
+    "timestamp": "2026-02-09T01:05:01.183698+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "40%",
+      "fraction": 0.4,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "02:00": {
+    "timestamp": "2026-02-09T02:05:02.014130+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "40%",
+      "fraction": 0.4,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "03:00": {
+    "timestamp": "2026-02-09T03:05:01.664926+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "40%",
+      "fraction": 0.4,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "04:00": {
+    "timestamp": "2026-02-09T04:05:01.389508+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "05:00": {
+    "timestamp": "2026-02-09T05:05:01.694974+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "06:00": {
+    "timestamp": "2026-02-09T06:05:01.299450+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "07:00": {
+    "timestamp": "2026-02-09T07:05:01.761630+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "08:00": {
+    "timestamp": "2026-02-09T08:05:01.884112+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "80%",
+      "fraction": 0.8,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "09:00": {
+    "timestamp": "2026-02-09T09:05:01.658965+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "80%",
+      "fraction": 0.8,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "10:00": {
+    "timestamp": "2026-02-09T10:05:01.196203+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "60%",
+      "fraction": 0.6,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "11:00": {
+    "timestamp": "2026-02-09T11:05:01.392428+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "60%",
+      "fraction": 0.6,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "12:00": {
+    "timestamp": "2026-02-09T12:05:01.242192+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "40%",
+      "fraction": 0.4,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "13:00": {
+    "timestamp": "2026-02-09T13:05:01.264045+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "20%",
+      "fraction": 0.2,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "14:00": {
+    "timestamp": "2026-02-09T14:05:01.384250+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "15:00": {
+    "timestamp": "2026-02-09T15:05:01.483422+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "60%",
+      "fraction": 0.6,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "16:00": {
+    "timestamp": "2026-02-09T16:05:01.962438+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "60%",
+      "fraction": 0.6,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "17:00": {
+    "timestamp": "2026-02-09T17:05:01.831335+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "60%",
+      "fraction": 0.6,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "18:00": {
+    "timestamp": "2026-02-09T18:05:02.074586+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "20%",
+      "fraction": 0.2,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "19:00": {
+    "timestamp": "2026-02-09T19:05:01.823818+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "80%",
+      "fraction": 0.8,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "20:00": {
+    "timestamp": "2026-02-09T20:05:01.559772+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "40%",
+      "fraction": 0.4,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "21:00": {
+    "timestamp": "2026-02-09T21:05:01.166540+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "40%",
+      "fraction": 0.4,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  }
+}

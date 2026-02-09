@@ -1,0 +1,25 @@
+{
+  "23:00": {
+    "timestamp": "2026-02-08T23:18:55.684074+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "80%",
+      "fraction": 0.8,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    },
+    "claude-opus-4-5-thinking": {
+      "remaining": "80%",
+      "fraction": 0.8,
+      "isRateLimited": false
+    },
+    "claude-sonnet-4-5-thinking": {
+      "remaining": "80%",
+      "fraction": 0.8,
+      "isRateLimited": false
+    }
+  }
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "name": "元宝架子鼓课",
+    "type": "recurring_activity",
+    "frequency": "weekly",
+    "day": "Sunday",
+    "time": "09:30-10:20",
+    "duration_min": 50,
+    "notes": "每周日固定，老师有时请假则不上。Carl 陪元宝一起去。",
+    "contact_file": "people/yuanbao.md"
+  },
+  {
+    "name": "马原",
+    "relation": "投资/顾问 — 公司创始人",
+    "frequency_weeks": 2,
+    "last_meeting": "2026-02-09",
+    "preferred_day": "weekday_morning",
+    "location": "The Cavendish, 85 Science Park Drive, S118259 + Kent Ridge Park 徒步",
+    "notes": "每次见面包含公司会谈 + Kent Ridge 徒步。时间不固定，每周日 review 时确认。",
+    "contact_file": "people/ma-yuan.md"
+  },
+  {
+    "name": "卢琦",
+    "relation": "好友（鱼丸妈妈）",
+    "frequency_weeks": 0,
+    "last_meeting": "2026-02-09",
+    "preferred_day": "flexible",
+    "location": "",
+    "notes": "不固定频率，朋友聚会性质。孩子：鱼丸、森宝。",
+    "contact_file": "people/lu-qi.md"
+  }
+]

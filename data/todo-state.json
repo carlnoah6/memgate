@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "block_id": "doxlgioNVwwIutZX3akJ41LNjme",
+      "text": "☐ 开一台 AWS EC2 Windows VM\n    • Region: ap-southeast-1（新加坡）\n    • AMI: Windows Server 2022 Base\n    • Instance type: t3.medium（2C/4G，~$30/月）\n    • Storage: 50GB gp3\n    • Security Group: 开放 RDP(3389) + TCP 12345-12346\n    • 创建 Key Pair 用于获取 Windows 密码",
+      "done": false
+    },
+    {
+      "block_id": "doxlgR00T2Qto4OLvlyXH6znyXb",
+      "text": "☐ RDP 连上 VM，安装 Steam 并登录",
+      "done": false
+    },
+    {
+      "block_id": "doxlgYm0H2nj4tywUoqfwK4vH6g",
+      "text": "☐ 在 Steam 上安装 Balatro",
+      "done": false
+    },
+    {
+      "block_id": "doxlgXcpqMPyb7li4VAQwKmzzYd",
+      "text": "☐ 在 VM 上安装 Tailscale，加入你的网络",
+      "done": false
+    },
+    {
+      "block_id": "doxlgLH1CZjLvysneVvH5uVb06c",
+      "text": "☐ 把 VM 的访问信息给 Luna（Tailscale hostname / IP + 用户名密码）",
+      "done": false
+    },
+    {
+      "block_id": "doxlgnDFtwyYllRs5Qv6dY8p6Uc",
+      "text": "☐ 用 AI 来玩小丑牌（Balatro）🃏 — 研究已完成，等 VM 就绪后执行 → 研究文档",
+      "done": false
+    },
+    {
+      "block_id": "doxlgIDyREbrhYDWE52ubqgy1MA",
+      "text": "☐ 学习从头训练模型（LLM/视觉）🧠 — Luna 待研究 → 研究文档",
+      "done": false
+    }
+  ],
+  "last_check": "2026-02-08T11:14:47+08:00"
+}

@@ -1,0 +1,63 @@
+[
+  {
+    "name": "元宝",
+    "date": "03-22",
+    "year": 2019,
+    "type": "birthday",
+    "note": "Carl 的大儿子"
+  },
+  {
+    "name": "朵朵",
+    "date": "05-16",
+    "year": 2021,
+    "type": "birthday",
+    "note": "Carl 的小女儿"
+  },
+  {
+    "name": "Carl 生日",
+    "date": "04-29",
+    "year": 1984,
+    "type": "birthday",
+    "remind_days_before": [7, 1, 0]
+  },
+  {
+    "name": "Charlie Cook's Favourite Book 儿童剧",
+    "date": "02-22",
+    "year": 2026,
+    "type": "event",
+    "note": "16:30 Victoria Theatre，元宝+朵朵",
+    "remind_days_before": [1, 0]
+  },
+  {
+    "name": "元宝7岁生日聚会",
+    "date": "03-29",
+    "year": 2026,
+    "type": "event",
+    "note": "上午在家办，19位小朋友。详见 data/yuanbao-birthday-party-2026.md",
+    "remind_days_before": [14, 7, 3, 1, 0]
+  },
+  {
+    "name": "Harry Potter 音乐会",
+    "date": "03-28",
+    "year": 2026,
+    "type": "event",
+    "note": "20:00，Carl 和合伙人 Junyi 一起去。晚间演出（不带小朋友）",
+    "remind_days_before": [3, 1, 0]
+  },
+  {
+    "name": "汪苏泷《罗曼前传》演唱会",
+    "date": "03-29",
+    "year": 2026,
+    "type": "event",
+    "note": "20:00-23:00，和 Junyi 一起去。和元宝生日聚会同一天但不冲突（聚会在上午）",
+    "remind_days_before": [3, 1, 0]
+  },
+  {
+    "name": "Les Misérables 音乐剧",
+    "date": "04-15",
+    "year": 2026,
+    "type": "event",
+    "note": "从 SISTIC 购票确认邮件中发现",
+    "remind_days_before": [7, 1, 0]
+  }
+]

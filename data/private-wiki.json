@@ -1,0 +1,65 @@
+{
+  "space_id": "7604150806383693538",
+  "base_url": "https://fg9w9yu3odc.sg.larksuite.com",
+  "structure": {
+    "个人信息": {
+      "node_token": "TmVHwKHjqi5SofkHRLRlCXFugGV",
+      "children": {
+        "人脉关系": {
+          "node_token": "N1PewcigEiLjQ9kTWYHlr5zPgbZ",
+          "obj_token": "TRyUdvVotof90AxGjKSl8Tr5gCc"
+        },
+        "重要日期": {
+          "node_token": "EbdTwPZJwiYROmkkDfKl74VIgwc",
+          "obj_token": "KGv3dLZ4qobYMhxFWsWlMLZXgne"
+        },
+        "日程附注": {
+          "node_token": "HIJuwkclCiK2DlkH6qQlsGoRgLb",
+          "obj_token": "EqN8dKYZOoM66DxBjSVl8BQsgdd"
+        }
+      }
+    },
+    "项目与决策": {
+      "node_token": "Z80FwXKNdiZArAkLuNblPxhFg6c",
+      "children": {
+        "项目追踪": {
+          "node_token": "OZILwgY5tiexyNk2vlqlrl5ugKN",
+          "obj_token": "HxLdd2k9JobY5yxluTMlYSX6gVf"
+        },
+        "决策日志": {
+          "node_token": "FvorwvLfHiaTiCkiB1Bl0NhYgqg",
+          "obj_token": "Jxnrd3Kn7on4P7xEMeWlGZDUgWh"
+        }
+      }
+    },
+    "待办事项": {
+      "node_token": "EdW7wlqkLiTmk3kJ1mclLikXgsc",
+      "obj_token": "BL18d8ZZXo5pIpxVh3al1LXagqc"
+    },
+    "AI 研究": {
+      "node_token": "NRxIwuk5Mi0fyNkzhCWlSKxXgkh",
+      "children": {
+        "小丑牌 Balatro": {
+          "node_token": "HDiUwEllbiJIdskrKAZlojadgsc",
+          "obj_token": "PKvgd4HLSoq0wfxMxnflZwosgqc"
+        },
+        "训练模型 LLM/视觉": {
+          "node_token": "OZmqwn4yviwsY2k1JBblkgTYg5c",
+          "obj_token": "TW8FdDVU7oMdtfxpe71lGqoegBd"
+        }
+      }
+    }
+  },
+  "deprecated": {
+    "人脉关系(旧)": {
+      "node_token": "WGUrwZ0VZibbLOkG9nMlMyqxgCh",
+      "parent": "个人信息",
+      "status": "待删除"
+    },
+    "小丑牌(旧placeholder)": {
+      "node_token": "MKgPwd7iaiMm6jkYK4hlskfTgSf",
+      "parent": "AI 研究",
+      "status": "待删除"
+    }
+  }
+}
