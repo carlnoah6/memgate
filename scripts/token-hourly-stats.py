@@ -265,17 +265,51 @@ def find_daily_row(token, target_date_str):
 
 
 def update_daily_summary(token, target_date):
-    """更新每日汇总表中指定日期的行"""
+    """更新每日汇总表中指定日期的行（含模型维度）"""
     target_date_str = target_date.strftime("%Y-%m-%d")
     inp, out, tot, cnt = scan_day(target_date)
 
     print(f"Daily {target_date_str}: input={inp} output={out} total={tot} requests={cnt}")
 
     row_num, exists = find_daily_row(token, target_date_str)
-    # 日期 | 输入 | 输出 | 总 | 请求次数 | 主会话 | 子任务 | 备注
-    row_data = [[target_date_str, inp, out, tot, cnt, cnt, 0, ""]]
+    
+    # 获取 api-proxy 的按模型统计
+    claude_in = claude_out = claude_req = 0
+    gemini_in = gemini_out = gemini_req = 0
+    kimi_in = kimi_out = kimi_req = 0
+    try:
+        import httpx
+        resp = httpx.get(
+            f"http://localhost:8180/admin/usage/daily?date={target_date_str}",
+            headers={"x-api-key": "sk-admin-luna2026"},
+            timeout=5
+        )
+        if resp.status_code == 200:
+            days = resp.json().get("days", [])
+            if days:
+                by_model = days[0].get("by_model", {})
+                claude = by_model.get("claude-opus-4-6-thinking", {})
+                gemini = by_model.get("gemini-3-pro-high", {})
+                kimi = by_model.get("kimi-k2.5", {})
+                claude_in = claude.get("input", 0)
+                claude_out = claude.get("output", 0)
+                claude_req = claude.get("requests", 0)
+                gemini_in = gemini.get("input", 0)
+                gemini_out = gemini.get("output", 0)
+                gemini_req = gemini.get("requests", 0)
+                kimi_in = kimi.get("input", 0)
+                kimi_out = kimi.get("output", 0)
+                kimi_req = kimi.get("requests", 0)
+    except Exception as e:
+        print(f"Warning: failed to get model stats from api-proxy: {e}")
+    
+    # 日期 | 输入 | 输出 | 总 | 请求次数 | 主会话 | 子任务 | 备注 | Claude In/Out/Req | Gemini In/Out/Req | Kimi In/Out/Req
+    row_data = [[target_date_str, inp, out, tot, cnt, cnt, 0, "",
+                 claude_in, claude_out, claude_req,
+                 gemini_in, gemini_out, gemini_req,
+                 kimi_in, kimi_out, kimi_req]]
 
-    cell_range = f"{DAILY_SHEET}!A{row_num}:H{row_num}"
+    cell_range = f"{DAILY_SHEET}!A{row_num}:Q{row_num}"
     status, text = update_cells(token, cell_range, row_data)
     action = "Updated" if exists else "Created"
     print(f"{action} daily row {row_num}: {status} {text}")

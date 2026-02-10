@@ -13161,3 +13161,38 @@
 ==========================
 完成: 0 个 patch 应用, 1 个失败
 ⚠️  有失败项，请手动检查
+🔧 OpenClaw 源码 Patch 脚本
+==========================
+
+--- Patch 1: Lock timeout 10s → 60s ---
+✅ extensionAPI.js 已经是 60s，跳过
+✅ loader-BAZoAqqR.js 已经是 60s，跳过
+✅ reply-DpTyb3Hh.js 已经是 60s，跳过
+
+--- Patch 2: Fallback pattern 'exhausted your capacity' ---
+✅ pi-embedded-helpers-Q6axDMO3.js 已包含 pattern，跳过
+✅ pi-embedded-helpers-s_r2sMSQ.js 已包含 pattern，跳过
+✅ pi-embedded-helpers-wpP9rGyv.js 已包含 pattern，跳过
+
+--- Patch 3: Feishu webhook SDK patch ---
+✅ plugin-sdk/index.js 已包含 webhook patch，跳过
+
+--- Patch 4: Feishu streaming card multi-block retain ---
+  ✅ 已经是 let，跳过
+  ⚠️  找不到 block deliver 锚点
+
+--- Patch 5: Feishu queue notification ---
+✅ plugin-sdk/index.js 已包含排队通知 patch，跳过
+
+--- Patch 6: Feishu streaming card tool status (global listener) ---
+✅ plugin-sdk/index.js 已包含工具状态 patch（全局版），跳过
+
+--- Patch 7: Fix zombie Thinking card (close always updates text) ---
+✅ plugin-sdk/index.js 已包含 zombie fix，跳过
+
+--- Patch 8: Lazy-start streaming card after block delivery ---
+✅ plugin-sdk/index.js 已包含 lazy-start patch，跳过
+
+==========================
+完成: 0 个 patch 应用, 1 个失败
+⚠️  有失败项，请手动检查
