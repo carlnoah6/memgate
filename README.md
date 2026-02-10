@@ -17,9 +17,15 @@ MemGate acts as a firewall between your AI agent's long-term memory and its outp
 ## Installation
 
 ```bash
+pip install memgate
+```
+
+### From Source
+
+```bash
 git clone https://github.com/carlnoah6/memgate.git
 cd memgate
-pip install -e .
+pip install -e ".[dev]"
 ```
 
 ## Usage
