@@ -2,48 +2,60 @@
   "tasks": [
     {
       "id": "t002",
-      "status": "running",
+      "status": "failed",
       "description": "MemGate: 真 LLM 红蓝对抗框架",
       "created": "2026-02-10T14:15:37.531152+08:00",
       "started": "2026-02-10T14:17:40.206882+08:00",
       "session_key": "",
       "source_chat": null,
-      "result": null,
-      "completed": null
+      "result": "僵尸任务：session 已超时",
+      "completed": "2026-02-10T14:20:53.918197+08:00"
     },
     {
       "id": "t003",
-      "status": "queued",
+      "status": "cancelled",
       "description": "MemGate: PyPI 发布 + 自动发布 CI",
       "created": "2026-02-10T14:15:37.558806+08:00",
       "started": null,
       "session_key": null,
       "source_chat": null,
       "result": null,
-      "completed": null
+      "completed": "2026-02-10T14:20:53.995504+08:00"
     },
     {
       "id": "t004",
-      "status": "queued",
+      "status": "failed",
       "description": "MemGate: Agent 框架集成示例（LangChain/OpenAI/OpenClaw）",
       "created": "2026-02-10T14:15:37.584883+08:00",
-      "started": null,
-      "session_key": null,
+      "started": "2026-02-10T14:18:20.938388+08:00",
+      "session_key": "",
       "source_chat": null,
-      "result": null,
-      "completed": null
+      "result": "僵尸任务：session 已超时",
+      "completed": "2026-02-10T14:20:53.943915+08:00"
     },
     {
       "id": "t005",
-      "status": "queued",
+      "status": "failed",
       "description": "MemGate: 语义级隐私检测（Embedding）",
       "created": "2026-02-10T14:15:37.610687+08:00",
-      "started": null,
-      "session_key": null,
+      "started": "2026-02-10T14:18:49.392359+08:00",
+      "session_key": "",
       "source_chat": null,
+      "result": "僵尸任务：session 已超时",
+      "completed": "2026-02-10T14:20:53.969201+08:00"
+    },
+    {
+      "id": "t006",
+      "status": "running",
+      "description": "定期检查（邮件+日历+评论）",
+      "created": "2026-02-10T14:21:12.402938+08:00",
+      "started": "2026-02-10T14:21:31.344459+08:00",
+      "session_key": "agent:main:subagent:10df0472-13f1-4b70-ac38-bd7ce5530ffd",
+      "source_chat": null,
+      "depends_on": [],
       "result": null,
       "completed": null
     }
   ],
-  "next_id": 6
+  "next_id": 7
 }

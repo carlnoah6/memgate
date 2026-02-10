@@ -2,17 +2,21 @@
 """Luna OS - Task Board Manager
 
 任务面板管理工具。主 session 用这个跟踪所有异步任务。
+支持依赖关系和自动并行调度。
 
 Usage:
-  task-manager.py add "描述" [source_chat_id]   → 创建任务，返回 task ID
-  task-manager.py start <id> [session_key]       → 标记为运行中
-  task-manager.py complete <id> ["结果摘要"]     → 标记完成
-  task-manager.py fail <id> ["错误信息"]         → 标记失败
-  task-manager.py cancel <id>                    → 取消任务
-  task-manager.py list [status]                  → 列出任务
-  task-manager.py status                         → 快速状态概览 (JSON)
-  task-manager.py active                         → 仅活跃任务 (给心跳用)
-  task-manager.py cleanup [days]                 → 清理 N 天前的已完成任务
+  task-manager.py add "描述" [source_chat_id]           → 创建任务，返回 task ID
+  task-manager.py add "描述" [chat_id] --after t001     → 创建任务，依赖 t001 完成后才能运行
+  task-manager.py add "描述" [chat_id] --after t001,t002 → 依赖多个任务
+  task-manager.py start <id> [session_key]              → 标记为运行中
+  task-manager.py complete <id> ["结果摘要"]            → 标记完成（自动解锁依赖它的任务）
+  task-manager.py fail <id> ["错误信息"]                → 标记失败
+  task-manager.py cancel <id>                           → 取消
+  task-manager.py list [status]                         → 列出任务
+  task-manager.py ready                                 → 可以立即 spawn 的任务（queued + 依赖已满足）
+  task-manager.py status                                → 快速状态概览 (JSON)
+  task-manager.py active                                → 仅活跃任务 (JSON)
+  task-manager.py cleanup [days]                        → 清理 N 天前的已完成任务
 """
 
 import json
@@ -41,7 +45,7 @@ def now_iso():
     return datetime.now(SGT).isoformat()
 
 
-def add_task(description, source_chat=None):
+def add_task(description, source_chat=None, depends_on=None):
     board = load_board()
     task_id = f"t{board['next_id']:03d}"
     board["next_id"] += 1
@@ -53,12 +57,16 @@ def add_task(description, source_chat=None):
         "started": None,
         "session_key": None,
         "source_chat": source_chat,
+        "depends_on": depends_on or [],
         "result": None,
         "completed": None,
     }
     board["tasks"].append(task)
     save_board(board)
-    print(json.dumps({"id": task_id, "status": "queued"}, ensure_ascii=False))
+    out = {"id": task_id, "status": "queued"}
+    if depends_on:
+        out["depends_on"] = depends_on
+    print(json.dumps(out, ensure_ascii=False))
 
 
 def start_task(task_id, session_key=""):
@@ -83,7 +91,12 @@ def complete_task(task_id, result=""):
             t["result"] = result
             t["completed"] = now_iso()
             save_board(board)
-            print(json.dumps({"id": task_id, "status": "done"}, ensure_ascii=False))
+            # Show newly unblocked tasks
+            unblocked = _get_ready_tasks(board, just_completed=task_id)
+            out = {"id": task_id, "status": "done"}
+            if unblocked:
+                out["unblocked"] = [u["id"] for u in unblocked]
+            print(json.dumps(out, ensure_ascii=False))
             return
     print(f"Task {task_id} not found", file=sys.stderr)
     sys.exit(1)
@@ -116,6 +129,39 @@ def cancel_task(task_id):
     sys.exit(1)
 
 
+def _get_done_ids(board):
+    """Get set of completed task IDs"""
+    return {t["id"] for t in board["tasks"] if t["status"] == "done"}
+
+
+def _get_ready_tasks(board, just_completed=None):
+    """Find tasks that are queued and have all dependencies met"""
+    done_ids = _get_done_ids(board)
+    ready = []
+    for t in board["tasks"]:
+        if t["status"] != "queued":
+            continue
+        deps = t.get("depends_on", [])
+        if not deps or all(d in done_ids for d in deps):
+            ready.append(t)
+    return ready
+
+
+def ready_tasks():
+    """Show tasks ready to be spawned (queued + deps met) as JSON"""
+    board = load_board()
+    ready = _get_ready_tasks(board)
+    result = []
+    for t in ready:
+        result.append({
+            "id": t["id"],
+            "description": t["description"],
+            "source_chat": t.get("source_chat"),
+            "depends_on": t.get("depends_on", []),
+        })
+    print(json.dumps(result, ensure_ascii=False))
+
+
 def list_tasks(status_filter=None):
     board = load_board()
     tasks = board["tasks"]
@@ -126,6 +172,7 @@ def list_tasks(status_filter=None):
         print("📋 任务面板为空")
         return
 
+    done_ids = _get_done_ids(board)
     active = [t for t in tasks if t["status"] in ("queued", "running")]
     done = [t for t in tasks if t["status"] == "done"]
     failed = [t for t in tasks if t["status"] == "failed"]
@@ -133,13 +180,27 @@ def list_tasks(status_filter=None):
     if active:
         print("🔄 进行中:")
         for t in active:
-            icon = "⏳" if t["status"] == "queued" else "🏃"
+            deps = t.get("depends_on", [])
+            unmet = [d for d in deps if d not in done_ids]
+
+            if t["status"] == "running":
+                icon = "🏃"
+            elif unmet:
+                icon = "🔒"  # blocked by dependency
+            else:
+                icon = "⏳"
+
             elapsed = ""
             if t.get("started"):
                 start = datetime.fromisoformat(t["started"])
                 mins = (datetime.now(SGT) - start).total_seconds() / 60
                 elapsed = f" ({mins:.0f}min)"
-            print(f"  {icon} [{t['id']}] {t['description']}{elapsed}")
+
+            dep_info = ""
+            if unmet:
+                dep_info = f" [blocked by {','.join(unmet)}]"
+
+            print(f"  {icon} [{t['id']}] {t['description']}{elapsed}{dep_info}")
 
     if done:
         print(f"\n✅ 最近完成 (共{len(done)}个):")
@@ -173,6 +234,7 @@ def active_tasks():
             "description": t["description"],
             "elapsed_min": elapsed_min,
             "session_key": t.get("session_key"),
+            "depends_on": t.get("depends_on", []),
         })
     print(json.dumps(result, ensure_ascii=False))
 
@@ -182,9 +244,11 @@ def status():
     board = load_board()
     tasks = board["tasks"]
     today = datetime.now(SGT).strftime("%Y-%m-%d")
+    ready = _get_ready_tasks(board)
     result = {
         "running": sum(1 for t in tasks if t["status"] == "running"),
         "queued": sum(1 for t in tasks if t["status"] == "queued"),
+        "ready": len(ready),
         "done_today": sum(
             1
             for t in tasks
@@ -227,9 +291,21 @@ if __name__ == "__main__":
     cmd = sys.argv[1]
 
     if cmd == "add":
-        desc = sys.argv[2] if len(sys.argv) > 2 else ""
-        source = sys.argv[3] if len(sys.argv) > 3 else None
-        add_task(desc, source)
+        # Parse --after flag for dependencies
+        args = sys.argv[2:]
+        depends_on = None
+        filtered = []
+        i = 0
+        while i < len(args):
+            if args[i] == "--after" and i + 1 < len(args):
+                depends_on = [x.strip() for x in args[i + 1].split(",")]
+                i += 2
+            else:
+                filtered.append(args[i])
+                i += 1
+        desc = filtered[0] if len(filtered) > 0 else ""
+        source = filtered[1] if len(filtered) > 1 else None
+        add_task(desc, source, depends_on)
     elif cmd == "start":
         start_task(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
     elif cmd == "complete":
@@ -241,6 +317,8 @@ if __name__ == "__main__":
     elif cmd == "list":
         f = sys.argv[2] if len(sys.argv) > 2 else None
         list_tasks(f)
+    elif cmd == "ready":
+        ready_tasks()
     elif cmd == "active":
         active_tasks()
     elif cmd == "status":
