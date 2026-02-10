@@ -8,7 +8,7 @@
   - 学校: SAS (Singapore American School), 40 Woodlands St 41
   - 中文老师: 程玲燕 Lingyan Cheng (lcheng@sas.edu.sg), 教室 ES455
   - 会弹电子琴，喜欢音乐
-- **朵朵** — 小女儿，2021-05-16 生日（快 5 岁）
+- **朵朵**（李筱禾）— 小女儿，2021-05-16 生日（快 5 岁）
 
 ### 🎂 元宝 7 岁生日聚会（2026-03-29 周日上午，在家）
 19 位嘉宾：鱼丸、米粒、天天、森宝、Apollo、Felix、Chris、星晨、DC、Oliver、Zaeer、David、Eddy、Yucheng、Yusen、Ryan、Seito、Nova、豆豆
@@ -89,6 +89,18 @@
 - 名字: Luna | Emoji: 🌙
 - 主模型: antigravity/claude-opus-4-6-thinking
 - 备用: moonshot/kimi-k2.5
+- **Bot open_id: `ou_88371dccab8541963f7f6a108990d7b3`**（用于从群成员中识别自己）
+- ⚠️ 不能靠名字识别自己！组织里有真人用户也叫 "Luna"
+
+### 群聊隐私判断（必须用脚本，禁止靠名字判断）
+- 检查脚本: `python3 scripts/check-group-privacy.py <chat_id>`
+- **正确方法**: 获取 bot open_id → 获取群成员 → 排除 bot → 看剩下的是否只有 Carl
+- **错误方法**: ~~看群成员名字是否包含 "Luna" 和 "Carl"~~（会被同名用户骗过）
+- 已知群隐私级别:
+  - `oc_680d9c843e6a0ad501de9299a97f3a7e` → ✅ 私聊（Carl + Bot）
+  - `oc_7f3ebd31a5cf2fec9170952b29eb2700` → ✅ 私聊（Carl + Bot）
+  - `oc_a2a70c6b4a29c2f2eb6c2500ea42a500` → ❌ 多人群（Carl + QJunyi + zxc）
+  - `oc_4fe2e6e2dbfd0e6fc35c9dab672ab820` → ❌ 多人群（Carl + Luna真人用户）
 
 ## 📝 沟通规则
 
@@ -173,6 +185,11 @@
   - **修复**：改为 `groups[chatId] ?? groups["*"]`，先精确匹配再用通配符
   - Patch: `patches/fix-feishu-group-wildcard.py`
   - **教训**：用户报告 bug 时不要凭推测甩锅给外部平台，先查源码确认根因
+- **隐私安全漏洞：靠名字判断 bot 身份被骗**
+  - 群成员里有真人用户也叫 "Luna"，我看到名字就以为是自己（bot），误判为私聊并泄露了家庭信息
+  - **根因**：通过名字匹配而非 open_id 识别 bot 身份
+  - **修复**：创建 `scripts/check-group-privacy.py`，通过 `/bot/v3/info` 获取 bot 真实 open_id（`ou_88371dccab8541963f7f6a108990d7b3`），精确过滤
+  - **教训**：安全判断必须用唯一 ID，永远不能靠名字。名字可以重复、伪造
 
 ### 2026-02-10
 - **确立 10 色日历分类体系**（基于颜色心理学设计，Carl 确认）
