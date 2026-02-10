@@ -1,7 +1,7 @@
 """
-AttackerAgent — 红队攻击者
+AttackerAgent — Red Team Attacker
 
-使用 LLM 生成社工攻击 prompt，或在 mock 模式下使用预设攻击。
+Uses LLM to generate social engineering attack prompts, or uses preset attacks in mock mode.
 """
 
 from typing import Optional, List, Dict
@@ -12,10 +12,10 @@ from .llm_client import LLMClient
 
 class AttackerAgent:
     """
-    红队攻击者
+    Red team attacker.
 
-    mock=True 时使用预设攻击 prompt，不调用网络。
-    mock=False 时调用 LLM API 生成攻击 prompt。
+    When mock=True, uses preset attack prompts without making network calls.
+    When mock=False, calls the LLM API to generate attack prompts.
     """
 
     def __init__(
@@ -43,14 +43,14 @@ class AttackerAgent:
         history: Optional[List[Dict[str, str]]] = None,
     ) -> str:
         """
-        生成攻击 prompt
+        Generate an attack prompt.
 
         Args:
-            strategy_name: 攻击策略名称
-            history: 之前的对话历史（用于 multi_turn）
+            strategy_name: Name of the attack strategy
+            history: Previous conversation history (for multi_turn)
 
         Returns:
-            攻击 prompt 文本
+            Attack prompt text
         """
         strategy = STRATEGIES[strategy_name]
 
@@ -60,7 +60,7 @@ class AttackerAgent:
         return self._llm_attack(strategy, history or [])
 
     def _mock_attack(self, strategy: AttackStrategy) -> str:
-        """从预设变体中按顺序选择（循环）"""
+        """Select from preset variants in order (cyclic)."""
         name = strategy.name
         idx = self._mock_index.get(name, 0)
         variants = strategy.mock_variants
@@ -71,7 +71,7 @@ class AttackerAgent:
     def _llm_attack(
         self, strategy: AttackStrategy, history: List[Dict[str, str]]
     ) -> str:
-        """调用 LLM 生成攻击 prompt"""
+        """Call LLM to generate an attack prompt."""
         messages = [
             {"role": "system", "content": strategy.system_prompt},
         ]

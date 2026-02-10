@@ -2,6 +2,7 @@ __pycache__/
 dist/
 *.egg-info/
 venv/
-__pycache__/
-dist/
-*.egg-info/
+site/
+.pytest_cache/
+.coverage
+htmlcov/

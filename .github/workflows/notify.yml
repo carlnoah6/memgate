@@ -33,7 +33,7 @@ jobs:
             -d "{
               \"receive_id\": \"$CHAT_ID\",
               \"msg_type\": \"text\",
-              \"content\": \"{\\\"text\\\":\\\"✅ MemGate PyPI 发布成功: ${TITLE}\\\\n${URL}\\\"}\"
+              \"content\": \"{\\\"text\\\":\\\"✅ MemGate PyPI Publish Success: ${TITLE}\\\\n${URL}\\\"}\"
             }"
 
   notify-failure:
@@ -61,5 +61,5 @@ jobs:
             -d "{
               \"receive_id\": \"$CHAT_ID\",
               \"msg_type\": \"text\",
-              \"content\": \"{\\\"text\\\":\\\"❌ MemGate PyPI 发布失败: ${TITLE}\\\\n${URL}\\\"}\"
+              \"content\": \"{\\\"text\\\":\\\"❌ MemGate PyPI Publish Failed: ${TITLE}\\\\n${URL}\\\"}\"
             }"

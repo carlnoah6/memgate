@@ -15,7 +15,7 @@ class TestPatternMatching:
     def test_phone_numbers(self, reviewer):
         # Should block (2 participants to force review)
         assert not reviewer.review(
-            "我的电话是 13800138000", "ch1", {"user1", "user2"}
+            "My phone number is 13800138000", "ch1", {"user1", "user2"}
         ).passed
         assert not reviewer.review(
             "Call me at 98765432", "ch1", {"user1", "user2"}
@@ -37,12 +37,12 @@ class TestPatternMatching:
 
     def test_financial_info(self, reviewer):
         # Should block
-        assert not reviewer.review("我的工资是 50k", "ch1", {"user1", "user2"}).passed
+        assert not reviewer.review("My salary is 50k", "ch1", {"user1", "user2"}).passed
         assert not reviewer.review(
             "My salary is $5000", "ch1", {"user1", "user2"}
         ).passed
         assert not reviewer.review(
-            "账户余额还有 100 元", "ch1", {"user1", "user2"}
+            "Account balance is 100 yuan", "ch1", {"user1", "user2"}
         ).passed
 
         # Should pass
@@ -52,7 +52,9 @@ class TestPatternMatching:
 
     def test_calendar_info(self, reviewer):
         # Should block
-        assert not reviewer.review("明天下午去见客户", "ch1", {"user1", "user2"}).passed
+        assert not reviewer.review(
+            "Meeting a client tomorrow afternoon", "ch1", {"user1", "user2"}
+        ).passed
         assert not reviewer.review(
             "I have a meeting at 3pm", "ch1", {"user1", "user2"}
         ).passed
@@ -68,7 +70,7 @@ class TestPatternMatching:
     def test_address_info(self, reviewer):
         # Should block
         assert not reviewer.review(
-            "我住在上海市浦东新区", "ch1", {"user1", "user2"}
+            "I live in Pudong New District, Shanghai", "ch1", {"user1", "user2"}
         ).passed
         assert not reviewer.review(
             "My address is 123 Main St", "ch1", {"user1", "user2"}

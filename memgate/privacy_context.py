@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Privacy Guard — 上下文隔离引擎
+Privacy Guard — Context Isolation Engine
 
-决定当前 session 可以访问哪些知识。
+Determines which knowledge the current session can access.
 """
 
 import json
@@ -19,7 +19,7 @@ CONFIG_PATH = PRIVACY_DIR / "config.json"
 
 @dataclass
 class ChannelInfo:
-    """频道信息"""
+    """Channel information."""
 
     channel_id: str
     participants: set  # set of user IDs
@@ -39,12 +39,12 @@ def load_config() -> dict:
 
 class PrivacyContext:
     """
-    隐私上下文：决定当前 session 可以访问哪些知识
+    Privacy context: determines which knowledge the current session can access.
 
-    核心规则：
-    1. 私聊（1人）→ 该用户的所有知识（public + private）
-    2. 群聊（多人）→ 所有参与者的 public 知识
-    3. 同用户不同频道 → 信息互通（只要参与者集合相同）
+    Core rules:
+    1. DM (1 person) -> All of the user's knowledge (public + private)
+    2. Group chat (multiple people) -> All participants' public knowledge only
+    3. Same user, different channels -> Knowledge is shared (as long as participant sets match)
     """
 
     def __init__(self, channel: ChannelInfo, store: Optional[KnowledgeStore] = None):
@@ -61,7 +61,7 @@ class PrivacyContext:
         return self.channel.participants
 
     def get_accessible_knowledge(self) -> list[KnowledgeItem]:
-        """返回当前 session 可访问的知识条目"""
+        """Return knowledge entries accessible to the current session."""
         if not self.config.get("enabled", True):
             # Privacy disabled: return everything
             result = []
@@ -70,18 +70,18 @@ class PrivacyContext:
             return result
 
         if self.is_private:
-            # 私聊：该用户的所有知识
+            # DM: all knowledge for this user
             user = list(self.participants)[0]
             return self.store.get_all(user)
         else:
-            # 群聊：所有参与者的 public 知识
+            # Group chat: public knowledge from all participants
             result = []
             for user in self.participants:
                 result.extend(self.store.get_public(user))
             return result
 
     def can_access_item(self, item: KnowledgeItem) -> bool:
-        """检查当前上下文是否可以访问某条知识"""
+        """Check whether the current context can access a given knowledge item."""
         if not self.config.get("enabled", True):
             return True
 
@@ -89,13 +89,13 @@ class PrivacyContext:
             user = list(self.participants)[0]
             return item.user == user
         else:
-            # 群聊：只能访问参与者的 public 知识
+            # Group chat: can only access participants' public knowledge
             if item.user not in self.participants:
                 return False
             return item.visibility == "public"
 
     def get_accessible_paths(self) -> set[str]:
-        """返回可访问的文件路径集合（用于过滤 memory_search 结果）"""
+        """Return the set of accessible file paths (for filtering memory_search results)."""
         paths = set()
 
         if self.is_private:
@@ -113,7 +113,7 @@ class PrivacyContext:
 
     def filter_memory_results(self, results: list[dict]) -> list[dict]:
         """
-        过滤 memory_search 结果
+        Filter memory_search results.
 
         results: list of {path: str, content: str, ...}
         """
@@ -124,13 +124,13 @@ class PrivacyContext:
         return [r for r in results if r.get("path", "") in accessible]
 
     def get_context_summary(self) -> str:
-        """生成上下文摘要（注入到 session prompt 中）"""
+        """Generate a context summary (for injection into the session prompt)."""
         if self.is_private:
             user = list(self.participants)[0]
-            return f"[Privacy] 私聊模式 (用户: {user}) — 可访问该用户的所有知识"
+            return f"[Privacy] DM mode (user: {user}) — can access all of this user's knowledge"
         else:
             users = ", ".join(sorted(self.participants))
             return (
-                f"[Privacy] 群聊模式 (参与者: {users}) — "
-                f"只能使用参与者的公共知识，不能泄露任何人的私有信息"
+                f"[Privacy] Group chat mode (participants: {users}) — "
+                f"can only use participants' public knowledge; must not leak anyone's private information"
             )
