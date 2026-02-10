@@ -47,18 +47,36 @@ CACHE_DIR = Path(__file__).parent / ".embedding_cache"
 
 @dataclass
 class SemanticHit:
-    """A single semantic match result."""
+    """A single semantic match between a query segment and a private knowledge entry.
+
+    Attributes:
+        item_id: Unique identifier of the matched ``KnowledgeItem``.
+        category: Privacy category of the matched item (e.g. ``"health"``).
+        similarity: Cosine similarity score between the query segment and the
+            matched knowledge entry (range 0..1).
+        matched_content: Original textual content of the matched knowledge entry.
+        query_text: The query fragment (segment) that triggered this match.
+    """
 
     item_id: str
     category: str
     similarity: float
-    matched_content: str  # Original content of the matched knowledge entry
-    query_text: str  # Query fragment that triggered the match
+    matched_content: str
+    query_text: str
 
 
 @dataclass
 class SemanticResult:
-    """Semantic detection summary."""
+    """Aggregated result of a semantic privacy detection scan.
+
+    Attributes:
+        flagged: ``True`` if at least one knowledge entry exceeded the
+            similarity threshold; ``False`` otherwise.
+        hits: List of :class:`SemanticHit` instances sorted by descending
+            similarity.  Empty when ``flagged`` is ``False``.
+        threshold: The cosine similarity threshold that was used for this
+            detection run.
+    """
 
     flagged: bool
     hits: list[SemanticHit] = field(default_factory=list)
@@ -71,29 +89,41 @@ class SemanticResult:
 
 
 class EmbeddingProvider(ABC):
-    """Base class for embedding vector providers."""
+    """Abstract base class for embedding vector providers.
+
+    Subclasses must implement :meth:`embed` to convert text into dense
+    vectors and expose the vector dimensionality via the :attr:`dim`
+    property.
+    """
 
     @abstractmethod
     def embed(self, texts: list[str]) -> np.ndarray:
-        """
-        Encode a list of texts into a vector matrix.
+        """Encode a batch of text strings into embedding vectors.
 
         Args:
-            texts: List of text strings
+            texts: List of text strings to embed.
+
         Returns:
-            float32 ndarray of shape (len(texts), dim)
+            A ``float32`` numpy array of shape ``(len(texts), dim)`` where
+            each row is the embedding vector for the corresponding input text.
         """
         ...
 
     @property
     @abstractmethod
     def dim(self) -> int:
-        """Vector dimensionality."""
+        """Return the dimensionality of the embedding vectors."""
         ...
 
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
-    """OpenAI text-embedding-3-small / text-embedding-ada-002"""
+    """Embedding provider backed by the OpenAI Embeddings API.
+
+    Uses models such as ``text-embedding-3-small`` or
+    ``text-embedding-ada-002``.  Requires the ``openai`` Python package
+    and a valid ``OPENAI_API_KEY`` environment variable (or an explicit
+    *api_key* argument).
+    """
 
     def __init__(
         self,
@@ -102,6 +132,18 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         base_url: Optional[str] = None,
         batch_size: int = 64,
     ):
+        """Initialise the OpenAI embedding provider.
+
+        Args:
+            model: Name of the OpenAI embedding model to use.
+            api_key: OpenAI API key.  Falls back to the ``OPENAI_API_KEY``
+                environment variable when not provided.
+            base_url: Optional custom base URL for the OpenAI-compatible API.
+            batch_size: Maximum number of texts to embed in a single API call.
+
+        Raises:
+            ImportError: If the ``openai`` package is not installed.
+        """
         try:
             import openai  # noqa: F401
         except ImportError:
@@ -117,12 +159,23 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 
     @property
     def dim(self) -> int:
+        """Return the embedding dimensionality, probing the API if unknown."""
         if self._dim is None:
             r = self._client.embeddings.create(input=["probe"], model=self.model)
             self._dim = len(r.data[0].embedding)
         return self._dim
 
     def embed(self, texts: list[str]) -> np.ndarray:
+        """Encode texts via the OpenAI Embeddings API.
+
+        Texts are processed in batches of :attr:`batch_size`.
+
+        Args:
+            texts: List of text strings to embed.
+
+        Returns:
+            A ``float32`` numpy array of shape ``(len(texts), dim)``.
+        """
         all_vecs: list[list[float]] = []
         for i in range(0, len(texts), self.batch_size):
             batch = texts[i : i + self.batch_size]
@@ -136,9 +189,22 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 
 
 class LocalEmbeddingProvider(EmbeddingProvider):
-    """sentence-transformers local model."""
+    """Embedding provider using a local ``sentence-transformers`` model.
+
+    Runs entirely on the local machine without external API calls.
+    Requires the ``sentence-transformers`` Python package.
+    """
 
     def __init__(self, model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"):
+        """Initialise the local sentence-transformers provider.
+
+        Args:
+            model_name: Hugging Face model identifier for the
+                ``SentenceTransformer`` to load.
+
+        Raises:
+            ImportError: If ``sentence-transformers`` is not installed.
+        """
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError:
@@ -150,9 +216,18 @@ class LocalEmbeddingProvider(EmbeddingProvider):
 
     @property
     def dim(self) -> int:
+        """Return the embedding dimensionality of the loaded model."""
         return self._dim
 
     def embed(self, texts: list[str]) -> np.ndarray:
+        """Encode texts using the local sentence-transformers model.
+
+        Args:
+            texts: List of text strings to embed.
+
+        Returns:
+            A ``float32`` numpy array of shape ``(len(texts), dim)``.
+        """
         return self._model.encode(texts, convert_to_numpy=True).astype(np.float32)
 
 
@@ -160,10 +235,17 @@ class LocalEmbeddingProvider(EmbeddingProvider):
 
 
 def _tokenize(text: str) -> list[str]:
-    """
-    Mixed tokenizer for Chinese and English text:
-      - English: split by whitespace/punctuation and lowercase
-      - Chinese: split into individual CJK characters
+    """Tokenize mixed Chinese/English text into a flat token list.
+
+    English words are split on whitespace and punctuation boundaries and
+    lowercased.  Chinese (CJK Unified Ideographs) characters are emitted as
+    individual single-character tokens.
+
+    Args:
+        text: The input text to tokenize.
+
+    Returns:
+        A list of token strings.
     """
     tokens: list[str] = []
     buf: list[str] = []
@@ -191,29 +273,62 @@ def _tokenize(text: str) -> list[str]:
 
 
 def _char_ngrams(text: str, n: int = 3) -> list[str]:
-    """Extract character-level n-grams."""
+    """Extract overlapping character-level n-grams from *text*.
+
+    Whitespace is collapsed to single spaces and the text is lowercased
+    before n-gram extraction.
+
+    Args:
+        text: The input text.
+        n: Length of each n-gram.
+
+    Returns:
+        A list of character n-gram strings.
+    """
     text = re.sub(r"\s+", " ", text.lower().strip())
     return [text[i : i + n] for i in range(len(text) - n + 1)]
 
 
 class NgramEmbeddingProvider(EmbeddingProvider):
-    """
-    Hybrid embedding based on character n-grams + bag-of-words.
+    """Hybrid embedding provider based on character n-grams and bag-of-words.
 
-    No external dependencies. Maps text to a fixed-dimension sparse vector
-    (via hash projection), then L2-normalizes for cosine similarity.
+    Requires no external dependencies.  Text features (character n-grams,
+    unigram words, and bigram word pairs) are hashed into a fixed-dimension
+    sparse vector using the *hashing trick*, then L2-normalised so that dot
+    products correspond to cosine similarity.
     """
 
     def __init__(self, dim: int = 4096, char_n: int = 3, word_weight: float = 2.0):
+        """Initialise the n-gram embedding provider.
+
+        Args:
+            dim: Dimensionality of the output embedding vectors.
+            char_n: Length of character n-grams to extract.
+            word_weight: Multiplicative weight applied to word-level features
+                relative to character n-gram features.
+        """
         self._dim = dim
         self.char_n = char_n
         self.word_weight = word_weight
 
     @property
     def dim(self) -> int:
+        """Return the fixed output vector dimensionality."""
         return self._dim
 
     def _text_to_features(self, text: str) -> Counter:
+        """Convert text into a weighted feature bag.
+
+        Extracts character n-grams, word unigrams, and word bigrams, each
+        with their respective weights.
+
+        Args:
+            text: The input text.
+
+        Returns:
+            A :class:`~collections.Counter` mapping feature strings to their
+            accumulated weights.
+        """
         features: Counter = Counter()
         for ng in _char_ngrams(text, self.char_n):
             features[ng] += 1
@@ -225,14 +340,41 @@ class NgramEmbeddingProvider(EmbeddingProvider):
         return features
 
     def _hash_feature(self, feature: str) -> int:
+        """Map a feature string to a vector index via MD5 hashing.
+
+        Args:
+            feature: The feature string to hash.
+
+        Returns:
+            An integer index in the range ``[0, dim)``.
+        """
         h = int(hashlib.md5(feature.encode()).hexdigest(), 16)
         return h % self._dim
 
     def _feature_sign(self, feature: str) -> float:
+        """Determine the sign (+1 or -1) for a feature via SHA-1 hashing.
+
+        Using a random sign reduces hash-collision bias in the projected
+        vector (the *signed hashing trick*).
+
+        Args:
+            feature: The feature string to hash.
+
+        Returns:
+            ``1.0`` or ``-1.0``.
+        """
         h = int(hashlib.sha1(feature.encode()).hexdigest(), 16)
         return 1.0 if h % 2 == 0 else -1.0
 
     def embed(self, texts: list[str]) -> np.ndarray:
+        """Encode texts into L2-normalised hash-projected vectors.
+
+        Args:
+            texts: List of text strings to embed.
+
+        Returns:
+            A ``float32`` numpy array of shape ``(len(texts), dim)``.
+        """
         vecs = np.zeros((len(texts), self._dim), dtype=np.float32)
         for i, text in enumerate(texts):
             features = self._text_to_features(text)
@@ -252,12 +394,19 @@ class NgramEmbeddingProvider(EmbeddingProvider):
 
 
 class PrivacyVectorIndex:
-    """
-    Privacy knowledge vector index.
-    Uses numpy for cosine similarity search, no faiss dependency required.
+    """In-memory vector index for private knowledge items.
+
+    Stores embedding vectors computed by an :class:`EmbeddingProvider` and
+    supports brute-force cosine similarity search using NumPy (no FAISS
+    dependency required).
     """
 
     def __init__(self, provider: EmbeddingProvider):
+        """Initialise the vector index.
+
+        Args:
+            provider: The embedding provider used to compute vectors.
+        """
         self.provider = provider
         self._vectors: Optional[np.ndarray] = None
         self._items: list[KnowledgeItem] = []
@@ -265,15 +414,35 @@ class PrivacyVectorIndex:
 
     @property
     def size(self) -> int:
+        """Return the number of items stored in the index."""
         return len(self._items)
 
     def _item_to_text(self, item: KnowledgeItem) -> str:
+        """Convert a knowledge item to a single text string for embedding.
+
+        The item's content and tags (if any) are concatenated.
+
+        Args:
+            item: The knowledge item to convert.
+
+        Returns:
+            A space-joined text representation.
+        """
         parts = [item.content]
         if item.tags:
             parts.append(" ".join(item.tags))
         return " ".join(parts)
 
     def build(self, items: list[KnowledgeItem]) -> None:
+        """Build the vector index from a list of knowledge items.
+
+        Computes embedding vectors for all items and stores them for
+        subsequent similarity searches.
+
+        Args:
+            items: Knowledge items to index.  An empty list results in an
+                empty (but valid) index.
+        """
         if not items:
             self._vectors = np.zeros((0, self.provider.dim), dtype=np.float32)
             self._items = []
@@ -286,6 +455,17 @@ class PrivacyVectorIndex:
     def search(
         self, query_vec: np.ndarray, top_k: int = DEFAULT_TOP_K
     ) -> list[tuple[int, float]]:
+        """Find the top-k most similar items to a query vector.
+
+        Args:
+            query_vec: A 1-D embedding vector for the query.
+            top_k: Maximum number of results to return.
+
+        Returns:
+            A list of ``(item_index, cosine_similarity)`` tuples sorted in
+            descending order of similarity.  May contain fewer than *top_k*
+            entries if the index is smaller.
+        """
         if self._vectors is None or self._vectors.shape[0] == 0:
             return []
         qn = np.linalg.norm(query_vec)
@@ -302,6 +482,17 @@ class PrivacyVectorIndex:
         return [(int(idx), float(sims[idx])) for idx in top_indices]
 
     def get_item(self, index: int) -> KnowledgeItem:
+        """Retrieve a knowledge item by its positional index.
+
+        Args:
+            index: Zero-based index into the stored items list.
+
+        Returns:
+            The :class:`KnowledgeItem` at the given position.
+
+        Raises:
+            IndexError: If *index* is out of range.
+        """
         return self._items[index]
 
 
@@ -311,7 +502,21 @@ class PrivacyVectorIndex:
 
 
 def _split_into_segments(text: str, max_len: int = 120) -> list[str]:
-    """Split long text into multiple segments by sentence."""
+    """Split long text into sentence-level segments for granular matching.
+
+    If *text* is shorter than *max_len* it is returned as a single-element
+    list.  Otherwise the text is split on common sentence-ending punctuation
+    (periods, exclamation marks, question marks, semicolons, and CJK
+    equivalents) and consecutive short fragments are merged until each
+    segment approaches *max_len*.
+
+    Args:
+        text: The input text to segment.
+        max_len: Soft maximum character length for each segment.
+
+    Returns:
+        A non-empty list of text segments.
+    """
     if len(text) <= max_len:
         return [text]
     # Split by common sentence delimiters (English and Chinese)
@@ -356,6 +561,19 @@ class SemanticDetector:
         top_k: int = DEFAULT_TOP_K,
         **provider_kwargs,
     ):
+        """Initialise the semantic detector.
+
+        Args:
+            provider: Either a provider name string (``"openai"``,
+                ``"local"``, or ``"ngram"``) or a pre-instantiated
+                :class:`EmbeddingProvider` instance.
+            threshold: Cosine similarity threshold above which a match is
+                considered a privacy hit.
+            top_k: Number of nearest neighbours to retrieve per query
+                segment.
+            **provider_kwargs: Extra keyword arguments forwarded to the
+                provider constructor when *provider* is a string.
+        """
         if isinstance(provider, str):
             self._provider = _create_provider(provider, **provider_kwargs)
         else:
@@ -366,14 +584,28 @@ class SemanticDetector:
 
     @property
     def provider(self) -> EmbeddingProvider:
+        """Return the embedding provider used by this detector."""
         return self._provider
 
     @property
     def index(self) -> Optional[PrivacyVectorIndex]:
+        """Return the current vector index, or ``None`` if not yet built."""
         return self._index
 
     def build_index(self, private_items: list[KnowledgeItem]) -> int:
-        """Build a vector index for private knowledge entries (only indexes always-private categories)."""
+        """Build a vector index from private knowledge items.
+
+        Only items whose category is in
+        :data:`~memgate.knowledge_store.ALWAYS_PRIVATE_CATEGORIES` are
+        indexed.
+
+        Args:
+            private_items: List of :class:`KnowledgeItem` instances to
+                consider for indexing.
+
+        Returns:
+            The number of items actually indexed.
+        """
         items = [it for it in private_items if it.category in ALWAYS_PRIVATE_CATEGORIES]
         self._index = PrivacyVectorIndex(self._provider)
         self._index.build(items)
@@ -382,7 +614,19 @@ class SemanticDetector:
     def build_index_from_store(
         self, store: KnowledgeStore, users: Optional[list[str]] = None
     ) -> int:
-        """Build the index from a KnowledgeStore."""
+        """Build the vector index from a :class:`KnowledgeStore`.
+
+        Collects all private items for the specified users (or all users
+        if *users* is ``None``) and delegates to :meth:`build_index`.
+
+        Args:
+            store: The knowledge store to read items from.
+            users: Optional list of user identifiers to include.  When
+                ``None``, all users in the store are included.
+
+        Returns:
+            The number of items indexed.
+        """
         if users is None:
             users = store.list_users()
         all_private: list[KnowledgeItem] = []
@@ -391,7 +635,19 @@ class SemanticDetector:
         return self.build_index(all_private)
 
     def detect(self, text: str) -> SemanticResult:
-        """Detect whether the text semantically matches private knowledge."""
+        """Detect whether *text* semantically matches any private knowledge.
+
+        The text is split into segments, each segment is embedded and
+        compared against the vector index.  Matches exceeding the
+        similarity threshold are collected and returned.
+
+        Args:
+            text: The output text to scan for privacy leaks.
+
+        Returns:
+            A :class:`SemanticResult` indicating whether any private
+            knowledge was matched, along with detailed hit information.
+        """
         if self._index is None or self._index.size == 0:
             return SemanticResult(flagged=False, threshold=self.threshold)
         segments = _split_into_segments(text)
@@ -430,6 +686,20 @@ class SemanticDetector:
 
 
 def _create_provider(name: str, **kwargs) -> EmbeddingProvider:
+    """Instantiate an embedding provider by name.
+
+    Args:
+        name: Provider identifier — one of ``"openai"``, ``"local"``, or
+            ``"ngram"`` (case-insensitive).
+        **kwargs: Additional keyword arguments forwarded to the provider
+            constructor.
+
+    Returns:
+        An :class:`EmbeddingProvider` instance.
+
+    Raises:
+        ValueError: If *name* does not match any known provider.
+    """
     name = name.lower().strip()
     if name == "openai":
         return OpenAIEmbeddingProvider(**kwargs)
