@@ -33,15 +33,15 @@ jobs:
       - name: Copy README to docs/index.md
         run: cp README.md docs/index.md
 
-      # 生成 API 文档占位符 (如果不存在)
-      - name: Generate API stubs
-        run: |
-          mkdir -p docs/reference
-          echo "::: memgate.privacy_review" > docs/reference/privacy_review.md
-          echo "::: memgate.knowledge_store" > docs/reference/knowledge_store.md
-          echo "::: memgate.privacy_context" > docs/reference/context.md
-          # Red Team 模块可能还在开发分支，先占位
-          echo "# Red Team Arena" > docs/reference/red_team.md
+      # Generate API stubs (skipped, using committed files)
+      # - name: Generate API stubs
+      #   run: |
+      #     mkdir -p docs/reference
+      #     echo "::: memgate.privacy_review" > docs/reference/privacy_review.md
+      #     echo "::: memgate.knowledge_store" > docs/reference/knowledge_store.md
+      #     echo "::: memgate.privacy_context" > docs/reference/context.md
+      #     # Red Team module might be in dev branch, placeholder
+      #     echo "# Red Team Arena" > docs/reference/red_team.md
 
       - name: Deploy to GitHub Pages
         run: mkdocs gh-deploy --force
