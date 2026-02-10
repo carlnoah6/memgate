@@ -80,6 +80,9 @@ python3 patches/fix-streaming-cross-session.py
 # 全局 lane 并发从 1 改为 4（解决群聊等私聊排队问题）
 python3 patches/fix-lane-concurrency.py
 
+# 修复群组通配符 "*" 不生效（新群聊必须 mention 才能收到消息）
+python3 patches/fix-feishu-group-wildcard.py
+
 # 输出 "✅ Patch already applied." → 无需操作
 # 输出 "🔧 Patch needed/applied" → 需要重启
 ```
