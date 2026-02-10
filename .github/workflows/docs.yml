@@ -1,0 +1,47 @@
+name: Deploy Docs
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - "memgate/**"
+      - "mkdocs.yml"
+      - "README.md"
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure Git Credentials
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.x
+
+      - name: Install dependencies
+        run: pip install mkdocs-material mkdocstrings[python]
+
+      - name: Copy README to docs/index.md
+        run: cp README.md docs/index.md
+
+      # 生成 API 文档占位符 (如果不存在)
+      - name: Generate API stubs
+        run: |
+          mkdir -p docs/reference
+          echo "::: memgate.privacy_review" > docs/reference/privacy_review.md
+          echo "::: memgate.knowledge_store" > docs/reference/knowledge_store.md
+          echo "::: memgate.privacy_context" > docs/reference/context.md
+          # Red Team 模块可能还在开发分支，先占位
+          echo "# Red Team Arena" > docs/reference/red_team.md
+
+      - name: Deploy to GitHub Pages
+        run: mkdocs gh-deploy --force
