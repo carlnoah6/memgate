@@ -12,44 +12,57 @@ class LarkProvider(BaseProvider):
     """
     Provider implementation for Lark (Feishu).
     Fetches group privacy status and participants using Lark Open API.
+
+    Args:
+        app_id: Lark app ID (or set LARK_APP_ID env var)
+        app_secret: Lark app secret (or set LARK_APP_SECRET env var)
+        admin_open_id: Admin user's open_id for trust checks (or set LARK_ADMIN_OPEN_ID env var)
+        secrets_file: Path to JSON file with app_id/app_secret/admin_open_id
     """
 
-    KNOWN_BOT_ID = "ou_88371dccab8541963f7f6a108990d7b3"
-
-    def __init__(self):
-        self.config = self._load_config()
+    def __init__(
+        self,
+        app_id: str = None,
+        app_secret: str = None,
+        admin_open_id: str = None,
+        secrets_file: str = None,
+    ):
+        self.config = self._load_config(app_id, app_secret, admin_open_id, secrets_file)
         self.token = None
+        self._bot_open_id_cache = None
 
-    def _load_config(self) -> Dict[str, str]:
-        """Load config from env vars or secrets file."""
-        # Try to find secrets file relative to package or workspace
-        workspace = (
-            Path(__file__).resolve().parent.parent.parent.parent
-        )  # memgate/memgate/providers/lark.py -> workspace
-        secrets_file = workspace / "data/lark-secrets.json"
-
+    def _load_config(
+        self,
+        app_id: str = None,
+        app_secret: str = None,
+        admin_open_id: str = None,
+        secrets_file: str = None,
+    ) -> Dict[str, str]:
+        """Load config from constructor args > env vars > secrets file."""
         config = {
-            "app_id": os.getenv("LARK_APP_ID"),
-            "app_secret": os.getenv("LARK_APP_SECRET"),
-            "admin_open_id": os.getenv("LARK_ADMIN_OPEN_ID"),
+            "app_id": app_id or os.getenv("LARK_APP_ID"),
+            "app_secret": app_secret or os.getenv("LARK_APP_SECRET"),
+            "admin_open_id": admin_open_id or os.getenv("LARK_ADMIN_OPEN_ID"),
         }
 
-        if secrets_file.exists():
-            try:
-                with open(secrets_file, "r") as f:
-                    file_config = json.load(f)
-                    if file_config.get("app_id"):
-                        config["app_id"] = file_config["app_id"]
-                    if file_config.get("app_secret"):
-                        config["app_secret"] = file_config["app_secret"]
-                    if file_config.get("admin_open_id"):
-                        config["admin_open_id"] = file_config["admin_open_id"]
-            except Exception as e:
-                print(f"Warning: Failed to load secrets file: {e}", file=sys.stderr)
+        # Try secrets file if provided, or MEMGATE_LARK_SECRETS env var
+        sf = secrets_file or os.getenv("MEMGATE_LARK_SECRETS")
+        if sf:
+            sf_path = Path(sf)
+            if sf_path.exists():
+                try:
+                    with open(sf_path, "r") as f:
+                        file_config = json.load(f)
+                        for key in ("app_id", "app_secret", "admin_open_id"):
+                            if not config[key] and file_config.get(key):
+                                config[key] = file_config[key]
+                except Exception as e:
+                    print(f"Warning: Failed to load secrets file: {e}", file=sys.stderr)
 
         if not config["app_id"] or not config["app_secret"]:
             raise ValueError(
-                "Missing LARK_APP_ID/SECRET. Set env vars or data/lark-secrets.json"
+                "Missing Lark credentials. Pass app_id/app_secret, set LARK_APP_ID/LARK_APP_SECRET env vars, "
+                "or point MEMGATE_LARK_SECRETS to a JSON file."
             )
 
         return config
@@ -78,15 +91,25 @@ class LarkProvider(BaseProvider):
             raise RuntimeError(f"Network error getting token: {e}")
 
     def _get_bot_open_id(self, token: str) -> str:
+        """Get the bot's own open_id via API. Cached after first call."""
+        if self._bot_open_id_cache:
+            return self._bot_open_id_cache
         try:
             req = urllib.request.Request(
                 "https://open.larksuite.com/open-apis/bot/v3/info",
                 headers={"Authorization": f"Bearer {token}"},
             )
             resp = json.loads(urllib.request.urlopen(req, timeout=5).read())
-            return resp.get("bot", {}).get("open_id", self.KNOWN_BOT_ID)
-        except Exception:
-            return self.KNOWN_BOT_ID
+            bot_id = resp.get("bot", {}).get("open_id")
+            if not bot_id:
+                raise RuntimeError("Bot API returned no open_id")
+            self._bot_open_id_cache = bot_id
+            return bot_id
+        except Exception as e:
+            raise RuntimeError(
+                f"Cannot determine bot open_id from Lark API: {e}. "
+                "Ensure the app has 'bot' scope enabled."
+            )
 
     def _get_chat_info(self, token: str, chat_id: str) -> Dict[str, Any]:
         """Get chat metadata including member_count."""
@@ -180,9 +203,18 @@ class LarkProvider(BaseProvider):
         # If the chat API says there are more members than we can see,
         # it implies invisible members (external contacts/permissions issues).
         unsafe_reason = None
-        if expected_count > actual_count:
+
+        # Case 1: expected_count is 0 or missing — API didn't give us reliable data.
+        # This is suspicious; treat as unsafe unless we're in a known-private context.
+        if expected_count == 0 and actual_count > 0:
             unsafe_reason = (
-                f"Data Inconsistency Detected: Chat info claims {expected_count} members, "
+                f"Unreliable member_count: API returned member_count=0 but we found "
+                f"{actual_count} members via list. Cannot verify completeness. Marking UNSAFE."
+            )
+        # Case 2: More members claimed than we can see — hidden users.
+        elif expected_count > actual_count:
+            unsafe_reason = (
+                f"Data Inconsistency: Chat claims {expected_count} members, "
                 f"but API only returned {actual_count}. Potential hidden users. Marking UNSAFE."
             )
 
@@ -196,4 +228,14 @@ class LarkProvider(BaseProvider):
         )
 
     def is_safe(self, context: ProviderContext) -> bool:
-        return context.unsafe_reason is None
+        """
+        A context is safe only if:
+        1. No data integrity issues (unsafe_reason is None)
+        2. The chat is actually private (only admin + bot)
+
+        If the member list is consistent but there are non-admin humans,
+        the context is NOT safe for private data access.
+        """
+        if context.unsafe_reason is not None:
+            return False
+        return context.is_private

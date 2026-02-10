@@ -10,10 +10,7 @@ from pathlib import Path
 from typing import Optional
 from dataclasses import dataclass
 
-import sys as _sys
-
-_sys.path.insert(0, str(Path(__file__).parent))
-from knowledge_store import KnowledgeStore, KnowledgeItem
+from .knowledge_store import KnowledgeStore, KnowledgeItem
 
 
 PRIVACY_DIR = Path(__file__).parent.parent / "privacy"
