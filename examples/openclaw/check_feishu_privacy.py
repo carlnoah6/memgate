@@ -1,61 +1,63 @@
 #!/usr/bin/env python3
 """
-群聊隐私级别检查 — 通过 Lark API 判断群聊是否为私密对话
+Example: Check Feishu/Lark Group Privacy
+========================================
 
-用法:
-  python3 scripts/check-group-privacy.py <chat_id>
+Determines if a group chat is "private" (only specific users + bot) or "public".
+Useful for privacy-aware context loading in AI agents.
 
-输出 JSON:
-  {
-    "chat_id": "oc_xxx",
-    "is_private": true/false,
-    "reason": "说明",
-    "members": [{"name": "...", "open_id": "...", "is_bot": bool, "is_carl": bool}],
-    "non_bot_members": ["Carl"],
-    "human_count": 1
-  }
+Usage:
+  export LARK_APP_ID="cli_xxx"
+  export LARK_APP_SECRET="xxx"
+  export LARK_ADMIN_OPEN_ID="ou_xxx"  # The user allowed in private chats
+  python3 check_feishu_privacy.py <chat_id>
 
-判断规则:
-  - 获取 bot 自己的 open_id（通过 /bot/v3/info）
-  - 获取群成员列表
-  - 过滤掉 bot 自己
-  - 如果剩余成员只有 Carl → is_private = true
-  - 否则 → is_private = false（有其他人）
+Logic:
+  1. Get bot's own open_id (to exclude itself).
+  2. Get group members.
+  3. Private = (Members - Bot) ⊆ {AdminUser}
 """
 
 import json
+import os
 import sys
 import urllib.request
-from pathlib import Path
 
-WORKSPACE = Path(__file__).resolve().parent.parent
-APP_ID = "***REMOVED_APP_ID***"
-APP_SECRET = "***REMOVED_SECRET***"
-CARL_OPEN_ID = "***REMOVED***"
+# Configuration via Environment Variables
+APP_ID = os.getenv("LARK_APP_ID")
+APP_SECRET = os.getenv("LARK_APP_SECRET")
+ADMIN_OPEN_ID = os.getenv("LARK_ADMIN_OPEN_ID")  # The single human user allowed in private chats
 
 
 def get_tenant_token():
+    if not APP_ID or not APP_SECRET:
+        raise ValueError("Please set LARK_APP_ID and LARK_APP_SECRET environment variables.")
+        
     req = urllib.request.Request(
         "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
         data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode(),
         headers={"Content-Type": "application/json"},
     )
-    resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-    return resp["tenant_access_token"]
+    try:
+        resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
+        return resp.get("tenant_access_token")
+    except Exception as e:
+        print(f"Error getting token: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 def get_bot_open_id(token):
-    """获取 bot 自己的 open_id，用于从群成员中排除自己"""
+    """Get bot's own open_id to exclude it from human member count."""
     req = urllib.request.Request(
         "https://open.larksuite.com/open-apis/bot/v3/info",
         headers={"Authorization": f"Bearer {token}"},
     )
     resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-    return resp["bot"]["open_id"]
+    return resp.get("bot", {}).get("open_id")
 
 
 def get_group_members(token, chat_id):
-    """获取群聊所有成员"""
+    """List all members in the chat."""
     members = []
     page_token = ""
     while True:
@@ -64,8 +66,11 @@ def get_group_members(token, chat_id):
             url += f"&page_token={page_token}"
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
         resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
+        
         if resp.get("code") != 0:
-            raise RuntimeError(f"API error: {resp}")
+            print(f"API Error: {resp}", file=sys.stderr)
+            return []
+            
         members.extend(resp["data"].get("items", []))
         if not resp["data"].get("has_more"):
             break
@@ -75,55 +80,52 @@ def get_group_members(token, chat_id):
 
 def check_group_privacy(chat_id):
     token = get_tenant_token()
+    if not token:
+        return None
+
     bot_open_id = get_bot_open_id(token)
     members = get_group_members(token, chat_id)
 
-    annotated = []
-    non_bot = []
+    non_bot_members = []
     for m in members:
         mid = m["member_id"]
-        name = m.get("name", "")
-        is_bot = mid == bot_open_id
-        is_carl = mid == CARL_OPEN_ID
-        annotated.append({
-            "name": name,
-            "open_id": mid,
-            "is_bot": is_bot,
-            "is_carl": is_carl,
-        })
-        if not is_bot:
-            non_bot.append({"name": name, "open_id": mid, "is_carl": is_carl})
+        # Exclude bot itself
+        if mid != bot_open_id:
+            non_bot_members.append({
+                "name": m.get("name", "Unknown"),
+                "open_id": mid,
+                "is_admin": mid == ADMIN_OPEN_ID
+            })
 
-    # Private = only Carl (no other humans)
-    human_count = len(non_bot)
-    all_carl = all(m["is_carl"] for m in non_bot)
-    is_private = human_count <= 1 and all_carl
-
-    if is_private:
-        reason = "只有 Carl 和 Bot，视为私聊"
-    else:
-        other_names = [m["name"] for m in non_bot if not m["is_carl"]]
-        reason = f"群内有其他成员: {', '.join(other_names)}"
+    # Privacy Rule:
+    # A chat is private if there are human members AND all human members are the Admin.
+    # (Adjust logic here if you want to allow multiple specific users)
+    human_count = len(non_bot_members)
+    all_admin = all(m["is_admin"] for m in non_bot_members)
+    
+    # Empty chat (bot only) or Admin+Bot only
+    is_private = (human_count == 0) or (human_count == 1 and all_admin)
 
     return {
         "chat_id": chat_id,
         "is_private": is_private,
-        "reason": reason,
-        "bot_open_id": bot_open_id,
-        "members": annotated,
-        "non_bot_members": [m["name"] for m in non_bot],
         "human_count": human_count,
+        "details": non_bot_members
     }
 
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python3 scripts/check-group-privacy.py <chat_id>", file=sys.stderr)
+        print("Usage: python3 check_feishu_privacy.py <chat_id>", file=sys.stderr)
         sys.exit(1)
+
+    if not ADMIN_OPEN_ID:
+        print("Warning: LARK_ADMIN_OPEN_ID not set. Privacy check will fail for any human member.", file=sys.stderr)
 
     chat_id = sys.argv[1]
     result = check_group_privacy(chat_id)
+    
     print(json.dumps(result, ensure_ascii=False, indent=2))
-
-    # Exit code: 0 = private, 1 = not private
-    sys.exit(0 if result["is_private"] else 1)
+    
+    # Exit code: 0 = Private, 1 = Public/Unsafe
+    sys.exit(0 if result and result["is_private"] else 1)
