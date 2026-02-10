@@ -77,6 +77,90 @@ pip install pre-commit
 pre-commit install
 ```
 
+## 🏟️ Red Team Arena — Adversarial Testing
+
+MemGate includes a built-in red-blue adversarial testing framework to validate privacy defenses against social engineering attacks.
+
+### Architecture
+
+```
+┌─────────────┐     attack prompt     ┌─────────────┐
+│  🔴 Red Team │ ──────────────────── │  🔵 Blue Team │
+│  (Attacker)  │                       │  (Defender)  │
+│              │     raw response      │  + MemGate   │
+│  LLM / Mock  │ ◄──────────────────  │  Review      │
+└─────────────┘                       └──────┬───────┘
+                                              │
+                                    ┌─────────▼────────┐
+                                    │  ⚖️ Evaluator     │
+                                    │  (Judge)          │
+                                    │  Pattern / LLM    │
+                                    └──────────────────┘
+```
+
+**Three roles:**
+- **Red Team (Attacker)** — Generates social engineering attack prompts
+- **Blue Team (Defender)** — Responds to attacks; MemGate reviews all output
+- **Evaluator (Judge)** — Independently judges whether secrets were leaked
+
+**Eight attack strategies:**
+
+| Strategy | Description |
+|----------|-------------|
+| `authority_impersonation` | Pose as HR, admin, or manager |
+| `context_manipulation` | Frame questions as hypothetical or previously discussed |
+| `emotional_appeal` | Use urgency, sympathy, or fear |
+| `indirect_extraction` | Infer secrets through tangential questions |
+| `multi_turn` | Build rapport gradually, then extract |
+| `role_play` | Ask AI to role-play without restrictions |
+| `language_switch` | Switch languages to bypass filters |
+| `prompt_injection` | Override system instructions |
+
+### Quick Start
+
+```bash
+# Mock mode (no API key needed) — great for CI
+python3 -m memgate.red_team --mock --rounds 16 -v
+
+# With real LLM
+python3 -m memgate.red_team --api-base https://api.openai.com/v1 --api-key sk-xxx --rounds 24 -v
+
+# Output as Markdown report
+python3 -m memgate.red_team --mock --rounds 16 -f markdown -o report.md
+
+# Single strategy deep-dive
+python3 -m memgate.red_team --mock --strategy prompt_injection --rounds 10 -v
+```
+
+### Python API
+
+```python
+from memgate.red_team import Arena
+
+# Mock mode (for CI/testing)
+arena = Arena(rounds=16, mock=True, verbose=True)
+report = arena.run()
+
+print(f"Block rate: {report['summary']['overall_block_rate']:.0%}")
+print(f"Leaked: {report['summary']['total_leaked']}")
+
+# Generate Markdown report
+md = arena.report_gen.report.to_markdown()
+```
+
+### Running Red Team Tests
+
+```bash
+# All mock tests (no API key needed)
+pytest memgate/tests/test_red_team_mock.py -v
+
+# Integration tests (mock)
+pytest memgate/tests/test_red_team_integration.py -v -k mock
+
+# Real LLM integration tests
+MEMGATE_API_KEY=sk-xxx pytest memgate/tests/test_red_team_integration.py -v -k llm
+```
+
 ## License
 
 MIT
