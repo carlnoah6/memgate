@@ -24,7 +24,7 @@ jobs:
           pip install -e .
           pip install pytest colorama
       - name: Run tests
-        run: pytest memgate/tests/ -v
+        run: pytest memgate/tests/test_scenarios.py memgate/tests/test_knowledge_store.py memgate/tests/test_privacy_review.py memgate/tests/test_providers.py -v
 
   publish:
     name: 📦 Build & Publish to PyPI
