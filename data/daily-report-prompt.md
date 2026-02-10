@@ -79,9 +79,17 @@ with urllib.request.urlopen(req) as resp:
     events = json.loads(resp.read()).get('data',{}).get('items',[])
 ```
 
-### 4.2 Token 用量
+### 4.2 Token 用量（含模型维度）
 - 配额快照：`/home/ubuntu/.openclaw/workspace/data/quota-snapshots/{date_str}.json`
-- API 代理用量：`curl -s "http://localhost:8180/admin/usage/daily?date={date_str}" -H "Authorization: Bearer sk-admin-luna2026"`
+- API 代理用量（含模型维度）：
+  ```bash
+  curl -s "http://localhost:8180/admin/usage/daily?date={date_str}" -H "x-api-key: sk-admin-luna2026"
+  ```
+  ⚠️ 返回的 `by_model` 字段包含每个模型的 input/output/requests，**必须在日报中展示**
+- Fallback 状态：
+  ```bash
+  curl -s "http://localhost:8180/admin/fallback" -H "x-api-key: sk-admin-luna2026"
+  ```
 - Session 日志统计（遍历 `/home/ubuntu/.openclaw/agents/main/sessions/*.jsonl` 和 subagents）
 
 ## 第五步：生成日报（7 个章节，缺一不可）
@@ -117,8 +125,10 @@ with urllib.request.urlopen(req) as resp:
 
 ## 📊 Luna Token 用量统计
 ### 7 日用量趋势（表格）
+### 按模型用量（表格）
+（从 by_model 数据生成，展示每个模型的 input/output/requests）
 ### 各 API Key 今日用量（表格）
-### API 配额变化
+### API 配额变化 & Fallback 状态
 
 ## 📌 明日重点
 （来自复盘的明日待办）
@@ -146,7 +156,7 @@ with urllib.request.urlopen(req) as resp:
 | 2 | `## ✅ 今日完成事项` | 必须按类别分组，不是一个大列表 |
 | 3 | `## 📝 教训与改进` | 必须有🔴/🟡标注的具体教训 |
 | 4 | `## ⏰ Carl 时间分配统计` | 必须从日历API获取真实数据，有事件就统计时长 |
-| 5 | `## 📊 Luna Token 用量统计` | 必须有7日趋势表+API Key用量表+配额变化 |
+| 5 | `## 📊 Luna Token 用量统计` | 必须有7日趋势表+按模型用量表+API Key用量表+配额/Fallback状态 |
 | 6 | `## 📌 明日重点` | 必须有1-3个具体待办 |
 | 7 | 页脚 `本日报由 Luna 自动生成` | 包含数据截止时间 |
 
