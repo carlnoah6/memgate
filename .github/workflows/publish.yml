@@ -33,9 +33,6 @@ jobs:
     name: 📦 Build & Publish to PyPI
     needs: test
     runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/p/memgate
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
