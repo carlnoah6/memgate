@@ -1,0 +1,65 @@
+name: Notify Luna
+
+on:
+  workflow_run:
+    workflows: ["Publish to PyPI"]
+    types: [completed]
+
+jobs:
+  notify:
+    name: 📢 Notify Luna
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Get Lark token and send message
+        env:
+          LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+          CHAT_ID: "oc_453c88ec52dd029845c46249837e3ba0"
+        run: |
+          # Get tenant access token
+          TOKEN=$(curl -s -X POST "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal" \
+            -H "Content-Type: application/json" \
+            -d "{\"app_id\":\"$LARK_APP_ID\",\"app_secret\":\"$LARK_APP_SECRET\"}" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['tenant_access_token'])")
+
+          # Send message to Luna's chat
+          TITLE="${{ github.event.workflow_run.display_title }}"
+          URL="${{ github.event.workflow_run.html_url }}"
+
+          curl -s -X POST "https://open.larksuite.com/open-apis/im/v1/messages?receive_id_type=chat_id" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"receive_id\": \"$CHAT_ID\",
+              \"msg_type\": \"text\",
+              \"content\": \"{\\\"text\\\":\\\"✅ MemGate PyPI 发布成功: ${TITLE}\\\\n${URL}\\\"}\"
+            }"
+
+  notify-failure:
+    name: 🚨 Notify Failure
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    steps:
+      - name: Get Lark token and send failure message
+        env:
+          LARK_APP_ID: ${{ secrets.LARK_APP_ID }}
+          LARK_APP_SECRET: ${{ secrets.LARK_APP_SECRET }}
+          CHAT_ID: "oc_453c88ec52dd029845c46249837e3ba0"
+        run: |
+          TOKEN=$(curl -s -X POST "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal" \
+            -H "Content-Type: application/json" \
+            -d "{\"app_id\":\"$LARK_APP_ID\",\"app_secret\":\"$LARK_APP_SECRET\"}" \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['tenant_access_token'])")
+
+          TITLE="${{ github.event.workflow_run.display_title }}"
+          URL="${{ github.event.workflow_run.html_url }}"
+
+          curl -s -X POST "https://open.larksuite.com/open-apis/im/v1/messages?receive_id_type=chat_id" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"receive_id\": \"$CHAT_ID\",
+              \"msg_type\": \"text\",
+              \"content\": \"{\\\"text\\\":\\\"❌ MemGate PyPI 发布失败: ${TITLE}\\\\n${URL}\\\"}\"
+            }"
