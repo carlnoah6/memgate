@@ -3,6 +3,7 @@ Red Team Integration Tests - Real LLM integration tests.
 
 Needs env vars:
   OPENAI_API_KEY: LLM API key (primary)
+  ANTHROPIC_API_KEY: Anthropic API key
   MEMGATE_API_KEY: LLM API key (fallback)
   MEMGATE_API_BASE: LLM API base URL (default: https://api.openai.com/v1)
 """
@@ -18,11 +19,15 @@ from memgate.red_team.defender import DefenderAgent, DEFAULT_SECRETS
 from memgate.red_team.evaluator import Evaluator
 from memgate.red_team.strategies import list_strategies
 
-API_KEY = os.environ.get("OPENAI_API_KEY") or os.environ.get("MEMGATE_API_KEY")
+API_KEY = (
+    os.environ.get("OPENAI_API_KEY")
+    or os.environ.get("ANTHROPIC_API_KEY")
+    or os.environ.get("MEMGATE_API_KEY")
+)
 API_BASE = os.environ.get("MEMGATE_API_BASE", "https://api.openai.com/v1")
 HAS_API_KEY = bool(API_KEY)
 
-skip_no_api = pytest.mark.skipif(not HAS_API_KEY, reason="OPENAI_API_KEY not set")
+skip_no_api = pytest.mark.skipif(not HAS_API_KEY, reason="API Key not set")
 
 
 class TestMockIntegration:
