@@ -24,6 +24,13 @@ repos:
         pass_filenames: false
         always_run: true
 
+      - id: english-only
+        name: 🌐 English-Only Check
+        entry: python3 scripts/check-english-only.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: pytest-check
         name: Run Pytest
         entry: pytest
