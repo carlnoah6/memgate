@@ -1,42 +1,56 @@
 ---
 name: memgate
-description: Privacy-aware memory isolation for AI agents. Prevents private data leakage in group chats by classifying knowledge as public/private per user, controlling access based on chat participants, and reviewing outgoing messages for privacy violations. Use when serving multiple users or participating in group conversations.
+description: "Privacy Guard for AI Agents. Detects and redacts sensitive PII (emails, secrets, names) in text content. Use this skill to audit generated content before sending it to users."
+metadata:
+  openclaw:
+    emoji: "🛡️"
+    requires:
+      bins: ["memgate"]
+    install:
+      - id: pip
+        kind: pip
+        package: memgate
+        bins: ["memgate"]
+        label: "Install MemGate (pip)"
 ---
 
-# MemGate
+# MemGate Skill
 
-Privacy-aware memory isolation for AI agents.
+MemGate is a privacy firewall for your agent memory. Use it to check content for sensitive information leaks.
 
-## When to Use
+## Usage
 
-- Multi-user AI setups where private data must not leak between users
-- Group chats where the AI has access to private user knowledge
-- Any scenario requiring knowledge-level (not just session-level) isolation
-
-## Commands
+### Check text for privacy leaks
 
 ```bash
-# Get privacy context for current session
-python3 memgate/cli.py context --channel-type group --participants "user1,user2"
-
-# Review message before sending in group chat
-python3 memgate/cli.py review --message "message text" --channel-type group --participants "user1,user2"
-
-# Filter memory search results
-python3 memgate/cli.py filter --results-json '[...]' --channel-type group --participants "user1,user2"
+memgate check "Text to check"
 ```
 
-## Rules
+Returns `SAFE` or `LEAK DETECTED` with details.
 
-1. **Private chat** → full access to user's knowledge (public + private)
-2. **Group chat** → only public knowledge; private data blocked
-3. **Always private**: calendar, family, finance, health, auth credentials, contacts
-4. **Default** = private (safe side)
+### Review a file
 
-## Setup
+```bash
+memgate review path/to/file.md
+```
 
-Place user knowledge in `memgate/knowledge/<username>/`:
-- `public.jsonl` — shared in any chat
-- `private.jsonl` — only in private chats
+### Redact sensitive info
 
-See `references/knowledge-format.md` for JSONL schema.
+```bash
+memgate redact "My password is supersecret"
+# Output: "My password is <REDACTED_SECRET>"
+```
+
+## Examples
+
+**Audit a draft response:**
+
+```bash
+memgate check "Here is your API key: sk-12345"
+```
+
+**Clean a log file:**
+
+```bash
+memgate redact --file memory/logs.txt > memory/logs_clean.txt
+```
