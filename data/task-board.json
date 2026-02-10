@@ -1,0 +1,49 @@
+{
+  "tasks": [
+    {
+      "id": "t002",
+      "status": "running",
+      "description": "MemGate: 真 LLM 红蓝对抗框架",
+      "created": "2026-02-10T14:15:37.531152+08:00",
+      "started": "2026-02-10T14:17:40.206882+08:00",
+      "session_key": "",
+      "source_chat": null,
+      "result": null,
+      "completed": null
+    },
+    {
+      "id": "t003",
+      "status": "queued",
+      "description": "MemGate: PyPI 发布 + 自动发布 CI",
+      "created": "2026-02-10T14:15:37.558806+08:00",
+      "started": null,
+      "session_key": null,
+      "source_chat": null,
+      "result": null,
+      "completed": null
+    },
+    {
+      "id": "t004",
+      "status": "queued",
+      "description": "MemGate: Agent 框架集成示例（LangChain/OpenAI/OpenClaw）",
+      "created": "2026-02-10T14:15:37.584883+08:00",
+      "started": null,
+      "session_key": null,
+      "source_chat": null,
+      "result": null,
+      "completed": null
+    },
+    {
+      "id": "t005",
+      "status": "queued",
+      "description": "MemGate: 语义级隐私检测（Embedding）",
+      "created": "2026-02-10T14:15:37.610687+08:00",
+      "started": null,
+      "session_key": null,
+      "source_chat": null,
+      "result": null,
+      "completed": null
+    }
+  ],
+  "next_id": 6
+}

@@ -179,7 +179,28 @@
 
 ## 📝 重要事件
 
+### 2026-02-10 (续)
+- **MemGate 开源项目上线** — Privacy Guard 发布为独立开源项目
+  - GitHub: https://github.com/carlnoah6/memgate (carlnoah6 账号)
+  - 网站: https://carlnoah6.github.io/memgate/ (GitHub Pages)
+  - 域名: memgate.ai（因价格原因暂不购买，使用 GitHub Pages）
+  - 定位: 平台无关的 AI agent 知识隔离层
+  - main 分支有 PR 保护，开发流程：branch → PR → merge → `bash scripts/memgate-sync.sh`
+- **GitHub 账号切换**: pumpCarl → carlnoah6（对应 carlnoah6@gmail.com）
+- **Token 统计根治**: 移除 `values_append`，改为精确行号写入（`update_cells` PUT）
+- **重启来源追踪完成**: mark/check/restart 三脚本支持 source_session 参数
+- **Privacy Guard 集成完成**: CLI 脚本 + 知识库初始化 + 29/29 测试
+- **API Fallback 已完成**（Carl 确认）
+
 ### 2026-02-11
+- **🖥️ OS 模式架构上线** — Luna 从"问答机器人"转型为"异步操作系统"
+  - **核心改动**：主 session 永远不做超过 10 秒的事，所有重活 `sessions_spawn` 异步执行
+  - 任务面板: `data/task-board.json`（JSON 格式跟踪所有任务状态）
+  - 管理脚本: `scripts/task-manager.py`（add/start/complete/fail/cancel/list/active/status/cleanup）
+  - 调度规则写入 SOUL.md（`🖥️ OS 模式 — 异步调度架构` 章节）
+  - Carl 可通过自然语言管理任务（"在做什么" / "别做了" / "先做这个"）
+  - 子任务 spawn 模板标准化：包含任务 ID、完成回调、消息发送目标
+  - **设计灵感**：类似 Devin 的体验——对话层始终响应，工作层后台执行
 - **修复 Feishu 群组通配符 `"*"` 不生效** — 新群聊必须 mention 才能收到消息
   - **根因**：`resolveFeishuGroupConfig()` 用 `groups[chatId]` 直接查找，新群 chatId 不在配置里返回 `undefined`，`requireMention` 默认 `true`。`"*"` 通配符从未被用作 fallback
   - **修复**：改为 `groups[chatId] ?? groups["*"]`，先精确匹配再用通配符

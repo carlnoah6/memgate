@@ -11,8 +11,15 @@ OpenClaw cron 有 bug（`every` 类型 job 永远不执行），在修复前不�
 
 0. **重启检测**（最高优先级）：运行 `bash scripts/check-restart.sh`
    - 如果输出包含 `just_restarted` → **立刻主动汇报**，不要回 HEARTBEAT_OK！
+   - **汇报路由规则**：
+     1. 解析输出的 `RESTART_INFO` JSON，获取 `source_session`。
+     2. 如果 `source_session` 是 `main` 或当前 session：
+        - 直接在当前会话回复汇报内容。
+     3. 如果 `source_session` 是其他会话（如 `feishu:group:xxx`）：
+        - 提取 `chat_id`（去掉 `feishu:group:` 或 `feishu:private:` 前缀，只保留 `oc_...` 部分）。
+        - 运行 `bash scripts/lark-send-message.sh "<chat_id>" "✅ 重启完成..."` 发送汇报。
+        - 在当前会话（main）记录日志：「Gateway restarted (reported to source: <source_session>).」
    - 汇报内容：「✅ 重启完成（pid XXX）。[说明重启原因]。[检查有无未完成任务并恢复]」
-   - 检查方式：读取今天的 `memory/YYYY-MM-DD.md` 最后几行，看有没有未完成的任务
    - 汇报后继续执行下面的正常流程
    - 如果输出 `running_normally` → 跳过此步，继续正常流程
    - **重要**：每次重启前必须执行完整的重启流程（见下方「重启操作流程」）
@@ -32,15 +39,24 @@ sessions_list(activeMinutes=2, messageLimit=0)
 - 如果有**其他群聊 session** 活跃 → 可以重启（群聊消息会自动重新排队）
 - **config.patch（SIGUSR1 热重载）不影响其他 session**，优先使用。仅改 node_modules 时才需要全进程重启
 
+### 看门狗检测 (Watchdog)
+每次心跳都会运行 `python3 scripts/watchdog-log.py` 检查日志。
+如果发现系统处于"处理中"状态但日志已静默超过 3 分钟（即卡死），会自动触发重启并在重启后汇报。
+这是为了防止 "Thinking..." 卡死且无响应的情况再次发生。
+
 ### 执行重启
 
 **重启前必须先完成回复！** 不要在回复还在流式输出时就执行重启。正确流程：
 1. 先告诉 Carl 「我要重启了，原因是 XXX，重启后会自动汇报」
 2. 等当前回复完全输出（流式卡片关闭）
-3. 然后执行重启脚本
+3. 然后执行重启脚本（**必须传入当前 session key**）：
 
 ```bash
-bash scripts/restart-gateway.sh "重启原因"
+# 获取当前 session key (如 main, feishu:group:xxx)
+CURRENT_SESSION=$(openclaw session_status --json | python3 -c "import sys, json; print(json.load(sys.stdin)['session_id'])")
+
+# 执行重启
+bash scripts/restart-gateway.sh "重启原因" "$CURRENT_SESSION"
 ```
 
 脚本自动完成：
@@ -90,8 +106,13 @@ python3 patches/fix-feishu-group-wildcard.py
 如果 patch 应用后需要重启，用统一脚本：`bash scripts/restart-gateway.sh "重新应用 Feishu patch"`
 
 1. 运行调度脚本：`python3 scripts/heartbeat-scheduler.py`
-2. 脚本输出 JSON，`due` 数组列出到期任务名
-3. 如果 `due` 为空 → 回复 HEARTBEAT_OK
+2. 运行看门狗：`python3 scripts/watchdog-log.py`
+3. 运行任务面板健康检查：`python3 scripts/task-health-check.py`
+   - `stale` 非空 → 有卡死任务被自动标记失败，通知 Carl
+   - `active` → 当前运行中的异步任务（仅供参考）
+   - `cleaned` > 0 → 自动清理了旧任务
+3. 脚本输出 JSON，`due` 数组列出到期任务名
+3. 如果 `due` 为空且无 stale 任务 → 回复 HEARTBEAT_OK
 4. 如果 `due` 不为空 → 按任务名 spawn 对应子任务（脚本已自动更新时间戳）
 5. **不要自己判断是否到期！脚本说到期就到期，无条件 spawn。**
 
