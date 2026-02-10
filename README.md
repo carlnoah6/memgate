@@ -4,7 +4,7 @@
 
 [![Website](https://img.shields.io/badge/Website-memgate-blue)](https://carlnoah6.github.io/memgate/) [![CI](https://github.com/carlnoah6/memgate/actions/workflows/test.yml/badge.svg)](https://github.com/carlnoah6/memgate/actions) [![PyPI](https://img.shields.io/pypi/v/memgate)](https://pypi.org/project/memgate/)
 
-> 🛡️ **Current Version**: 0.3.0 (Strict Privacy Protocol)
+> 🛡️ **Current Version**: 0.4.0 (Provider Architecture)
 >
 > 📖 **[Documentation & Website →](https://carlnoah6.github.io/memgate/)**
 
@@ -13,12 +13,21 @@ MemGate acts as a firewall between your AI agent's long-term memory and its outp
 ## Features
 
 - **Context-Aware Privacy**: Automatically distinguishes between Private (DM) and Public (Group) contexts.
+- **Provider Architecture**: Pluggable platform adapters (Lark/Feishu built-in, extensible to Telegram, Discord, Slack).
+- **Paranoid Check**: Detects hidden/invisible members by cross-referencing member count vs. member list — prevents privacy leaks from incomplete API data.
 - **Pattern-Based Filtering**: Regex-based interception for high-risk categories (Phone, Email, Finance, Calendar).
-- **Knowledge Store**: Simple JSON-based local vector store (extensible).
-- **Strict Privacy Protocol**: Strict CI/CD pipeline ensuring no privacy regressions.
-- **Red Team Arena**: Built-in adversarial testing framework (`memgate/tests/red_team/`).
+- **Semantic Detection**: Embedding-based privacy detection (n-gram, OpenAI, or local models) catches rephrased leaks.
+- **Knowledge Store**: JSONL-based store with public/private tagging and always-private category enforcement.
+- **Red Team Arena**: Built-in adversarial testing with 8 attack strategies.
+- **Strict Privacy Protocol**: CI/CD pipeline with CodeRabbit review ensuring no privacy regressions.
 
 ## Installation
+
+```bash
+pip install memgate
+```
+
+Or from source:
 
 ```bash
 git clone https://github.com/carlnoah6/memgate.git
@@ -32,13 +41,35 @@ pip install -e .
 
 ```bash
 # Check a message for privacy violations
-python3 scripts/privacy-check.py review \
+memgate review \
   --message "My phone number is 13800138000" \
   --channel-type group \
   --participants "alice,bob"
 ```
 
-### Python API
+### Provider API (Platform-Specific Privacy Detection)
+
+```python
+from memgate.providers.lark import LarkProvider
+
+# Initialize with credentials
+provider = LarkProvider(
+    app_id="your_app_id",
+    app_secret="your_app_secret",
+    admin_open_id="ou_admin_user_id",
+)
+
+# Check if a chat is safe for private data
+context = provider.fetch_context("oc_chat_id_here")
+if provider.is_safe(context):
+    print("Private chat — safe to share memory")
+else:
+    print(f"Unsafe: {context.reason}")
+    if context.unsafe_reason:
+        print(f"Integrity issue: {context.unsafe_reason}")
+```
+
+### Privacy Review API
 
 ```python
 from memgate.privacy_review import PrivacyReviewer
@@ -50,11 +81,25 @@ reviewer = PrivacyReviewer(store=store)
 result = reviewer.review(
     "Check out my salary: $50k",
     channel_id="group_chat_1",
-    participants={"alice", "alice"}
+    participants={"alice", "bob"},
 )
 
 if not result.passed:
     print(f"BLOCKED: {result.violations}")
+```
+
+### Custom Provider
+
+```python
+from memgate.providers.base import BaseProvider, ProviderContext
+
+class TelegramProvider(BaseProvider):
+    def fetch_context(self, chat_id: str) -> ProviderContext:
+        # Your Telegram API logic here
+        ...
+
+    def is_safe(self, context: ProviderContext) -> bool:
+        return context.is_private and context.unsafe_reason is None
 ```
 
 ## Development
