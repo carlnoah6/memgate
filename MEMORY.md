@@ -167,6 +167,13 @@
 
 ## 📝 重要事件
 
+### 2026-02-11
+- **修复 Feishu 群组通配符 `"*"` 不生效** — 新群聊必须 mention 才能收到消息
+  - **根因**：`resolveFeishuGroupConfig()` 用 `groups[chatId]` 直接查找，新群 chatId 不在配置里返回 `undefined`，`requireMention` 默认 `true`。`"*"` 通配符从未被用作 fallback
+  - **修复**：改为 `groups[chatId] ?? groups["*"]`，先精确匹配再用通配符
+  - Patch: `patches/fix-feishu-group-wildcard.py`
+  - **教训**：用户报告 bug 时不要凭推测甩锅给外部平台，先查源码确认根因
+
 ### 2026-02-10
 - **确立 10 色日历分类体系**（基于颜色心理学设计，Carl 确认）
   - 从 9 类（2 色共用蓝色）升级为 10 类 10 色，每类独立颜色
