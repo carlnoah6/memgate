@@ -1,0 +1,31 @@
+# CodeRabbit Configuration
+# Docs: https://docs.coderabbit.ai/guides/configuration
+
+reviews:
+  # Auto-review every PR
+  auto_review:
+    enabled: true
+    drafts: false
+
+  # Focus areas for MemGate
+  path_instructions:
+    - path: "memgate/providers/**"
+      instructions: |
+        This is the Provider layer for platform-specific chat privacy detection.
+        Review for: hardcoded secrets, missing edge cases in member counting,
+        proper error handling when APIs return incomplete data (Paranoid Check).
+    - path: "memgate/privacy_review.py"
+      instructions: |
+        This is the privacy review engine. Review for: regex bypass vulnerabilities,
+        false negatives (private info that slips through), entity matching edge cases.
+    - path: "memgate/knowledge_store.py"
+      instructions: |
+        Knowledge store with public/private tagging. Ensure ALWAYS_PRIVATE_CATEGORIES
+        cannot be overridden to public. Check for data leakage paths.
+    - path: "memgate/tests/**"
+      instructions: |
+        Test files. Ensure no real names, secrets, or PII in test data.
+        Check that edge cases and regression scenarios are properly covered.
+
+chat:
+  auto_reply: true
