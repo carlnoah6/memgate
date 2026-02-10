@@ -15,6 +15,22 @@ from typing import Optional
 
 from .knowledge_store import KnowledgeStore, ALWAYS_PRIVATE_CATEGORIES
 
+# Lazy import to avoid hard dependency on numpy when semantic is disabled
+_SemanticDetector = None
+
+
+def _get_semantic_detector():
+    global _SemanticDetector
+    if _SemanticDetector is None:
+        try:
+            from .semantic_detector import SemanticDetector
+
+            _SemanticDetector = SemanticDetector
+        except ImportError:
+            _SemanticDetector = False  # mark as unavailable
+    return _SemanticDetector if _SemanticDetector is not False else None
+
+
 # Data directory configuration
 DEFAULT_PRIVACY_DIR = Path.home() / ".openclaw" / "workspace" / "privacy"
 PRIVACY_DIR = Path(os.getenv("MEMGATE_DATA_DIR", DEFAULT_PRIVACY_DIR))
@@ -113,15 +129,20 @@ class PrivacyReviewer:
     """
     发送前审查消息，检测隐私泄露
 
-    两层检测：
+    三层检测：
     1. 规则匹配（快速、确定性）— 检查已知的私有信息模式
     2. 用户实体匹配 — 检查是否提及了其他用户的私有实体（名字、地点等）
+    3. 语义匹配（embedding）— 检测改述/间接描述的隐私泄露
 
     可通过 config.review.enabled 开关控制。
+    语义检测通过 config.review.semantic.enabled 独立控制。
     """
 
     def __init__(
-        self, config: Optional[dict] = None, store: Optional[KnowledgeStore] = None
+        self,
+        config: Optional[dict] = None,
+        store: Optional[KnowledgeStore] = None,
+        semantic_detector=None,
     ):
         self.config = config or load_config()
         self.store = store or KnowledgeStore()
@@ -130,6 +151,29 @@ class PrivacyReviewer:
         review_config = self.config.get("review", {})
         self.enabled = review_config.get("enabled", True)
         self.block_on_violation = review_config.get("block_on_violation", True)
+
+        # ── 语义检测层 ──
+        semantic_config = review_config.get("semantic", {})
+        self.semantic_enabled = semantic_config.get("enabled", True)
+
+        if semantic_detector is not None:
+            # Injected (e.g. for testing)
+            self._semantic = semantic_detector
+        elif self.semantic_enabled:
+            SemanticDetectorCls = _get_semantic_detector()
+            if SemanticDetectorCls is not None:
+                provider = semantic_config.get("provider", "ngram")
+                threshold = semantic_config.get("threshold", 0.55)
+                self._semantic = SemanticDetectorCls(
+                    provider=provider, threshold=threshold
+                )
+            else:
+                self._semantic = None
+                self.semantic_enabled = False
+        else:
+            self._semantic = None
+
+        self._semantic_index_built = False
 
     def _check_patterns(self, message: str) -> list[Violation]:
         """规则匹配检查"""
@@ -141,7 +185,6 @@ class PrivacyReviewer:
                 try:
                     match = re.search(pattern, message, re.IGNORECASE)
                     if match:
-                        # DEBUG: print(f"MATCH: {category} -> {pattern} in '{message}'")
                         violations.append(
                             Violation(
                                 category=category,
@@ -222,14 +265,11 @@ class PrivacyReviewer:
             for item in private_items:
                 if item.category in seen_categories:
                     continue  # One violation per category is enough
-                # Extract meaningful multi-char snippets (>= 5 chars for CJK,
-                # >= 6 for latin) to avoid false positives on common short words
                 content_snippets = []
                 for s in item.content.split():
                     s = s.strip("，。、：；！？()（）\"'")
                     if not s or s.lower() in self._STOPWORDS:
                         continue
-                    # CJK-heavy strings: >= 4 chars; Latin: >= 6 chars
                     is_cjk = any("\u4e00" <= c <= "\u9fff" for c in s)
                     min_len = 4 if is_cjk else 6
                     if len(s) >= min_len:
@@ -245,6 +285,46 @@ class PrivacyReviewer:
                         )
                         seen_categories.add(item.category)
                         break
+
+        return violations
+
+    def _ensure_semantic_index(self, participants: set) -> None:
+        """确保语义检测索引已构建（惰性构建）"""
+        if not self.semantic_enabled or self._semantic is None:
+            return
+        if self._semantic_index_built:
+            return
+        all_private = []
+        for user in participants:
+            all_private.extend(self.store.get_private(user))
+        if all_private:
+            self._semantic.build_index(all_private)
+        self._semantic_index_built = True
+
+    def _check_semantic(self, message: str, participants: set) -> list[Violation]:
+        """语义相似度检测 (Layer 3)"""
+        if not self.semantic_enabled or self._semantic is None:
+            return []
+
+        self._ensure_semantic_index(participants)
+
+        result = self._semantic.detect(message)
+        if not result.flagged:
+            return []
+
+        violations = []
+        seen_categories = set()
+        for hit in result.hits:
+            if hit.category in seen_categories:
+                continue
+            violations.append(
+                Violation(
+                    category=hit.category,
+                    matched=f"[语义匹配 sim={hit.similarity:.2f}] {hit.matched_content[:60]}",
+                    description=f"语义检测到与私有{hit.category}信息高度相似的内容",
+                )
+            )
+            seen_categories.add(hit.category)
 
         return violations
 
@@ -278,6 +358,12 @@ class PrivacyReviewer:
         entity_violations = self._check_private_entities(message, sender, participants)
         violations.extend(entity_violations)
 
+        # ── Layer 3: Semantic similarity detection ──
+        # Only run if Layer 1+2 didn't already flag the message
+        if not violations:
+            semantic_violations = self._check_semantic(message, participants)
+            violations.extend(semantic_violations)
+
         if violations:
             return ReviewResult(
                 passed=False,
@@ -294,4 +380,16 @@ class PrivacyReviewer:
             "block_on_violation": self.block_on_violation,
             "pattern_categories": list(self.patterns.keys()),
             "users_with_knowledge": self.store.list_users(),
+            "semantic": {
+                "enabled": self.semantic_enabled,
+                "provider": (
+                    type(self._semantic.provider).__name__ if self._semantic else None
+                ),
+                "index_built": self._semantic_index_built,
+                "index_size": (
+                    self._semantic.index.size
+                    if (self._semantic and self._semantic.index)
+                    else 0
+                ),
+            },
         }
