@@ -3,7 +3,7 @@
 Privacy Guard — Integration Test
 
 Tests the full flow: CLI Bridge -> Knowledge Store -> Reviewer.
-Uses the installed 'memgate' package via the wrapper script.
+Uses the installed 'memgate' package.
 """
 
 import subprocess
@@ -12,17 +12,36 @@ import sys
 import os
 import pytest
 from pathlib import Path
+import shutil
 
-# Path to the wrapper script in workspace/scripts
-WORKSPACE = Path(os.environ.get("WORKSPACE_DIR", "/home/ubuntu/.openclaw/workspace"))
-SCRIPT = str(WORKSPACE / "scripts" / "privacy-check.py")
+# Setup a temporary data directory for tests to avoid permission issues or side effects
+TEST_DATA_DIR = Path("/tmp/memgate_test_data")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_teardown():
+    # Setup
+    if TEST_DATA_DIR.exists():
+        shutil.rmtree(TEST_DATA_DIR)
+    TEST_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    yield
+
+    # Teardown
+    if TEST_DATA_DIR.exists():
+        shutil.rmtree(TEST_DATA_DIR)
 
 
 def run_cmd(args: list, expect_exit=0) -> dict:
-    """Run privacy-check.py with args, return parsed JSON output."""
-    cmd = [sys.executable, SCRIPT] + args
-    # We run from workspace root
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(WORKSPACE))
+    """Run memgate CLI with args, return parsed JSON output."""
+    # Use -m memgate.cli to invoke the installed package
+    cmd = [sys.executable, "-m", "memgate.cli"] + args
+
+    # Inject the test data directory into environment
+    env = os.environ.copy()
+    env["MEMGATE_DATA_DIR"] = str(TEST_DATA_DIR)
+
+    proc = subprocess.run(cmd, capture_output=True, text=True, env=env)
 
     if proc.returncode != expect_exit:
         # If expected success but got error, print details
@@ -53,7 +72,6 @@ def run_cmd(args: list, expect_exit=0) -> dict:
 def test_status():
     data = run_cmd(["status"])
     assert data["enabled"] is True
-    # We don't check specific user counts as they depend on live data
     assert "knowledge_dir" in data
 
 
@@ -95,7 +113,6 @@ def test_review_safe():
 
 def test_review_calendar():
     # Attempt to leak calendar
-    # Note: This requires patterns to be loaded correctly
     data = run_cmd(
         [
             "review",
@@ -132,5 +149,4 @@ def test_review_finance():
 
 
 if __name__ == "__main__":
-    # Allow running as a script too
     sys.exit(pytest.main([__file__]))
