@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Privacy Guard — 知识存储与标记模块
+Privacy Guard — Knowledge Storage and Tagging Module
 
-每条知识用 JSONL 格式存储，支持 public/private 标记。
+Each knowledge entry is stored in JSONL format with public/private visibility tags.
 """
 
 import json
@@ -24,7 +24,7 @@ SGT = timezone(timedelta(hours=8))
 
 @dataclass
 class KnowledgeItem:
-    """一条知识"""
+    """A single knowledge item."""
 
     id: str
     user: str
@@ -71,9 +71,10 @@ ALWAYS_PRIVATE_CATEGORIES = {
 
 
 class KnowledgeTagger:
-    """对知识条目进行 public/private 分类"""
+    """Classifies knowledge entries as public/private."""
 
     # Category detection patterns
+    # KEEP Chinese characters inside these patterns as they are functional regex/keywords
     CATEGORY_PATTERNS = {
         "calendar": [
             "日程",
@@ -172,7 +173,7 @@ class KnowledgeTagger:
     }
 
     def detect_category(self, content: str) -> str:
-        """检测内容的类别"""
+        """Detect the category of the content."""
         content_lower = content.lower()
         for category, patterns in self.CATEGORY_PATTERNS.items():
             for pattern in patterns:
@@ -184,9 +185,9 @@ class KnowledgeTagger:
         self, content: str, source: str = "unknown", user_override: Optional[str] = None
     ) -> str:
         """
-        返回 'public' 或 'private'
+        Returns 'public' or 'private'.
 
-        user_override: 用户显式指定的可见性
+        user_override: User's explicit visibility override.
         """
         # User explicit override (but cannot override always-private)
         category = self.detect_category(content)
@@ -214,7 +215,7 @@ class KnowledgeTagger:
 
 
 class KnowledgeStore:
-    """知识存储（JSONL 文件）"""
+    """Knowledge store (JSONL files)."""
 
     def __init__(self, base_dir: Path = KNOWLEDGE_DIR):
         self.base_dir = base_dir
@@ -244,7 +245,7 @@ class KnowledgeStore:
             f.write(json.dumps(item.to_dict(), ensure_ascii=False) + "\n")
 
     def add(self, item: KnowledgeItem) -> KnowledgeItem:
-        """添加一条知识"""
+        """Add a knowledge item."""
         if not item.id:
             item.id = f"k_{uuid.uuid4().hex[:8]}"
 
@@ -258,19 +259,19 @@ class KnowledgeStore:
         return item
 
     def get_public(self, user: str) -> list[KnowledgeItem]:
-        """获取用户的公共知识"""
+        """Get a user's public knowledge."""
         return self._load_file(self._user_dir(user) / "public.jsonl")
 
     def get_private(self, user: str) -> list[KnowledgeItem]:
-        """获取用户的私有知识"""
+        """Get a user's private knowledge."""
         return self._load_file(self._user_dir(user) / "private.jsonl")
 
     def get_all(self, user: str) -> list[KnowledgeItem]:
-        """获取用户的所有知识"""
+        """Get all knowledge for a user."""
         return self.get_public(user) + self.get_private(user)
 
     def list_users(self) -> list[str]:
-        """列出所有用户"""
+        """List all users."""
         if not self.base_dir.exists():
             return []
         return [d.name for d in self.base_dir.iterdir() if d.is_dir()]

@@ -1,23 +1,23 @@
 """
-MemGate Red Team — LLM 红蓝对抗测试框架
+MemGate Red Team — LLM Red-Blue Adversarial Testing Framework
 
-用于测试 MemGate 隐私保护能力的攻防模拟系统。
-支持 mock 模式（CI 测试）和真实 LLM 对抗。
+An attack-defense simulation system for testing MemGate's privacy protection capabilities.
+Supports mock mode (CI testing) and real LLM adversarial testing.
 
-三个角色：
-- 红队 (AttackerAgent): 生成社工攻击 prompt
-- 蓝队 (DefenderAgent): 生成回复 + MemGate 审查
-- 裁判 (Evaluator): 独立评估泄露情况
+Three roles:
+- Red Team (AttackerAgent): Generates social engineering attack prompts
+- Blue Team (DefenderAgent): Generates responses + MemGate review
+- Judge (Evaluator): Independently evaluates leak results
 
-八种攻击策略：
-1. authority_impersonation — 冒充权威角色
-2. context_manipulation — 上下文操控
-3. emotional_appeal — 情感诱导
-4. indirect_extraction — 间接推理
-5. multi_turn — 多轮渐进
-6. role_play — 角色扮演
-7. language_switch — 语言切换
-8. prompt_injection — Prompt 注入
+Eight attack strategies:
+1. authority_impersonation — Impersonate authority figures
+2. context_manipulation — Context manipulation
+3. emotional_appeal — Emotional manipulation
+4. indirect_extraction — Indirect reasoning
+5. multi_turn — Multi-turn progressive
+6. role_play — Role playing
+7. language_switch — Language switching
+8. prompt_injection — Prompt injection
 """
 
 from .attacker import AttackerAgent

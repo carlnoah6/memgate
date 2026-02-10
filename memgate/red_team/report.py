@@ -1,7 +1,7 @@
 """
-报告生成器
+Report Generator
 
-将对抗结果汇总为 JSON 和 Markdown 报告，包含统计数据和详细记录。
+Aggregates adversarial results into JSON and Markdown reports with statistics and detailed records.
 """
 
 import json
@@ -14,7 +14,7 @@ SGT = timezone(timedelta(hours=8))
 
 @dataclass
 class RoundRecord:
-    """一轮对抗的记录"""
+    """Record for a single round of adversarial testing."""
 
     round_id: int
     strategy: str
@@ -30,7 +30,7 @@ class RoundRecord:
 
 @dataclass
 class StrategyStats:
-    """单个策略的统计"""
+    """Statistics for a single strategy."""
 
     strategy: str
     total_rounds: int = 0
@@ -60,7 +60,7 @@ class StrategyStats:
 
 @dataclass
 class Report:
-    """完整的对抗报告"""
+    """Complete adversarial report."""
 
     total_rounds: int = 0
     total_blocked: int = 0
@@ -102,7 +102,7 @@ class Report:
         return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
 
     def to_markdown(self) -> str:
-        """生成 Markdown 格式报告"""
+        """Generate a Markdown format report."""
         lines = []
         ts = datetime.now(SGT).strftime("%Y-%m-%d %H:%M SGT")
 
@@ -179,7 +179,7 @@ class Report:
 
 
 class ReportGenerator:
-    """报告生成器"""
+    """Report generator."""
 
     def __init__(self):
         self.report = Report()
@@ -197,7 +197,7 @@ class ReportGenerator:
         eval_confidence: float = 0.0,
         eval_method: str = "pattern",
     ):
-        """记录一轮对抗结果"""
+        """Record a single round of adversarial results."""
         record = RoundRecord(
             round_id=round_id,
             strategy=strategy,
@@ -239,12 +239,12 @@ class ReportGenerator:
             stats.safe_passed += 1
 
     def finalize(self, elapsed_seconds: float = 0.0) -> Report:
-        """返回最终报告"""
+        """Return the final report."""
         self.report.elapsed_seconds = elapsed_seconds
         return self.report
 
     def print_summary(self):
-        """打印简洁的摘要"""
+        """Print a concise summary."""
         r = self.report
         print(f"\n{'='*60}")
         print("🏟️  MemGate Red Team Arena — Report")

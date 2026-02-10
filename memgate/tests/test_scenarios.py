@@ -28,7 +28,7 @@ def privacy_env():
         KnowledgeItem(
             id="k_alice_001",
             user="alice",
-            content="会 Python 和 JavaScript 编程",
+            content="Knows Python and JavaScript programming",
             visibility="public",
             category="skill",
             source="user_declared",
@@ -40,7 +40,7 @@ def privacy_env():
         KnowledgeItem(
             id="k_alice_003",
             user="alice",
-            content="明天 14:00 和Charlie在 Central Park 徒步",
+            content="Hiking with Charlie at Central Park tomorrow at 14:00",
             visibility="private",
             category="calendar",
             source="calendar_sync",
@@ -51,7 +51,7 @@ def privacy_env():
         KnowledgeItem(
             id="k_alice_005",
             user="alice",
-            content="月薪 50000",
+            content="Monthly salary 50000",
             visibility="private",
             category="finance",
             source="user_declared",
@@ -64,7 +64,7 @@ def privacy_env():
         KnowledgeItem(
             id="k_bob_001",
             user="bob",
-            content="擅长数据分析和 R 语言",
+            content="Skilled in data analysis and R language",
             visibility="public",
             category="skill",
             source="user_declared",
@@ -78,11 +78,11 @@ def privacy_env():
     shutil.rmtree(tmp_dir)
 
 
-# ── 正常使用 (Normal Usage) ──
+# -- Normal Usage --
 
 
 def test_dm_access_private_knowledge(privacy_env):
-    """T1: 私聊中可以访问私有知识"""
+    """T1: Private knowledge should be accessible in DMs."""
     ch = ChannelInfo("dm_alice", {"alice"}, "dm")
     ctx = PrivacyContext(ch, privacy_env["store"])
     knowledge = ctx.get_accessible_knowledge()
@@ -94,7 +94,7 @@ def test_dm_access_private_knowledge(privacy_env):
 
 
 def test_group_access_public_knowledge(privacy_env):
-    """T4: 群聊中可访问公共知识"""
+    """T4: Public knowledge should be accessible in group chats."""
     ch = ChannelInfo("group_abc", {"alice", "bob"}, "group")
     ctx = PrivacyContext(ch, privacy_env["store"])
     knowledge = ctx.get_accessible_knowledge()
@@ -108,18 +108,18 @@ def test_group_access_public_knowledge(privacy_env):
 
 
 def test_dm_can_reference_group_context(privacy_env):
-    """T5: 私聊中可提及自己参与的群聊内容 (基本上下文检查)"""
+    """T5: DMs can reference group chat context (basic context check)."""
     ch = ChannelInfo("dm_alice", {"alice"}, "dm")
     ctx = PrivacyContext(ch, privacy_env["store"])
     assert ctx.is_private
     assert len(ctx.get_accessible_knowledge()) > 0
 
 
-# ── 隔离验证 (Isolation Verification) ──
+# -- Isolation Verification --
 
 
 def test_group_blocks_private_knowledge(privacy_env):
-    """T2: 群聊中不能看到任何人的私有知识"""
+    """T2: Private knowledge should not be visible in group chats."""
     ch = ChannelInfo("group_abc", {"alice", "bob"}, "group")
     ctx = PrivacyContext(ch, privacy_env["store"])
     knowledge = ctx.get_accessible_knowledge()
@@ -129,7 +129,7 @@ def test_group_blocks_private_knowledge(privacy_env):
 
 
 def test_group_blocks_own_private_knowledge(privacy_env):
-    """T3: 群聊中即使是本人也不能暴露私有知识"""
+    """T3: Even the owner's private knowledge should not be exposed in group chats."""
     ch = ChannelInfo("group_abc", {"alice", "bob"}, "group")
     ctx = PrivacyContext(ch, privacy_env["store"])
     knowledge = ctx.get_accessible_knowledge()
@@ -141,43 +141,49 @@ def test_group_blocks_own_private_knowledge(privacy_env):
 
 
 def test_cross_reference_attack_blocked(privacy_env):
-    """T9: 交叉引用攻击 — 审查器拦截"""
+    """T9: Cross-reference attack — reviewer blocks it."""
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
     result = reviewer.review(
-        "Alice 明天 14:00 和Charlie在 Central Park 徒步", "group_abc", {"alice", "bob"}
+        "Hiking with Charlie at Central Park tomorrow at 14:00",
+        "group_abc",
+        {"alice", "bob"},
     )
     assert not result.passed
 
 
 def test_untagged_knowledge_is_private():
-    """T11: 未标记的知识默认私有"""
+    """T11: Untagged knowledge defaults to private."""
     tagger = KnowledgeTagger()
-    vis = tagger.classify("Alice 最近在看一本书", source="dm")
+    vis = tagger.classify("Alice is reading a book recently", source="dm")
     assert vis == "private"
 
 
-# ── 分类器测试 (Classifier) ──
+# -- Classifier Tests --
 
 
 def test_classifier_patterns():
     tagger = KnowledgeTagger()
-    assert tagger.classify("明天和朋友约了吃饭") == "private"  # calendar
-    assert tagger.classify("月薪 50000") == "private"  # finance
+    assert (
+        tagger.classify("Meeting friends for dinner tomorrow") == "private"
+    )  # calendar
+    assert tagger.classify("Monthly salary 50000") == "private"  # finance
 
     # Skills can be public
-    assert tagger.classify("会 Python #public") == "public"
+    assert tagger.classify("Knows Python #public") == "public"
 
     # Always private overrides
-    assert tagger.classify("工资 50000", user_override="public") == "private"
+    assert tagger.classify("Salary 50000", user_override="public") == "private"
 
 
-# ── 审查器测试 (Reviewer) ──
+# -- Reviewer Tests --
 
 
 def test_reviewer_group_blocks_calendar(privacy_env):
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
     result = reviewer.review(
-        "Alice 明天下午3点要去见一个朋友", "group_abc", {"alice", "bob"}
+        "Alice is going to meet a friend tomorrow afternoon at 3pm",
+        "group_abc",
+        {"alice", "bob"},
     )
     assert not result.passed
 
@@ -185,7 +191,9 @@ def test_reviewer_group_blocks_calendar(privacy_env):
 def test_reviewer_group_allows_public(privacy_env):
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
     result = reviewer.review(
-        "这个问题可以用 Python 的 pandas 库来解决", "group_abc", {"alice", "bob"}
+        "This problem can be solved using Python's pandas library",
+        "group_abc",
+        {"alice", "bob"},
     )
     assert result.passed
 
@@ -193,18 +201,20 @@ def test_reviewer_group_allows_public(privacy_env):
 def test_reviewer_dm_allows_all(privacy_env):
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
     result = reviewer.review(
-        "你明天 14:00 要和Charlie在 Central Park 徒步", "dm_alice", {"alice"}
+        "You are going hiking with Charlie at Central Park tomorrow at 14:00",
+        "dm_alice",
+        {"alice"},
     )
     assert result.passed
 
 
 def test_reviewer_social_engineering_defense(privacy_env):
-    """T8: 社工攻击防御 (从内容角度)"""
-    # 审查器本身只看内容是否泄露，不看提问意图（这是 Context 层的责任）
-    # 但如果回复包含了私有信息，应该被拦截
+    """T8: Social engineering defense (from content perspective)."""
+    # The reviewer only checks whether the content leaks info, not the intent of the question (that's the Context layer's job)
+    # But if the response contains private information, it should be blocked
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
-    # 假设模型试图回答日程
+    # Suppose model tries to answer schedule
     result = reviewer.review(
-        "Alice 明天要去 Central Park", "group_abc", {"alice", "bob"}
+        "Alice is going to Central Park tomorrow", "group_abc", {"alice", "bob"}
     )
     assert not result.passed
