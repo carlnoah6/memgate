@@ -156,10 +156,6 @@ class PrivacyReviewer:
 
     # Common words / stopwords to ignore in entity matching
     _STOPWORDS = {
-        "carl",
-        "alex",
-        "bob",
-        "luna",
         "的",
         "是",
         "在",

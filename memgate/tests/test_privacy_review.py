@@ -89,8 +89,8 @@ class TestEntityMatching:
         store.add(
             KnowledgeItem(
                 id="1",
-                user="carl",
-                content="My son is Yuanbao",
+                user="alice",
+                content="My son is Timothy",
                 visibility="private",
                 category="family",
                 source="test",
@@ -102,7 +102,7 @@ class TestEntityMatching:
         store.add(
             KnowledgeItem(
                 id="2",
-                user="carl",
+                user="alice",
                 content="Hidden Base",
                 visibility="private",
                 category="location",
@@ -114,9 +114,9 @@ class TestEntityMatching:
         return PrivacyReviewer(config={"review": {"enabled": True}}, store=store)
 
     def test_private_entity_leak(self, populated_reviewer):
-        # "Yuanbao" is in Carl's private memory (family)
+        # "Timothy" is in Alice's private memory (family)
         result = populated_reviewer.review(
-            "Is Yuanbao coming to the party?", "group_chat", {"carl", "stranger"}
+            "Is Timothy coming to the party?", "group_chat", {"alice", "stranger"}
         )
         assert not result.passed
         assert "family" in str(result.violations)
@@ -124,6 +124,6 @@ class TestEntityMatching:
     def test_safe_conversation(self, populated_reviewer):
         # "Python" is not private
         result = populated_reviewer.review(
-            "Is Python installed?", "group_chat", {"carl", "stranger"}
+            "Is Python installed?", "group_chat", {"alice", "stranger"}
         )
         assert result.passed

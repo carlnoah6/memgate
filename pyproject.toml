@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "memgate"
-version = "0.1.0"
+version = "0.3.0"
 description = "Privacy-aware memory isolation for AI agents"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
 authors = [
-  {name = "Carl Noah", email = "carlnoah6@gmail.com"},
+  {name = "MemGate Contributors"},
 ]
 dependencies = [
   "colorama>=0.4.6",

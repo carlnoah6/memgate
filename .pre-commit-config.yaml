@@ -17,10 +17,17 @@ repos:
 
   - repo: local
     hooks:
+      - id: privacy-words
+        name: 🔒 Privacy Word Scan
+        entry: python3 scripts/check-privacy-words.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
       - id: pytest-check
         name: Run Pytest
         entry: pytest
         language: system
         pass_filenames: false
         types: [python]
-        stages: [pre-push]  # 只有在 push 时才跑测试，commit 时太慢
+        stages: [pre-push]
