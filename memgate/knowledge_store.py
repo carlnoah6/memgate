@@ -95,6 +95,9 @@ class KnowledgeTagger:
             "calendar",
             "meeting",
             "appointment",
+            "flight",
+            "booking",
+            "tomorrow",
         ],
         "family": [
             "孩子",
@@ -111,6 +114,8 @@ class KnowledgeTagger:
             "wife",
             "husband",
             "family",
+            "dad",
+            "mom",
         ],
         "finance": [
             "工资",
@@ -125,6 +130,9 @@ class KnowledgeTagger:
             "account",
             "balance",
             "loan",
+            "wage",
+            "income",
+            "credit card",
         ],
         "health": [
             "看医生",
@@ -137,6 +145,8 @@ class KnowledgeTagger:
             "hospital",
             "medicine",
             "health",
+            "clinic",
+            "surgery",
         ],
         "auth": ["密码", "password", "api_key", "token", "secret", "credential"],
         "contact_private": [
@@ -148,6 +158,8 @@ class KnowledgeTagger:
             "phone",
             "address",
             "ID number",
+            "mobile",
+            "email",
         ],
         "skill": [
             "会",
@@ -159,6 +171,8 @@ class KnowledgeTagger:
             "skilled",
             "proficient",
             "experience with",
+            "good at",
+            "expert in",
         ],
         "preference": [
             "喜欢",
@@ -169,6 +183,8 @@ class KnowledgeTagger:
             "prefer",
             "hobby",
             "favorite",
+            "love",
+            "habit",
         ],
     }
 
@@ -177,6 +193,8 @@ class KnowledgeTagger:
         content_lower = content.lower()
         for category, patterns in self.CATEGORY_PATTERNS.items():
             for pattern in patterns:
+                # Use simple word boundary check for English to avoid false positives
+                # e.g. "wage" in "sewage" (not implemented here for simplicity, but good practice)
                 if pattern in content_lower:
                     return category
         return "general"

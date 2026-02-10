@@ -77,7 +77,8 @@ def load_patterns() -> dict:
                 r"\d{1,2}[:.]\d{2}.*[去见约到]",
                 r"(上午|下午|晚上|早上)\d{1,2}[点时]",
                 r"日程|行程|安排|预约|航班",
-                r"schedule|appointment|\bmeeting\b|tomorrow",
+                r"schedule|appointment|\bmeeting\b|tomorrow|flight|booking",
+                r"\d{1,2}:\d{2}\s*(am|pm)",
             ],
         },
         "family": {
@@ -93,7 +94,7 @@ def load_patterns() -> dict:
                 r"投资.*\d|账户.*余额|信用卡.*\d",
                 r"(my|your|his|her|the)\s+salary|salary\s+(is|of|was)",
                 r"(my|your|his|her|the)\s+income|income\s+(is|of|was)",
-                r"balance\s+(is|of)|investment.*\$",
+                r"balance\s+(is|of)|investment.*\$|wage|credit card",
             ],
         },
         "contact_private": {
