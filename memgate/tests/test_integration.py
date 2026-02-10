@@ -14,7 +14,9 @@ import pytest
 from pathlib import Path
 
 # Path to the wrapper script in workspace/scripts
-WORKSPACE = Path(os.environ.get("WORKSPACE_DIR", "/home/ubuntu/.openclaw/workspace"))
+# Resolve repo root relative to this file: memgate/tests/test_integration.py -> ../../..
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+WORKSPACE = Path(os.environ.get("WORKSPACE_DIR", str(REPO_ROOT)))
 SCRIPT = str(WORKSPACE / "scripts" / "privacy-check.py")
 
 
