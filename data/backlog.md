@@ -14,7 +14,8 @@
 - [ ] 5. 集成到 Luna 实际运行（session 注入 + memory_search 过滤）
 - [ ] 6. 抽象为通用 OpenClaw 插件并发布
 
-#### API 代理层 Fallback — 到限额自动切换
+#### API 代理层 Fallback — 到限额自动切换 ✅ 2026-02-10
+- **已上线** — 三层自动切换（Claude → Gemini → Kimi），配置: `/home/ubuntu/api-proxy/fallback.json`
 - **问题**：OpenClaw 内置 fallback 机制有严重问题
   - 切换慢：额度用完后反复聊天仍用旧模型
   - 状态不稳定：成功切到备用模型后又会自动切回去
