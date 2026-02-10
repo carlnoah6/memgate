@@ -3,7 +3,12 @@
   "review": {
     "enabled": true,
     "llm_self_review": false,
-    "block_on_violation": true
+    "block_on_violation": true,
+    "semantic": {
+      "enabled": true,
+      "provider": "ngram",
+      "threshold": 0.55
+    }
   },
   "defaults": {
     "visibility": "private",
