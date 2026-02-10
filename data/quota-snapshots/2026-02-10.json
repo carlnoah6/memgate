@@ -102,5 +102,18 @@
       "fraction": 1,
       "isRateLimited": false
     }
+  },
+  "08:00": {
+    "timestamp": "2026-02-10T08:05:01.226791+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "80%",
+      "fraction": 0.8,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
   }
 }
