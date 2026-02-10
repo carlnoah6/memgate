@@ -2,7 +2,11 @@
 
 **Privacy-Aware Memory Isolation Layer for AI Agents**
 
+[![Website](https://img.shields.io/badge/Website-memgate-blue)](https://carlnoah6.github.io/memgate/) [![CI](https://github.com/carlnoah6/memgate/actions/workflows/test.yml/badge.svg)](https://github.com/carlnoah6/memgate/actions) [![PyPI](https://img.shields.io/pypi/v/memgate)](https://pypi.org/project/memgate/)
+
 > 🛡️ **Current Version**: 0.3.0 ("Little Crayfish" Protocol)
+>
+> 📖 **[Documentation & Website →](https://carlnoah6.github.io/memgate/)**
 
 MemGate acts as a firewall between your AI agent's long-term memory and its output channels. It ensures that private information (like calendar events, financial data, or family details) is never leaked into public contexts (like group chats), even if the LLM attempts to generate it.
 
