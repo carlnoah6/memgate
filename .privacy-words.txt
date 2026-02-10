@@ -1,0 +1,29 @@
+# Privacy Word Blocklist
+# These words must NEVER appear in committed code (case-insensitive).
+# One entry per line. Lines starting with # are comments.
+# This file is checked by the pre-commit hook: scripts/check-privacy-words.py
+
+# ── Real Names ──
+Carl
+马原
+元宝
+朵朵
+鱼丸
+森宝
+卢琦
+Yuanbao
+Duoduo
+Junyi
+
+# ── Real Locations ──
+Kent Ridge Park
+The Cavendish
+Science Park Drive
+
+# ── Real Organizations ──
+anz.io
+
+# ── Real Contact Info ──
+adam429.lee
+carlnoah6@gmail.com
+lcheng@sas.edu.sg

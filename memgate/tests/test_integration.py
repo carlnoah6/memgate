@@ -61,13 +61,13 @@ def test_status():
 
 
 def test_ctx_dm():
-    data = run_cmd(["context", "--channel-type", "dm", "--participants", "carl"])
+    data = run_cmd(["context", "--channel-type", "dm", "--participants", "alice"])
     assert data["is_private"] is True
 
 
 def test_ctx_group():
     data = run_cmd(
-        ["context", "--channel-type", "group", "--participants", "carl,alex"]
+        ["context", "--channel-type", "group", "--participants", "alice,bob"]
     )
     assert data["is_private"] is False
     # Verify no private knowledge leaking
@@ -87,7 +87,7 @@ def test_review_safe():
             "--channel-type",
             "group",
             "--participants",
-            "carl,alex",
+            "alice,bob",
         ]
     )
     assert data["passed"] is True
@@ -100,11 +100,11 @@ def test_review_calendar():
         [
             "review",
             "--message",
-            "Carl has a meeting tomorrow at 3pm",
+            "Alice has a meeting tomorrow at 3pm",
             "--channel-type",
             "group",
             "--participants",
-            "carl,alex",
+            "alice,bob",
         ],
         expect_exit=1,
     )  # Should block
@@ -122,7 +122,7 @@ def test_review_finance():
             "--channel-type",
             "group",
             "--participants",
-            "carl,alex",
+            "alice,bob",
         ],
         expect_exit=1,
     )
