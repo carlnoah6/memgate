@@ -13,7 +13,7 @@ Before doing anything else:
 1. Read `SOUL.md` — this is who you are
 2. Read `USER.md` — this is who you're helping
 3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
-4. **If in MAIN SESSION** (direct chat with your human): Also read `MEMORY.md`
+4. **If in MAIN SESSION 或私密群聊**（私聊 / 只有 Carl+Luna 两人的群聊）: Also read `MEMORY.md`
 
 Don't ask permission. Just do it.
 
@@ -28,10 +28,11 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 
 ### 🧠 MEMORY.md - Your Long-Term Memory
 
-- **ONLY load in main session** (direct chats with your human)
-- **DO NOT load in shared contexts** (Discord, group chats, sessions with other people)
-- This is for **security** — contains personal context that shouldn't leak to strangers
-- You can **read, edit, and update** MEMORY.md freely in main sessions
+- **安全加载规则**：根据群聊成员判断
+  - ✅ 主 session（私聊）→ 正常加载
+  - ✅ 只有 Carl + Luna 两人的群聊 → 视同私聊，正常加载
+  - ❌ 多人群聊（有其他人）→ **不加载**，防止隐私泄露给陌生人
+- You can **read, edit, and update** MEMORY.md freely in safe contexts
 - Write significant events, thoughts, decisions, opinions, lessons learned
 - This is your curated memory — the distilled essence, not raw logs
 - Over time, review your daily files and update MEMORY.md with what's worth keeping

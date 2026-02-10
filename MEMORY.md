@@ -4,7 +4,10 @@
 
 ### 家庭成员
 - **Carl**（Bo Li）— 1984-04-29 生日，新加坡
-- **元宝** — 大儿子，2019-03-22 生日（快 7 岁），每周日 9:30 上架子鼓课
+- **元宝**（李青舟）— 大儿子，2019-03-22 生日（快 7 岁），每周日 9:30 上架子鼓课
+  - 学校: SAS (Singapore American School), 40 Woodlands St 41
+  - 中文老师: 程玲燕 Lingyan Cheng (lcheng@sas.edu.sg), 教室 ES455
+  - 会弹电子琴，喜欢音乐
 - **朵朵** — 小女儿，2021-05-16 生日（快 5 岁）
 
 ### 🎂 元宝 7 岁生日聚会（2026-03-29 周日上午，在家）
@@ -23,6 +26,10 @@
 - **Junyi** — 朋友，一起看汪苏泷演唱会 3/29
 
 ### 即将到来的活动
+- 2/11 🍻 和孙枢吃饭 Brewerkz East Coast Park
+- 2/12 💎 NAFA 珠宝制作课程（首堂，每周四 19-22 到 4/2）
+- 2/13 🎹 元宝春节表演《恭喜恭喜》@ SAS → 下午去机场
+- 2/13-2/18 🧧 春节出行（不在新加坡，课外课/心理/普拉提全取消）
 - 2/22 🎭 Charlie Cook's Favourite Book（儿童剧）
 - 3/8 🎵 SSO Pops
 - 3/9 🎵 SSO Chamber
@@ -72,6 +79,7 @@
 - Lark: carlnoah6@gmail.com | 组织: anz.io
 - 时区: Asia/Singapore (GMT+8)
 - 管理员权限: 修改配置、重启服务、管理技能/插件/cron/session/模型/权限、执行系统命令
+- 兴趣: 💎 NAFA 珠宝制作课程（每周四晚，很喜欢）、AI/LLM 训练、Balatro
 
 ### 普通用户
 - 只能聊天、问答、使用已有功能
@@ -137,8 +145,14 @@
 - 查日历用: `python3 scripts/lark-calendar-today.py YYYY-MM-DD`
 - Token: `data/lark-user-token.json`（2h 有效，每小时刷新）
 - 日历功能: 日程管理 + 时间追踪 + 历史查询 + 时间统计
-- 9 类分类自动配色（见 `data/calendar-categories.md`）
+- **10 色分类体系**（2026-02-10 确定，见 `data/calendar-categories.md`）
+  - 🔵 蓝 `-11631619` 💻 工作 | 🟠 橙 `-30720` 📅 会议 | 🩵 青绿 `-16722247` 📖 学习
+  - 💜 靛蓝 `-10392859` 🧠 心理 | 🩷 粉 `-963671` 👶 家庭 | 🟡 黄 `-14838` 🍻 社交
+  - 🟢 绿 `-13318364` 🏃 运动 | 🟣 紫 `-3066159` 🎮 休闲 | 🔘 灰 `-6511959` 🏠 生活 | 🔴 红 `-562844` 🔴 重要
 - 人脉管理: `people/` | 项目追踪: `projects/` | 重要日期: `data/important-dates.json`
+- **循环事件跳过工具**: `python3 scripts/skip-recurring-dates.py <event_id_0> <skip_start> <skip_end>`
+  - Lark 不支持删除虚拟循环实例（测试验证），UNTIL+重建是唯一方案
+  - 详见 `memory/reference/technical-details.md`
 
 ## 📚 Wiki & Lark
 - Luna 协同知识库: Space `7604126789916479197`（公共内容）
@@ -152,6 +166,14 @@
 - 安全 > 便利，权限精确到人
 
 ## 📝 重要事件
+
+### 2026-02-10
+- **确立 10 色日历分类体系**（基于颜色心理学设计，Carl 确认）
+  - 从 9 类（2 色共用蓝色）升级为 10 类 10 色，每类独立颜色
+  - 新增绿色（运动/健身）、橙色（会议/约定）
+  - 心理/自我 从学习分离为独立类别
+  - 批量更新 18 个日历事件配色，全部成功
+  - 详见 `data/calendar-categories.md` + `data/lark-color-palette.json`
 
 ### 2026-02-09
 - 建立周日计划 Review 流程（weeklyReview，每周日 10:00）

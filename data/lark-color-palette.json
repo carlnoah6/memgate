@@ -1,0 +1,24 @@
+{
+  "blue": -11631619,
+  "orange": -30720,
+  "teal": -16722247,
+  "indigo": -10392859,
+  "pink": -963671,
+  "yellow": -14838,
+  "green": -13318364,
+  "purple": -3066159,
+  "grey": -6511959,
+  "red": -562844,
+  "categories": {
+    "work": {"color": "blue", "value": -11631619, "emoji": "💻", "label": "工作/项目"},
+    "meeting": {"color": "orange", "value": -30720, "emoji": "📅", "label": "会议/约定"},
+    "learning": {"color": "teal", "value": -16722247, "emoji": "📖", "label": "学习/课程"},
+    "mental": {"color": "indigo", "value": -10392859, "emoji": "🧠", "label": "心理/自我"},
+    "family": {"color": "pink", "value": -963671, "emoji": "👶", "label": "家庭/孩子"},
+    "social": {"color": "yellow", "value": -14838, "emoji": "🍻", "label": "社交"},
+    "exercise": {"color": "green", "value": -13318364, "emoji": "🏃", "label": "运动/健身"},
+    "leisure": {"color": "purple", "value": -3066159, "emoji": "🎮", "label": "休闲/娱乐"},
+    "life": {"color": "grey", "value": -6511959, "emoji": "🏠", "label": "生活事务"},
+    "important": {"color": "red", "value": -562844, "emoji": "🔴", "label": "重要/截止"}
+  }
+}

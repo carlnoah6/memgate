@@ -193,30 +193,25 @@ def scan_day(target_date):
 
 
 def find_hourly_row(token, target_date_str, target_hour_str):
-    """在每小时明细表中查找指定日期+时段的行号，返回 (row_number, exists)"""
+    """在每小时明细表中查找指定日期+时段的行号，返回 (row_number, exists)
+    同时返回最后一个有数据的行号，用于精确追加"""
     # Read date column (A) and hour column (B)
-    rows = read_sheet(token, f"{HOURLY_SHEET}!A1:B500")
+    rows = read_sheet(token, f"{HOURLY_SHEET}!A1:B1000")
+    last_data_row = 0
     for i, row in enumerate(rows, 1):
-        if row and len(row) >= 2 and row[0] == target_date_str and row[1] == target_hour_str:
-            return i, True
-    return None, False
-
-
-def append_to_sheet(token, sheet_range, rows):
-    """批量追加行到表格"""
-    url = f"https://open.larksuite.com/open-apis/sheets/v2/spreadsheets/{SPREADSHEET_ID}/values_append"
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    payload = {"valueRange": {"range": sheet_range, "values": rows}}
-    r = requests.post(url, headers=headers, json=payload)
-    return r.status_code, r.text[:300]
+        if row and len(row) >= 2 and row[0] and str(row[0]).startswith('202'):
+            last_data_row = i
+            if row[0] == target_date_str and row[1] == target_hour_str:
+                return i, True, last_data_row
+    return None, False, last_data_row
 
 
 def upsert_hourly_row(token, row):
-    """写入每小时明细行：如果已存在则更新，否则追加（防止重复）"""
+    """写入每小时明细行：如果已存在则更新，否则精确追加到最后一行数据之后（不用 values_append）"""
     date_str = row[0]  # e.g. "2026-02-09"
     hour_str = row[1]  # e.g. "14:00-14:59"
     
-    row_num, exists = find_hourly_row(token, date_str, hour_str)
+    row_num, exists, last_data_row = find_hourly_row(token, date_str, hour_str)
     if exists:
         # Update existing row
         num_cols = len(row)
@@ -226,9 +221,13 @@ def upsert_hourly_row(token, row):
         print(f"Updated existing hourly row {row_num} ({date_str} {hour_str}): {status}")
         return status, text
     else:
-        # Append new row
-        status, text = append_to_sheet(token, HOURLY_SHEET, [row])
-        print(f"Appended new hourly row ({date_str} {hour_str}): {status}")
+        # Write to exact row after last data row (no values_append)
+        target_row = last_data_row + 1
+        num_cols = len(row)
+        col_letter = chr(ord('A') + num_cols - 1)
+        cell_range = f"{HOURLY_SHEET}!A{target_row}:{col_letter}{target_row}"
+        status, text = update_cells(token, cell_range, [row])
+        print(f"Wrote new hourly row {target_row} ({date_str} {hour_str}): {status}")
         return status, text
 
 
@@ -265,41 +264,28 @@ def find_daily_row(token, target_date_str):
 
 
 def update_daily_summary(token, target_date):
-    """更新每日汇总表中指定日期的行（含模型维度）"""
+    """更新每日汇总表：从小时明细表求和，而非重新扫 JSONL（避免重复统计）"""
     target_date_str = target_date.strftime("%Y-%m-%d")
-    inp, out, tot, cnt = scan_day(target_date)
 
-    print(f"Daily {target_date_str}: input={inp} output={out} total={tot} requests={cnt}")
+    # 从小时明细表读取该日期的所有行并求和
+    hourly_rows = read_sheet(token, f"{HOURLY_SHEET}!A1:L1000")
+    inp = out = tot = cnt = 0
+    for row in hourly_rows:
+        if not row or row[0] != target_date_str:
+            continue
+        inp += int(row[2] or 0) if len(row) > 2 else 0
+        out += int(row[3] or 0) if len(row) > 3 else 0
+        tot += int(row[4] or 0) if len(row) > 4 else 0
+        cnt += int(row[5] or 0) if len(row) > 5 else 0
+
+    print(f"Daily {target_date_str} (from hourly): input={inp} output={out} total={tot} requests={cnt}")
 
     row_num, exists = find_daily_row(token, target_date_str)
-    
-    # 获取 api-proxy 的按模型统计
-    claude_total = gemini_total = kimi_total = 0
-    try:
-        import httpx
-        resp = httpx.get(
-            f"http://localhost:8180/admin/usage/daily?date={target_date_str}",
-            headers={"x-api-key": "sk-admin-luna2026"},
-            timeout=5
-        )
-        if resp.status_code == 200:
-            days = resp.json().get("days", [])
-            if days:
-                by_model = days[0].get("by_model", {})
-                claude = by_model.get("claude-opus-4-6-thinking", {})
-                gemini = by_model.get("gemini-3-pro-high", {})
-                kimi = by_model.get("kimi-k2.5", {})
-                claude_total = claude.get("total", claude.get("input", 0) + claude.get("output", 0))
-                gemini_total = gemini.get("total", gemini.get("input", 0) + gemini.get("output", 0))
-                kimi_total = kimi.get("total", kimi.get("input", 0) + kimi.get("output", 0))
-    except Exception as e:
-        print(f"Warning: failed to get model stats from api-proxy: {e}")
-    
-    # 日期 | 输入 | 输出 | 总 | 请求次数 | 主会话 | 子任务 | 备注 | Claude | Gemini | Kimi
-    row_data = [[target_date_str, inp, out, tot, cnt, cnt, 0, "",
-                 claude_total, gemini_total, kimi_total]]
 
-    cell_range = f"{DAILY_SHEET}!A{row_num}:K{row_num}"
+    # 日期 | 输入 | 输出 | 总 | 请求次数 | 主会话 | 子任务 | 备注
+    row_data = [[target_date_str, inp, out, tot, cnt, cnt, 0, ""]]
+
+    cell_range = f"{DAILY_SHEET}!A{row_num}:H{row_num}"
     status, text = update_cells(token, cell_range, row_data)
     action = "Updated" if exists else "Created"
     print(f"{action} daily row {row_num}: {status} {text}")
@@ -445,7 +431,7 @@ def main():
             print("ERROR: Failed to get tenant token")
             sys.exit(1)
         
-        rows = read_sheet(token, f"{HOURLY_SHEET}!A1:K500")
+        rows = read_sheet(token, f"{HOURLY_SHEET}!A1:K1000")
         
         # Keep header row (if exists) + unique data rows
         seen = set()
@@ -492,11 +478,12 @@ def main():
             while len(r) < max_cols:
                 r.append("")
         
-        # Clear the entire sheet range first
-        clear_rows = [[""] * max_cols] * len(rows)
+        # Clear the entire sheet range (must cover all original rows to remove orphans)
+        clear_count = max(len(rows), 600)
+        clear_rows = [[""] * max_cols] * clear_count
         col_letter = chr(ord('A') + max_cols - 1)
-        status, text = update_cells(token, f"{HOURLY_SHEET}!A1:{col_letter}{len(rows)}", clear_rows)
-        print(f"Cleared sheet: {status}")
+        status, text = update_cells(token, f"{HOURLY_SHEET}!A1:{col_letter}{clear_count}", clear_rows)
+        print(f"Cleared {clear_count} rows: {status}")
         
         # Write clean data
         status, text = update_cells(token, f"{HOURLY_SHEET}!A1:{col_letter}{len(all_rows)}", all_rows)

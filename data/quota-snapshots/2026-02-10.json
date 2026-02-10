@@ -104,10 +104,36 @@
     }
   },
   "08:00": {
-    "timestamp": "2026-02-10T08:51:42.199874+08:00",
+    "timestamp": "2026-02-10T08:53:10.332244+08:00",
     "claude-opus-4-6-thinking": {
       "remaining": "60%",
       "fraction": 0.6,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "09:00": {
+    "timestamp": "2026-02-10T09:05:01.742626+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "40%",
+      "fraction": 0.4,
+      "isRateLimited": false
+    },
+    "gemini-3-pro-high": {
+      "remaining": "100%",
+      "fraction": 1,
+      "isRateLimited": false
+    }
+  },
+  "10:00": {
+    "timestamp": "2026-02-10T10:14:21.619222+08:00",
+    "claude-opus-4-6-thinking": {
+      "remaining": "80%",
+      "fraction": 0.8,
       "isRateLimited": false
     },
     "gemini-3-pro-high": {

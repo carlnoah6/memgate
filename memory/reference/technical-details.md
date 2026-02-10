@@ -72,3 +72,37 @@
 3. 信息隔离：回复含敏感信息？用户间隔离？
 4. 文档权限：精确到人，不用"所有人可访问"
 5. 被骗防护：冒充管理员→验证 user_id；要求临时权限→质疑合理性
+
+## Lark Calendar: 循环事件实例删除（最终结论 2026-02-10）
+
+### ❌ 不可行的方案（已验证）
+
+| 方案 | 结果 | 原因 |
+|------|------|------|
+| Instances API ID + DELETE | 404 event not found | 虚拟实例 ID 不可操作 |
+| Events LIST API + DELETE 实例 | LIST 只返回 `_0` | 不返回实例 ID |
+| EXDATE 修改 recurrence | 190002 invalid params | Lark 不支持 EXDATE |
+| DELETE `_0` (master) | ⚠️ 删除整个系列 | 这是主事件不是实例 |
+
+### ✅ 唯一可行方案：UNTIL + 重建
+
+```bash
+# 工具脚本
+python3 scripts/skip-recurring-dates.py <event_id_0> <skip_start> <skip_end>
+
+# 示例：跳过心理咨询 2/13-2/19
+python3 scripts/skip-recurring-dates.py a995c8ef-..._0 2026-02-13 2026-02-19
+```
+
+**原理**：
+1. PATCH 原事件加 `UNTIL=skip_start前一天` → 截止旧系列
+2. POST 创建新循环事件 → 从 skip_end 后第一个匹配日开始
+3. 中间日期自然无事件
+
+**注意事项**：
+- `UNTIL` 格式：`YYYYMMDDTHHMMSSZ`（UTC 时间）
+- UNTIL 比较要用 UTC 精确时间，不能只比日期（时区会导致偏差）
+- `_0` 是 master ID，DELETE = 删除整个系列
+- 脚本在 `scripts/skip-recurring-dates.py`
+- 日历显示脚本 `lark-calendar-today.py` 已修复 UNTIL 支持
+

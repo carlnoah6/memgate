@@ -151,6 +151,30 @@ def find_occurrence_in_range(recurrence, original_start, target_start, target_en
             rules[k] = v
     
     freq = rules.get("FREQ", "")
+    interval = int(rules.get("INTERVAL", "1"))
+    
+    # 解析 UNTIL 截止时间
+    until_dt = None
+    until_str = rules.get("UNTIL", "")
+    if until_str:
+        try:
+            if until_str.endswith("Z"):
+                until_dt = datetime.strptime(until_str, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+            else:
+                until_dt = datetime.strptime(until_str, "%Y%m%dT%H%M%S").replace(tzinfo=SGT)
+        except ValueError:
+            pass
+    
+    def check_until(d):
+        """检查日期上的事件是否在 UNTIL 截止时间之前。
+        用事件在该日期的实际开始时间（UTC）与 UNTIL 比较。"""
+        if not until_dt:
+            return True
+        # 构造该日期上事件的实际开始时间
+        event_dt = datetime(d.year, d.month, d.day, 
+                           original_start.hour, original_start.minute, 
+                           tzinfo=SGT).astimezone(timezone.utc)
+        return event_dt <= until_dt
     
     # WEEKLY 重复
     if freq == "WEEKLY":
@@ -165,19 +189,23 @@ def find_occurrence_in_range(recurrence, original_start, target_start, target_en
         current = target_start
         while current <= target_end:
             if current.weekday() in target_weekdays:
-                # 检查是否在原始开始日期之后
-                if current >= original_start.date():
+                if current >= original_start.date() and check_until(current):
+                    # 检查 interval（每 N 周）
+                    if interval > 1:
+                        weeks_diff = (current - original_start.date()).days // 7
+                        if weeks_diff % interval != 0:
+                            current += timedelta(days=1)
+                            continue
                     return current
             current += timedelta(days=1)
     
     # DAILY 重复
     elif freq == "DAILY":
-        interval = int(rules.get("INTERVAL", "1"))
         orig_date = original_start.date()
         current = target_start
         while current <= target_end:
             diff = (current - orig_date).days
-            if diff >= 0 and diff % interval == 0:
+            if diff >= 0 and diff % interval == 0 and check_until(current):
                 return current
             current += timedelta(days=1)
     
@@ -187,7 +215,7 @@ def find_occurrence_in_range(recurrence, original_start, target_start, target_en
         target_day = int(bymonthday)
         current = target_start
         while current <= target_end:
-            if current.day == target_day and current >= original_start.date():
+            if current.day == target_day and current >= original_start.date() and check_until(current):
                 return current
             current += timedelta(days=1)
     
@@ -197,7 +225,7 @@ def find_occurrence_in_range(recurrence, original_start, target_start, target_en
         current = target_start
         while current <= target_end:
             if current.month == orig_date.month and current.day == orig_date.day:
-                if current >= orig_date:
+                if current >= orig_date and check_until(current):
                     return current
             current += timedelta(days=1)
     
