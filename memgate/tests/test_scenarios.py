@@ -28,7 +28,7 @@ def privacy_env():
         KnowledgeItem(
             id="k_alice_001",
             user="alice",
-            content="Knows Python and JavaScript programming",
+            content="Proficient in Python and JavaScript programming",
             visibility="public",
             category="skill",
             source="user_declared",
@@ -64,7 +64,7 @@ def privacy_env():
         KnowledgeItem(
             id="k_bob_001",
             user="bob",
-            content="Skilled in data analysis and R language",
+            content="Expert in data analysis and R language",
             visibility="public",
             category="skill",
             source="user_declared",
@@ -143,8 +143,9 @@ def test_group_blocks_own_private_knowledge(privacy_env):
 def test_cross_reference_attack_blocked(privacy_env):
     """T9: Cross-reference attack — reviewer blocks it."""
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
+    # "Alice is hiking with Charlie at Central Park tomorrow at 14:00"
     result = reviewer.review(
-        "Hiking with Charlie at Central Park tomorrow at 14:00",
+        "Alice is hiking with Charlie at Central Park tomorrow at 14:00",
         "group_abc",
         {"alice", "bob"},
     )
@@ -163,16 +164,14 @@ def test_untagged_knowledge_is_private():
 
 def test_classifier_patterns():
     tagger = KnowledgeTagger()
-    assert (
-        tagger.classify("Meeting friends for dinner tomorrow") == "private"
-    )  # calendar
-    assert tagger.classify("Monthly salary 50000") == "private"  # finance
+    assert tagger.classify("Dinner with friends tomorrow") == "private"  # calendar
+    assert tagger.classify("Salary 50000") == "private"  # finance
 
     # Skills can be public
     assert tagger.classify("Knows Python #public") == "public"
 
     # Always private overrides
-    assert tagger.classify("Salary 50000", user_override="public") == "private"
+    assert tagger.classify("Wage 50000", user_override="public") == "private"
 
 
 # -- Reviewer Tests --
@@ -181,7 +180,7 @@ def test_classifier_patterns():
 def test_reviewer_group_blocks_calendar(privacy_env):
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
     result = reviewer.review(
-        "Alice is going to meet a friend tomorrow afternoon at 3pm",
+        "Alice has a meeting with a friend tomorrow at 3pm",
         "group_abc",
         {"alice", "bob"},
     )
@@ -191,9 +190,7 @@ def test_reviewer_group_blocks_calendar(privacy_env):
 def test_reviewer_group_allows_public(privacy_env):
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
     result = reviewer.review(
-        "This problem can be solved using Python's pandas library",
-        "group_abc",
-        {"alice", "bob"},
+        "This problem can be solved with Python pandas", "group_abc", {"alice", "bob"}
     )
     assert result.passed
 
@@ -201,9 +198,7 @@ def test_reviewer_group_allows_public(privacy_env):
 def test_reviewer_dm_allows_all(privacy_env):
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
     result = reviewer.review(
-        "You are going hiking with Charlie at Central Park tomorrow at 14:00",
-        "dm_alice",
-        {"alice"},
+        "You are hiking with Charlie tomorrow at 14:00", "dm_alice", {"alice"}
     )
     assert result.passed
 
@@ -213,7 +208,7 @@ def test_reviewer_social_engineering_defense(privacy_env):
     # The reviewer only checks whether the content leaks info, not the intent of the question (that's the Context layer's job)
     # But if the response contains private information, it should be blocked
     reviewer = PrivacyReviewer(config=privacy_env["config"], store=privacy_env["store"])
-    # Suppose model tries to answer schedule
+    # Assume the model tried to answer with schedule info
     result = reviewer.review(
         "Alice is going to Central Park tomorrow", "group_abc", {"alice", "bob"}
     )
