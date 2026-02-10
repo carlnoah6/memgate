@@ -108,6 +108,7 @@ python3 patches/fix-feishu-group-wildcard.py
 1. 运行调度脚本：`python3 scripts/heartbeat-scheduler.py`
 2. 运行看门狗：`python3 scripts/watchdog-log.py`
 3. 运行任务面板健康检查：`python3 scripts/task-health-check.py`
+4. 运行任务板推送：`python3 scripts/task-board-notify.py`（仅当状态变化时推送到「Luna 任务板」群）
    - `stale` 非空 → 有卡死任务被自动标记失败，通知 Carl
    - `active` → 当前运行中的异步任务（仅供参考）
    - `cleaned` > 0 → 自动清理了旧任务

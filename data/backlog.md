@@ -11,26 +11,17 @@
 - [x] 2. 设计框架文档 ✅ 2026-02-10 → `docs/privacy-framework.md` + [Wiki](https://fg9w9yu3odc.sg.larksuite.com/wiki/D1GEwdu2EiTmA3kI63KlDQEageb)
 - [x] 3. 核心模块（知识存储 + 上下文隔离 + 输出审查）✅ 2026-02-10 → `privacy/`
 - [x] 4. 自我攻防测试（18/18 通过）✅ 2026-02-10 → `privacy/tests/test_isolation.py`
-- [ ] 5. 集成到 Luna 实际运行（session 注入 + memory_search 过滤）
+- [x] 5. 集成到 Luna 实际运行（session 注入 + memory_search 过滤）✅ 2026-02-10 → `scripts/privacy-check.py` + `scripts/privacy-hook.sh` + AGENTS.md 更新 + Carl 知识库初始化（8 public / 31 private）+ 集成测试 11/11 通过
 - [ ] 6. 抽象为通用 OpenClaw 插件并发布
 
 #### API 代理层 Fallback — 到限额自动切换 ✅ 2026-02-10
-- **已上线** — 三层自动切换（Claude → Gemini → Kimi），配置: `/home/ubuntu/api-proxy/fallback.json`
-- **问题**：OpenClaw 内置 fallback 机制有严重问题
-  - 切换慢：额度用完后反复聊天仍用旧模型
-  - 状态不稳定：成功切到备用模型后又会自动切回去
-- **方案**：在 api-proxy 层实现 fallback
-  - 代理收到 429/额度用尽错误 → 自动切备用 key/endpoint → 重试
-  - 对 OpenClaw 完全透明，无需感知
-- **位置**：`/home/ubuntu/api-proxy/server.py`
-- **状态**：待实现
-- **记录日期**：2026-02-09
+- **已完成** — Carl 确认已上线，三层自动切换（Claude → Gemini → Kimi）
+- 配置: `/home/ubuntu/api-proxy/fallback.json`
 
 #### 重启来源追踪 & 回复路由
 - **问题**：重启可能从任何 session 触发，但重启后汇报只回到主 session
 - **方案**：`mark-restart.sh` 记录触发来源，重启后路由到正确 session
-- **状态**：待实现
-- **记录日期**：2026-02-09
+- **状态**：进行中 (2026-02-10) — 子任务 81624641 正在开发
 
 #### 🚀 每天消耗 1B Token 的 AI 系统架构
 - [x] 1. 供给端分析 ✅ 2026-02-09 → `memory/research/1b-token-daily-architecture-2026-02-09.md`
@@ -89,6 +80,7 @@
 |------|---------|------|
 | Carl 私聊 | oc_453c88ec52dd029845c46249837e3ba0 | 一对一任务结果 |
 | Luna 群聊 | oc_a2a70c6b4a29c2f2eb6c2500ea42a500 | 群聊任务结果 |
+| Luna 任务板 | oc_630995d9b870d2ff6ab3fa34a4e7315a | 任务状态自动更新 |
 
 ## 已完成
 （完成的任务移到这里，附上完成日期和成果文件路径）
