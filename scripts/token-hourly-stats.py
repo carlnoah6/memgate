@@ -274,9 +274,7 @@ def update_daily_summary(token, target_date):
     row_num, exists = find_daily_row(token, target_date_str)
     
     # 获取 api-proxy 的按模型统计
-    claude_in = claude_out = claude_req = 0
-    gemini_in = gemini_out = gemini_req = 0
-    kimi_in = kimi_out = kimi_req = 0
+    claude_total = gemini_total = kimi_total = 0
     try:
         import httpx
         resp = httpx.get(
@@ -291,32 +289,24 @@ def update_daily_summary(token, target_date):
                 claude = by_model.get("claude-opus-4-6-thinking", {})
                 gemini = by_model.get("gemini-3-pro-high", {})
                 kimi = by_model.get("kimi-k2.5", {})
-                claude_in = claude.get("input", 0)
-                claude_out = claude.get("output", 0)
-                claude_req = claude.get("requests", 0)
-                gemini_in = gemini.get("input", 0)
-                gemini_out = gemini.get("output", 0)
-                gemini_req = gemini.get("requests", 0)
-                kimi_in = kimi.get("input", 0)
-                kimi_out = kimi.get("output", 0)
-                kimi_req = kimi.get("requests", 0)
+                claude_total = claude.get("total", claude.get("input", 0) + claude.get("output", 0))
+                gemini_total = gemini.get("total", gemini.get("input", 0) + gemini.get("output", 0))
+                kimi_total = kimi.get("total", kimi.get("input", 0) + kimi.get("output", 0))
     except Exception as e:
         print(f"Warning: failed to get model stats from api-proxy: {e}")
     
-    # 日期 | 输入 | 输出 | 总 | 请求次数 | 主会话 | 子任务 | 备注 | Claude In/Out/Req | Gemini In/Out/Req | Kimi In/Out/Req
+    # 日期 | 输入 | 输出 | 总 | 请求次数 | 主会话 | 子任务 | 备注 | Claude | Gemini | Kimi
     row_data = [[target_date_str, inp, out, tot, cnt, cnt, 0, "",
-                 claude_in, claude_out, claude_req,
-                 gemini_in, gemini_out, gemini_req,
-                 kimi_in, kimi_out, kimi_req]]
+                 claude_total, gemini_total, kimi_total]]
 
-    cell_range = f"{DAILY_SHEET}!A{row_num}:Q{row_num}"
+    cell_range = f"{DAILY_SHEET}!A{row_num}:K{row_num}"
     status, text = update_cells(token, cell_range, row_data)
     action = "Updated" if exists else "Created"
     print(f"{action} daily row {row_num}: {status} {text}")
 
 
-def make_hourly_row(dt, inp, out, tot, cnt, quota_data=None):
-    """构造每小时明细行（含配额信息）"""
+def make_hourly_row(dt, inp, out, tot, cnt, quota_data=None, hourly_model_data=None):
+    """构造每小时明细行（含配额信息 + 模型统计）"""
     row = [
         dt.strftime("%Y-%m-%d"),
         dt.strftime("%H:00-%H:59"),
@@ -326,7 +316,7 @@ def make_hourly_row(dt, inp, out, tot, cnt, quota_data=None):
         cnt,
         "main" if cnt > 0 else "-"
     ]
-    # 追加配额列：Claude 4.6 | Gemini 3 Pro | Claude 4.5 | Sonnet 4.5
+    # 追加配额列：Claude 4.6 | Gemini 3 Pro
     if quota_data:
         for model_id in TRACKED_MODELS:
             info = quota_data.get(model_id, {})
@@ -334,6 +324,16 @@ def make_hourly_row(dt, inp, out, tot, cnt, quota_data=None):
             row.append(remaining)
     else:
         row.extend([""] * len(TRACKED_MODELS))
+    # 追加模型用量列：Claude Tokens | Gemini Tokens | Kimi Tokens
+    if hourly_model_data:
+        claude = hourly_model_data.get("claude-opus-4-6-thinking", {})
+        gemini = hourly_model_data.get("gemini-3-pro-high", {})
+        kimi = hourly_model_data.get("kimi-k2.5", {})
+        row.append(claude.get("total", 0))
+        row.append(gemini.get("total", 0))
+        row.append(kimi.get("total", 0))
+    else:
+        row.extend([0, 0, 0])
     return row
 
 
@@ -403,8 +403,28 @@ def main():
             print("ERROR: Failed to get tenant token")
             sys.exit(1)
 
+        # 获取小时级模型用量
+        hourly_model_data = None
+        try:
+            import httpx
+            hour_key = hour_start.strftime("%Y-%m-%d")
+            resp = httpx.get(
+                f"http://localhost:8180/admin/usage/hourly?date={hour_key}",
+                headers={"x-api-key": "sk-admin-luna2026"},
+                timeout=5
+            )
+            if resp.status_code == 200:
+                hours = resp.json().get("hours", [])
+                target_key = hour_start.strftime("%Y-%m-%d %H:00")
+                for h in hours:
+                    if h["hour"] == target_key:
+                        hourly_model_data = h.get("by_model", {})
+                        break
+        except Exception as e:
+            print(f"Warning: failed to get hourly model stats: {e}")
+
         # 写入每小时明细（upsert 防重复）
-        row = make_hourly_row(hour_start, inp, out, tot, cnt, quota_data)
+        row = make_hourly_row(hour_start, inp, out, tot, cnt, quota_data, hourly_model_data)
         upsert_hourly_row(token, row)
 
         # 更新当天的每日汇总
