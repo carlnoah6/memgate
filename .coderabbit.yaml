@@ -7,6 +7,9 @@ reviews:
     enabled: true
     drafts: false
 
+  # When all CodeRabbit comments are resolved, auto-approve the PR
+  request_changes_workflow: true
+
   # Focus areas for MemGate
   path_instructions:
     - path: "memgate/providers/**"
