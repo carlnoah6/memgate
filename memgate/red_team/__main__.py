@@ -1,7 +1,7 @@
 """
-CLI 入口 — python -m memgate.red_team
+CLI Entry Point — python -m memgate.red_team
 
-运行红蓝对抗测试并输出 JSON/Markdown 报告。
+Runs red-blue adversarial testing and outputs JSON/Markdown reports.
 """
 
 import argparse

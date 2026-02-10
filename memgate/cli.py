@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Privacy Guard — CLI 桥接脚本
+Privacy Guard — CLI Bridge Script
 
-供 OpenClaw (Node.js) 通过 exec 调用 Privacy Guard Python 框架。
+Allows OpenClaw (Node.js) to call the Privacy Guard Python framework via exec.
 
 Usage:
   python3 scripts/privacy-check.py context  --channel-type group --participants "user1,user2"
@@ -63,26 +63,30 @@ def cmd_context(args):
 def _build_prompt_injection(ctx: PrivacyContext, knowledge: list) -> str:
     """Build the text to inject into system prompt."""
     lines = []
-    lines.append("## Privacy Guard 上下文")
+    lines.append("## Privacy Guard Context")
     lines.append("")
     lines.append(ctx.get_context_summary())
     lines.append("")
 
     if ctx.is_private:
-        lines.append("✅ 私聊模式：可自由使用所有知识和记忆文件。")
+        lines.append("✅ DM mode: you may freely use all knowledge and memory files.")
     else:
-        lines.append("⚠️ 群聊模式：")
-        lines.append("- 只能使用以下公共知识，不能泄露任何人的私有信息")
-        lines.append("- 不要提及任何人的日程、家庭详情、财务、健康、联系方式")
-        lines.append("- 发送前需通过 privacy-check.py review 审查")
+        lines.append("⚠️ Group chat mode:")
+        lines.append(
+            "- Only the following public knowledge may be used; do not leak anyone's private information"
+        )
+        lines.append(
+            "- Do not mention anyone's schedule, family details, finances, health, or contact information"
+        )
+        lines.append("- Messages must pass privacy-check.py review before sending")
         lines.append("")
 
         if knowledge:
-            lines.append("### 可用公共知识")
+            lines.append("### Available Public Knowledge")
             for k in knowledge:
                 lines.append(f"- [{k.user}] {k.content}")
         else:
-            lines.append("（无可用公共知识）")
+            lines.append("(No public knowledge available)")
 
     return "\n".join(lines)
 

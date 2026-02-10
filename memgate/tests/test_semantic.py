@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Privacy Guard — 语义检测测试
+Privacy Guard — Semantic Detection Test
 
-测试 embedding-based 语义隐私检测的能力：
-  1. 改述攻击测试（同义替换、间接描述）
-  2. 误报率测试（正常内容不应被拦截）
-  3. 多语言改述（中英文混合）
-  4. 集成测试（与 PrivacyReviewer 配合）
+Tests embedding-based semantic privacy detection capabilities:
+  1. Paraphrase attack tests (synonym substitution, indirect description)
+  2. False positive rate tests (normal content should not be blocked)
+  3. Multi-language paraphrase (Mixed Chinese/English)
+  4. Integration tests (with PrivacyReviewer)
 """
 
 import sys
@@ -28,7 +28,7 @@ from memgate.privacy_review import PrivacyReviewer
 
 
 class SemanticTestFixture:
-    """测试环境：模拟真实的私有知识库"""
+    """Test Environment: Simulates a real private knowledge store"""
 
     def __init__(self):
         self.tmp_dir = Path(tempfile.mkdtemp(prefix="semantic_test_"))
@@ -38,7 +38,7 @@ class SemanticTestFixture:
         self._setup_test_data()
 
     def _setup_test_data(self):
-        """创建测试数据 — 使用通用名称避免隐私泄露"""
+        """Create test data — use generic names to avoid privacy leaks"""
 
         # Calendar
         self.store.add(

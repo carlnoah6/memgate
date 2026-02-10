@@ -192,11 +192,11 @@ class LarkProvider(BaseProvider):
         is_private = (human_count == 0) or (human_count == 1 and all_admin)
 
         if is_private:
-            reason = "只有管理员和 Bot，视为私聊"
+            reason = "Only admin and bot present; treated as DM"
             channel_type = "dm"  # Functionally a DM with admin
         else:
             other_names = [h["name"] for h in non_bot_humans if not h["is_admin"]]
-            reason = f"群内有其他成员: {', '.join(other_names)}"
+            reason = f"Group has other members: {', '.join(other_names)}"
             channel_type = "group"
 
         # 5. Paranoid Check (The Security Hardening)
