@@ -1,9 +1,7 @@
 # API 代理层 Fallback — 到限额自动切换
 
-> 状态：设计完成，待实现
+> 状态：✅ 已完成并上线（2026-02-10）
 > 项目：🔧 OpenClaw 优化
-> 记录日期：2026-02-09
-> 更新日期：2026-02-10
 
 ## 问题
 
@@ -72,9 +70,11 @@ def pick_model(requested_model):
 - `/home/ubuntu/api-proxy/server.py`（现有 409 行，需增加约 80 行）
 
 ## 实现计划
-- [ ] 添加 `/health` 轮询 + 额度缓存
-- [ ] 实现 fallback chain 查询逻辑
-- [ ] 请求拦截：替换 model 字段
-- [ ] 日志：记录每次 fallback 切换
-- [ ] 测试：模拟额度耗尽场景
-- [ ] 上线
+- [x] 添加 `/health` 轮询 + 额度缓存 ✅
+- [x] 实现 fallback chain 查询逻辑 ✅
+- [x] 请求拦截：替换 model 字段 ✅
+- [x] Anthropic ↔ OpenAI 格式转换（Kimi 支持）✅
+- [x] 日志：记录每次 fallback 切换 ✅
+- [x] 测试：格式转换 + 端到端 + 模拟额度耗尽 ✅
+- [x] 上线 ✅ 2026-02-10
+- [x] Token 用量按模型统计 ✅（日报 + Lark 表格）
