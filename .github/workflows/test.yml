@@ -1,4 +1,4 @@
-name: MemGate CI ("Little Crayfish" Protocol)
+name: MemGate CI (Strict Privacy Protocol)
 
 on:
   push:
@@ -28,6 +28,6 @@ jobs:
         pip install -e .
         pip install pytest colorama
 
-    - name: 🧪 Run "Little Crayfish" Test Suite
+    - name: 🧪 Run Strict Privacy Test Suite
       run: |
         pytest memgate/tests/test_scenarios.py memgate/tests/test_knowledge_store.py memgate/tests/test_privacy_review.py -v

@@ -4,7 +4,7 @@
 
 [![Website](https://img.shields.io/badge/Website-memgate-blue)](https://carlnoah6.github.io/memgate/) [![CI](https://github.com/carlnoah6/memgate/actions/workflows/test.yml/badge.svg)](https://github.com/carlnoah6/memgate/actions) [![PyPI](https://img.shields.io/pypi/v/memgate)](https://pypi.org/project/memgate/)
 
-> 🛡️ **Current Version**: 0.3.0 ("Little Crayfish" Protocol)
+> 🛡️ **Current Version**: 0.3.0 (Strict Privacy Protocol)
 >
 > 📖 **[Documentation & Website →](https://carlnoah6.github.io/memgate/)**
 
@@ -15,7 +15,7 @@ MemGate acts as a firewall between your AI agent's long-term memory and its outp
 - **Context-Aware Privacy**: Automatically distinguishes between Private (DM) and Public (Group) contexts.
 - **Pattern-Based Filtering**: Regex-based interception for high-risk categories (Phone, Email, Finance, Calendar).
 - **Knowledge Store**: Simple JSON-based local vector store (extensible).
-- **"Little Crayfish" Protocol**: Strict CI/CD pipeline ensuring no privacy regressions.
+- **Strict Privacy Protocol**: Strict CI/CD pipeline ensuring no privacy regressions.
 - **Red Team Arena**: Built-in adversarial testing framework (`memgate/tests/red_team/`).
 
 ## Installation
