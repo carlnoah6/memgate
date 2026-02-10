@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "memgate"
+version = "0.1.0"
+description = "Privacy-aware memory isolation for AI agents"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+  {name = "Carl Noah", email = "carlnoah6@gmail.com"},
+]
+dependencies = [
+  "colorama>=0.4.6",
+]
+
+[project.scripts]
+memgate = "memgate.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["memgate"]

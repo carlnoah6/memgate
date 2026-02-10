@@ -14,17 +14,10 @@ Usage:
 import argparse
 import json
 import sys
-import os
-from pathlib import Path
 
-# Add privacy module to path
-WORKSPACE = Path(__file__).resolve().parent.parent
-PRIVACY_DIR = WORKSPACE / "privacy"
-sys.path.insert(0, str(PRIVACY_DIR))
-
-from knowledge_store import KnowledgeStore, KNOWLEDGE_DIR
-from privacy_context import PrivacyContext, ChannelInfo
-from privacy_review import PrivacyReviewer, load_config
+from .knowledge_store import KnowledgeStore, KNOWLEDGE_DIR, PRIVACY_DIR
+from .privacy_context import PrivacyContext, ChannelInfo
+from .privacy_review import PrivacyReviewer, load_config
 
 
 def parse_participants(raw: str) -> set:
@@ -121,7 +114,9 @@ def cmd_review(args):
                 "description": v.description,
             }
             for v in result.violations
-        ] if result.violations else [],
+        ]
+        if result.violations
+        else [],
         "suggestion": result.suggestion,
     }
     print(json.dumps(output, ensure_ascii=False, indent=2))

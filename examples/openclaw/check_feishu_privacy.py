@@ -26,13 +26,17 @@ import urllib.request
 # Configuration via Environment Variables
 APP_ID = os.getenv("LARK_APP_ID")
 APP_SECRET = os.getenv("LARK_APP_SECRET")
-ADMIN_OPEN_ID = os.getenv("LARK_ADMIN_OPEN_ID")  # The single human user allowed in private chats
+ADMIN_OPEN_ID = os.getenv(
+    "LARK_ADMIN_OPEN_ID"
+)  # The single human user allowed in private chats
 
 
 def get_tenant_token():
     if not APP_ID or not APP_SECRET:
-        raise ValueError("Please set LARK_APP_ID and LARK_APP_SECRET environment variables.")
-        
+        raise ValueError(
+            "Please set LARK_APP_ID and LARK_APP_SECRET environment variables."
+        )
+
     req = urllib.request.Request(
         "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
         data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode(),
@@ -66,11 +70,11 @@ def get_group_members(token, chat_id):
             url += f"&page_token={page_token}"
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
         resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-        
+
         if resp.get("code") != 0:
             print(f"API Error: {resp}", file=sys.stderr)
             return []
-            
+
         members.extend(resp["data"].get("items", []))
         if not resp["data"].get("has_more"):
             break
@@ -91,18 +95,20 @@ def check_group_privacy(chat_id):
         mid = m["member_id"]
         # Exclude bot itself
         if mid != bot_open_id:
-            non_bot_members.append({
-                "name": m.get("name", "Unknown"),
-                "open_id": mid,
-                "is_admin": mid == ADMIN_OPEN_ID
-            })
+            non_bot_members.append(
+                {
+                    "name": m.get("name", "Unknown"),
+                    "open_id": mid,
+                    "is_admin": mid == ADMIN_OPEN_ID,
+                }
+            )
 
     # Privacy Rule:
     # A chat is private if there are human members AND all human members are the Admin.
     # (Adjust logic here if you want to allow multiple specific users)
     human_count = len(non_bot_members)
     all_admin = all(m["is_admin"] for m in non_bot_members)
-    
+
     # Empty chat (bot only) or Admin+Bot only
     is_private = (human_count == 0) or (human_count == 1 and all_admin)
 
@@ -110,7 +116,7 @@ def check_group_privacy(chat_id):
         "chat_id": chat_id,
         "is_private": is_private,
         "human_count": human_count,
-        "details": non_bot_members
+        "details": non_bot_members,
     }
 
 
@@ -120,12 +126,15 @@ if __name__ == "__main__":
         sys.exit(1)
 
     if not ADMIN_OPEN_ID:
-        print("Warning: LARK_ADMIN_OPEN_ID not set. Privacy check will fail for any human member.", file=sys.stderr)
+        print(
+            "Warning: LARK_ADMIN_OPEN_ID not set. Privacy check will fail for any human member.",
+            file=sys.stderr,
+        )
 
     chat_id = sys.argv[1]
     result = check_group_privacy(chat_id)
-    
+
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    
+
     # Exit code: 0 = Private, 1 = Public/Unsafe
     sys.exit(0 if result and result["is_private"] else 1)
