@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Privacy Guard — 输出审查器
+Privacy Guard — Output Reviewer
 
-发送前检测消息是否包含隐私泄露。
-支持开关控制（config.review.enabled）。
+Detects privacy leaks in messages before they are sent.
+Can be toggled via config.review.enabled.
 """
 
 import json
@@ -40,7 +40,7 @@ PATTERNS_DIR = PRIVACY_DIR / "patterns"
 
 @dataclass
 class Violation:
-    """一个违规项"""
+    """A single violation entry."""
 
     category: str  # e.g. "calendar", "family"
     matched: str  # matched text
@@ -49,7 +49,7 @@ class Violation:
 
 @dataclass
 class ReviewResult:
-    """审查结果"""
+    """Review result."""
 
     passed: bool
     message: Optional[str] = None
@@ -65,10 +65,11 @@ def load_config() -> dict:
 
 
 def load_patterns() -> dict:
-    """加载隐私检测模式"""
+    """Load privacy detection patterns."""
+    # Functional patterns (including Chinese characters) must be kept
     default_patterns = {
         "calendar": {
-            "description": "日程/日历信息",
+            "description": "Schedule/calendar information",
             "patterns": [
                 r"明天.*[去见约]",
                 r"今天.*[去见约]",
@@ -76,17 +77,17 @@ def load_patterns() -> dict:
                 r"\d{1,2}[:.]\d{2}.*[去见约到]",
                 r"(上午|下午|晚上|早上)\d{1,2}[点时]",
                 r"日程|行程|安排|预约|航班",
-                r"schedule|appointment|meeting.*at|tomorrow.*at",
+                r"schedule|appointment|\bmeeting\b|tomorrow",
             ],
         },
         "family": {
-            "description": "家庭成员信息",
+            "description": "Family member information",
             "patterns": [
                 # These will be populated from user's knowledge store
             ],
         },
         "finance": {
-            "description": "财务信息",
+            "description": "Financial information",
             "patterns": [
                 r"工资|薪水|月薪|年薪|收入",
                 r"投资.*\d|账户.*余额|信用卡.*\d",
@@ -96,12 +97,12 @@ def load_patterns() -> dict:
             ],
         },
         "contact_private": {
-            "description": "私人联系方式",
+            "description": "Private contact information",
             "patterns": [
                 r"\d{8,11}",  # phone numbers
                 r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",  # email
                 r"住在|地址[是为]|家在",
-                r"address\s+(is|at)|live\s+at|located\s+at",
+                r"address\s+(is|at)|live\s+(at|in)|located\s+(at|in)",
             ],
         },
     }
@@ -127,15 +128,15 @@ def load_patterns() -> dict:
 
 class PrivacyReviewer:
     """
-    发送前审查消息，检测隐私泄露
+    Pre-send message reviewer that detects privacy leaks.
 
-    三层检测：
-    1. 规则匹配（快速、确定性）— 检查已知的私有信息模式
-    2. 用户实体匹配 — 检查是否提及了其他用户的私有实体（名字、地点等）
-    3. 语义匹配（embedding）— 检测改述/间接描述的隐私泄露
+    Three-layer detection:
+    1. Pattern matching (fast, deterministic) — checks known private information patterns
+    2. User entity matching — checks if the message mentions other users' private entities (names, locations, etc.)
+    3. Semantic matching (embedding) — detects paraphrased/indirect privacy leaks
 
-    可通过 config.review.enabled 开关控制。
-    语义检测通过 config.review.semantic.enabled 独立控制。
+    Can be toggled via config.review.enabled.
+    Semantic detection is independently controlled via config.review.semantic.enabled.
     """
 
     def __init__(
@@ -152,7 +153,7 @@ class PrivacyReviewer:
         self.enabled = review_config.get("enabled", True)
         self.block_on_violation = review_config.get("block_on_violation", True)
 
-        # ── 语义检测层 ──
+        # -- Semantic detection layer --
         semantic_config = review_config.get("semantic", {})
         self.semantic_enabled = semantic_config.get("enabled", True)
 
@@ -176,7 +177,7 @@ class PrivacyReviewer:
         self._semantic_index_built = False
 
     def _check_patterns(self, message: str) -> list[Violation]:
-        """规则匹配检查"""
+        """Pattern matching check."""
         violations = []
         for category, data in self.patterns.items():
             if category not in ALWAYS_PRIVATE_CATEGORIES:
@@ -189,7 +190,7 @@ class PrivacyReviewer:
                             Violation(
                                 category=category,
                                 matched=match.group(),
-                                description=f"检测到{data.get('description', category)}信息",
+                                description=f"Detected {data.get('description', category)} information",
                             )
                         )
                         break  # One violation per category is enough
@@ -198,6 +199,7 @@ class PrivacyReviewer:
         return violations
 
     # Common words / stopwords to ignore in entity matching
+    # KEEP Chinese stopwords as they are functional
     _STOPWORDS = {
         "的",
         "是",
@@ -255,7 +257,7 @@ class PrivacyReviewer:
     def _check_private_entities(
         self, message: str, sender: str, participants: set
     ) -> list[Violation]:
-        """检查是否提及了私有实体（从知识库加载）"""
+        """Check if the message mentions private entities (loaded from knowledge store)."""
         violations = []
         seen_categories = set()
 
@@ -280,7 +282,7 @@ class PrivacyReviewer:
                             Violation(
                                 category=item.category,
                                 matched=snippet,
-                                description=f"提及了 {user} 的私有{item.category}信息",
+                                description=f"Mentioned {user}'s private {item.category} information",
                             )
                         )
                         seen_categories.add(item.category)
@@ -289,7 +291,7 @@ class PrivacyReviewer:
         return violations
 
     def _ensure_semantic_index(self, participants: set) -> None:
-        """确保语义检测索引已构建（惰性构建）"""
+        """Ensure the semantic detection index is built (lazy initialization)."""
         if not self.semantic_enabled or self._semantic is None:
             return
         if self._semantic_index_built:
@@ -302,7 +304,7 @@ class PrivacyReviewer:
         self._semantic_index_built = True
 
     def _check_semantic(self, message: str, participants: set) -> list[Violation]:
-        """语义相似度检测 (Layer 3)"""
+        """Semantic similarity detection (Layer 3)."""
         if not self.semantic_enabled or self._semantic is None:
             return []
 
@@ -320,8 +322,8 @@ class PrivacyReviewer:
             violations.append(
                 Violation(
                     category=hit.category,
-                    matched=f"[语义匹配 sim={hit.similarity:.2f}] {hit.matched_content[:60]}",
-                    description=f"语义检测到与私有{hit.category}信息高度相似的内容",
+                    matched=f"[Semantic match sim={hit.similarity:.2f}] {hit.matched_content[:60]}",
+                    description=f"Semantic detection found content highly similar to private {hit.category} information",
                 )
             )
             seen_categories.add(hit.category)
@@ -332,16 +334,16 @@ class PrivacyReviewer:
         self, message: str, channel_id: str, participants: set, sender: str = ""
     ) -> ReviewResult:
         """
-        审查消息
+        Review a message.
 
         Args:
-            message: 待发送的消息
-            channel_id: 目标频道
-            participants: 频道参与者集合
-            sender: 消息发送者（通常是 assistant）
+            message: The message to be sent
+            channel_id: Target channel
+            participants: Set of channel participants
+            sender: Message sender (usually the assistant)
 
         Returns:
-            ReviewResult: 审查结果
+            ReviewResult: The review result
         """
         # Disabled → always pass
         if not self.enabled:
@@ -368,13 +370,13 @@ class PrivacyReviewer:
             return ReviewResult(
                 passed=False,
                 violations=violations,
-                suggestion="消息包含私有信息，应移除后重新生成",
+                suggestion="Message contains private information; it should be removed and regenerated.",
             )
 
         return ReviewResult(passed=True, message=message)
 
     def get_status(self) -> dict:
-        """返回审查器状态"""
+        """Return the reviewer's status."""
         return {
             "enabled": self.enabled,
             "block_on_violation": self.block_on_violation,

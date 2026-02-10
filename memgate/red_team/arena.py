@@ -1,7 +1,7 @@
 """
-Arena — 红蓝对抗竞技场
+Arena — Red-Blue Adversarial Arena
 
-协调 AttackerAgent、DefenderAgent 和 Evaluator 进行多轮对抗。
+Coordinates AttackerAgent, DefenderAgent, and Evaluator for multi-round adversarial testing.
 """
 
 import time
@@ -16,14 +16,14 @@ from .report import ReportGenerator
 
 class Arena:
     """
-    对抗竞技场
+    Adversarial arena.
 
-    运行 N 轮攻防对抗，记录结果并生成报告。
+    Runs N rounds of attack-defense adversarial testing, records results, and generates reports.
 
-    三个角色：
-    - 红队（AttackerAgent）：生成攻击 prompt
-    - 蓝队（DefenderAgent）：生成回复 + MemGate 审查
-    - 裁判（Evaluator）：独立判断是否泄露
+    Three roles:
+    - Red Team (AttackerAgent): Generates attack prompts
+    - Blue Team (DefenderAgent): Generates responses + MemGate review
+    - Judge (Evaluator): Independently determines whether leaks occurred
     """
 
     def __init__(
@@ -59,17 +59,17 @@ class Arena:
         self.report_gen = ReportGenerator()
 
     def _get_strategies(self) -> list[str]:
-        """获取要使用的策略列表"""
+        """Get the list of strategies to use."""
         if self.strategy_filter == "all":
             return list_strategies()
         return [self.strategy_filter]
 
     def run(self) -> dict:
         """
-        运行完整对抗
+        Run the full adversarial test.
 
         Returns:
-            JSON-serializable 报告 dict
+            JSON-serializable report dict
         """
         strategies = self._get_strategies()
         round_id = 0
@@ -98,7 +98,7 @@ class Arena:
         return report.to_dict()
 
     def _run_round(self, round_id: int, strategy_name: str):
-        """运行一轮对抗"""
+        """Run a single round of adversarial testing."""
         # 1. Attacker generates attack prompt
         attack_prompt = self.attacker.generate_attack(strategy_name)
 

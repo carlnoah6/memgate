@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Privacy Guard — 语义级隐私检测器 (Embedding-based)
+Privacy Guard — Semantic-level Privacy Detector (Embedding-based)
 
-通过将隐私知识条目编码为向量，对输出文本做语义相似度匹配，
-弥补关键词/正则匹配被改述绕过的短板。
+Encodes private knowledge entries as vectors and performs semantic similarity
+matching on output text, compensating for the shortcomings of keyword/regex
+matching when paraphrasing is used to evade detection.
 
-支持多种 embedding provider:
-  - "openai"  : OpenAI text-embedding-3-small (需 OPENAI_API_KEY)
-  - "local"   : sentence-transformers 本地模型 (需 pip install sentence-transformers)
-  - "ngram"   : 内置字符 n-gram + 词袋 混合相似度 (零依赖, 用于测试/fallback)
+Supports multiple embedding providers:
+  - "openai"  : OpenAI text-embedding-3-small (requires OPENAI_API_KEY)
+  - "local"   : sentence-transformers local model (requires pip install sentence-transformers)
+  - "ngram"   : Built-in character n-gram + bag-of-words hybrid similarity (zero dependencies, for testing/fallback)
 
-典型用法:
+Typical usage:
     detector = SemanticDetector(provider="ngram")
     detector.build_index(private_items)
     hits = detector.detect("He goes hiking with Ma Yuan every two weeks")
@@ -32,62 +33,62 @@ import numpy as np
 
 from .knowledge_store import KnowledgeItem, KnowledgeStore, ALWAYS_PRIVATE_CATEGORIES
 
-# ─── 常量 ──────────────────────────────────────────────────────
+# --- Constants ---
 
-DEFAULT_SIMILARITY_THRESHOLD = 0.55  # cosine similarity 阈值
-DEFAULT_TOP_K = 5  # 每次检索 top-k 最近邻
+DEFAULT_SIMILARITY_THRESHOLD = 0.55  # Cosine similarity threshold
+DEFAULT_TOP_K = 5  # Retrieve top-k nearest neighbors per query
 CACHE_DIR = Path(__file__).parent / ".embedding_cache"
 
 
-# ═══════════════════════════════════════════════════════════════
-#  数据类
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+#  Data Classes
+# ===================================================================
 
 
 @dataclass
 class SemanticHit:
-    """一条语义匹配结果"""
+    """A single semantic match result."""
 
     item_id: str
     category: str
     similarity: float
-    matched_content: str  # 被命中的知识条目原文
-    query_text: str  # 触发命中的查询片段
+    matched_content: str  # Original content of the matched knowledge entry
+    query_text: str  # Query fragment that triggered the match
 
 
 @dataclass
 class SemanticResult:
-    """语义检测汇总"""
+    """Semantic detection summary."""
 
     flagged: bool
     hits: list[SemanticHit] = field(default_factory=list)
     threshold: float = DEFAULT_SIMILARITY_THRESHOLD
 
 
-# ═══════════════════════════════════════════════════════════════
-#  Embedding Provider 抽象层
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+#  Embedding Provider Abstraction Layer
+# ===================================================================
 
 
 class EmbeddingProvider(ABC):
-    """嵌入向量提供器基类"""
+    """Base class for embedding vector providers."""
 
     @abstractmethod
     def embed(self, texts: list[str]) -> np.ndarray:
         """
-        将一组文本编码为向量矩阵。
+        Encode a list of texts into a vector matrix.
 
         Args:
-            texts: 文本列表
+            texts: List of text strings
         Returns:
-            shape (len(texts), dim) 的 float32 ndarray
+            float32 ndarray of shape (len(texts), dim)
         """
         ...
 
     @property
     @abstractmethod
     def dim(self) -> int:
-        """向量维度"""
+        """Vector dimensionality."""
         ...
 
 
@@ -104,7 +105,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         try:
             import openai  # noqa: F401
         except ImportError:
-            raise ImportError("pip install openai  (需要 openai SDK)")
+            raise ImportError("pip install openai  (requires openai SDK)")
 
         self.model = model
         self.batch_size = batch_size
@@ -135,14 +136,14 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
 
 
 class LocalEmbeddingProvider(EmbeddingProvider):
-    """sentence-transformers 本地模型"""
+    """sentence-transformers local model."""
 
     def __init__(self, model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"):
         try:
             from sentence_transformers import SentenceTransformer
         except ImportError:
             raise ImportError(
-                "pip install sentence-transformers  (需要 sentence-transformers)"
+                "pip install sentence-transformers  (requires sentence-transformers)"
             )
         self._model = SentenceTransformer(model_name)
         self._dim = self._model.get_sentence_embedding_dimension()
@@ -155,14 +156,14 @@ class LocalEmbeddingProvider(EmbeddingProvider):
         return self._model.encode(texts, convert_to_numpy=True).astype(np.float32)
 
 
-# ─── 内置轻量级 N-gram Provider (零依赖 fallback) ─────────────
+# --- Built-in lightweight N-gram Provider (zero-dependency fallback) ---
 
 
 def _tokenize(text: str) -> list[str]:
     """
-    中英文混合分词:
-      - 英文按空格/标点切词并小写化
-      - 中文逐字拆分（CJK 字符）
+    Mixed tokenizer for Chinese and English text:
+      - English: split by whitespace/punctuation and lowercase
+      - Chinese: split into individual CJK characters
     """
     tokens: list[str] = []
     buf: list[str] = []
@@ -190,17 +191,17 @@ def _tokenize(text: str) -> list[str]:
 
 
 def _char_ngrams(text: str, n: int = 3) -> list[str]:
-    """提取字符级 n-gram"""
+    """Extract character-level n-grams."""
     text = re.sub(r"\s+", " ", text.lower().strip())
     return [text[i : i + n] for i in range(len(text) - n + 1)]
 
 
 class NgramEmbeddingProvider(EmbeddingProvider):
     """
-    基于字符 n-gram + 词袋 的混合嵌入。
+    Hybrid embedding based on character n-grams + bag-of-words.
 
-    无外部依赖。将文本映射到固定维度的稀疏向量（通过 hash 投影），
-    然后 L2 归一化后做 cosine 相似度。
+    No external dependencies. Maps text to a fixed-dimension sparse vector
+    (via hash projection), then L2-normalizes for cosine similarity.
     """
 
     def __init__(self, dim: int = 4096, char_n: int = 3, word_weight: float = 2.0):
@@ -245,15 +246,15 @@ class NgramEmbeddingProvider(EmbeddingProvider):
         return vecs
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 #  Privacy Vector Index
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 
 class PrivacyVectorIndex:
     """
-    隐私知识向量索引。
-    使用 numpy 实现 cosine 相似度搜索，无需 faiss 依赖。
+    Privacy knowledge vector index.
+    Uses numpy for cosine similarity search, no faiss dependency required.
     """
 
     def __init__(self, provider: EmbeddingProvider):
@@ -304,15 +305,16 @@ class PrivacyVectorIndex:
         return self._items[index]
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 #  Semantic Detector
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 
 def _split_into_segments(text: str, max_len: int = 120) -> list[str]:
-    """将长文本按句子切分为多个片段。"""
+    """Split long text into multiple segments by sentence."""
     if len(text) <= max_len:
         return [text]
+    # Split by common sentence delimiters (English and Chinese)
     parts = re.split(r"[。\n；;.!！?？]+", text)
     segments: list[str] = []
     buf = ""
@@ -332,10 +334,11 @@ def _split_into_segments(text: str, max_len: int = 120) -> list[str]:
 
 class SemanticDetector:
     """
-    语义级隐私检测器。
+    Semantic-level privacy detector.
 
-    使用 embedding 向量索引检测输出文本是否在语义上匹配私有知识。
-    作为关键词/正则匹配的补充层。
+    Uses an embedding vector index to detect whether output text semantically
+    matches private knowledge. Serves as a supplementary layer to keyword/regex
+    matching.
 
     Usage:
         detector = SemanticDetector(provider="ngram")
@@ -370,7 +373,7 @@ class SemanticDetector:
         return self._index
 
     def build_index(self, private_items: list[KnowledgeItem]) -> int:
-        """为私有知识条目构建向量索引（只索引 always-private 类别）。"""
+        """Build a vector index for private knowledge entries (only indexes always-private categories)."""
         items = [it for it in private_items if it.category in ALWAYS_PRIVATE_CATEGORIES]
         self._index = PrivacyVectorIndex(self._provider)
         self._index.build(items)
@@ -379,7 +382,7 @@ class SemanticDetector:
     def build_index_from_store(
         self, store: KnowledgeStore, users: Optional[list[str]] = None
     ) -> int:
-        """从 KnowledgeStore 构建索引。"""
+        """Build the index from a KnowledgeStore."""
         if users is None:
             users = store.list_users()
         all_private: list[KnowledgeItem] = []
@@ -388,7 +391,7 @@ class SemanticDetector:
         return self.build_index(all_private)
 
     def detect(self, text: str) -> SemanticResult:
-        """检测文本是否语义上匹配私有知识。"""
+        """Detect whether the text semantically matches private knowledge."""
         if self._index is None or self._index.size == 0:
             return SemanticResult(flagged=False, threshold=self.threshold)
         segments = _split_into_segments(text)
@@ -421,9 +424,9 @@ class SemanticDetector:
         )
 
 
-# ═══════════════════════════════════════════════════════════════
-#  Provider 工厂
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
+#  Provider Factory
+# ===================================================================
 
 
 def _create_provider(name: str, **kwargs) -> EmbeddingProvider:
@@ -440,9 +443,9 @@ def _create_provider(name: str, **kwargs) -> EmbeddingProvider:
         )
 
 
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 #  CLI
-# ═══════════════════════════════════════════════════════════════
+# ===================================================================
 
 if __name__ == "__main__":
     import argparse

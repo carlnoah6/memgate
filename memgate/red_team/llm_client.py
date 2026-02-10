@@ -1,7 +1,7 @@
 """
-LLM Client — 统一的大模型调用接口
+LLM Client — Unified LLM API Interface
 
-支持 OpenAI (GPT-4) 和 Anthropic (Claude) 格式。
+Supports OpenAI (GPT-4) and Anthropic (Claude) formats.
 """
 
 import requests
@@ -10,12 +10,12 @@ from typing import List, Dict
 
 class LLMClient:
     """
-    统一 LLM 客户端
+    Unified LLM client.
 
     Args:
-        api_base: API 基础 URL
-        api_key: API 密钥
-        provider: "openai" 或 "anthropic" (默认自动检测，检测失败则默认为 openai)
+        api_base: API base URL
+        api_key: API key
+        provider: "openai" or "anthropic" (defaults to auto-detection; falls back to openai if detection fails)
     """
 
     def __init__(self, api_base: str, api_key: str, provider: str = "auto"):
@@ -41,7 +41,7 @@ class LLMClient:
         temperature: float = 0.7,
         max_tokens: int = 1024,
     ) -> str:
-        """调用 LLM 生成回复"""
+        """Call the LLM to generate a response."""
         if self.provider == "anthropic":
             return self._call_anthropic(messages, model, temperature, max_tokens)
         else:
