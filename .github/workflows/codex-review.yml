@@ -1,0 +1,78 @@
+name: Codex PR Review
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  codex-review:
+    name: 🤖 Codex Code Review
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Codex CLI
+        run: npm install -g @openai/codex
+
+      - name: Get PR diff
+        id: diff
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          DIFF=$(git diff origin/${{ github.base_ref }}...HEAD -- '*.py' '*.yml' '*.yaml' '*.toml' '*.md')
+          # Save diff to file (avoid shell escaping issues)
+          echo "$DIFF" > /tmp/pr_diff.txt
+          echo "has_diff=$([ -s /tmp/pr_diff.txt ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Run Codex Review
+        if: steps.diff.outputs.has_diff == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          DIFF=$(cat /tmp/pr_diff.txt)
+
+          REVIEW_PROMPT="You are reviewing a PR for MemGate, a privacy-aware memory isolation library for AI agents.
+
+          Review this diff for:
+          1. **Security issues** — especially privacy leaks, hardcoded secrets, unsafe defaults
+          2. **Logic errors** — incorrect privacy checks, missing edge cases
+          3. **Code quality** — anti-patterns, naming, structure
+          4. **Test coverage** — are new features tested? Are edge cases covered?
+
+          Be concise. Only flag real issues. No filler praise.
+
+          Diff:
+          $DIFF"
+
+          # Create temp git repo for codex
+          SCRATCH=$(mktemp -d) && cd $SCRATCH && git init -q
+          REVIEW=$(codex exec "$REVIEW_PROMPT" 2>&1 || true)
+
+          # Save review
+          echo "$REVIEW" > /tmp/review_output.txt
+
+      - name: Post Review Comment
+        if: steps.diff.outputs.has_diff == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          REVIEW=$(cat /tmp/review_output.txt)
+          if [ -n "$REVIEW" ]; then
+            BODY="## 🤖 Codex Review
+
+          $REVIEW
+
+          ---
+          *Automated review by Codex CLI*"
+            gh pr comment ${{ github.event.pull_request.number }} --body "$BODY"
+          fi
