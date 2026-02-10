@@ -13,23 +13,30 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional
 from pathlib import Path
 
-SGT = timezone(timedelta(hours=8))
-PRIVACY_DIR = Path(__file__).parent.parent / "privacy"
+# Data directory configuration
+# Priority: Env Var > Default Workspace Path
+DEFAULT_PRIVACY_DIR = Path.home() / ".openclaw" / "workspace" / "privacy"
+PRIVACY_DIR = Path(os.getenv("MEMGATE_DATA_DIR", DEFAULT_PRIVACY_DIR))
 KNOWLEDGE_DIR = PRIVACY_DIR / "knowledge"
+
+SGT = timezone(timedelta(hours=8))
 
 
 @dataclass
 class KnowledgeItem:
     """一条知识"""
+
     id: str
     user: str
     content: str
     visibility: str  # "public" | "private"
-    category: str    # "skill", "preference", "calendar", "family", "finance", etc.
-    source: str      # "user_declared", "calendar_sync", "group_chat:channel_id", "dm", etc.
-    created: str     # ISO 8601
+    category: str  # "skill", "preference", "calendar", "family", "finance", etc.
+    source: str  # "user_declared", "calendar_sync", "group_chat:channel_id", "dm", etc.
+    created: str  # ISO 8601
     tags: list = field(default_factory=list)
-    channel_scope: Optional[str] = None  # if from group chat, only visible in that group
+    channel_scope: Optional[str] = (
+        None  # if from group chat, only visible in that group
+    )
 
     def to_dict(self):
         d = asdict(self)
@@ -37,7 +44,7 @@ class KnowledgeItem:
         return {k: v for k, v in d.items() if v is not None}
 
     @classmethod
-    def from_dict(cls, d: dict) -> 'KnowledgeItem':
+    def from_dict(cls, d: dict) -> "KnowledgeItem":
         return cls(
             id=d.get("id", str(uuid.uuid4())),
             user=d["user"],
@@ -53,8 +60,13 @@ class KnowledgeItem:
 
 # Categories that are ALWAYS private, regardless of user tagging
 ALWAYS_PRIVATE_CATEGORIES = {
-    "calendar", "family", "finance", "health",
-    "auth", "contact_private", "dm_content"
+    "calendar",
+    "family",
+    "finance",
+    "health",
+    "auth",
+    "contact_private",
+    "dm_content",
 }
 
 
@@ -63,22 +75,100 @@ class KnowledgeTagger:
 
     # Category detection patterns
     CATEGORY_PATTERNS = {
-        "calendar": ["日程", "日历", "约了", "见了", "去了", "行程", "预约", "航班",
-                      "会议", "开会", "下周", "上周", "明天", "后天",
-                      "schedule", "calendar", "meeting", "appointment"],
-        "family": ["孩子", "儿子", "女儿", "老婆", "太太", "妻子", "爸", "妈",
-                    "child", "son", "daughter", "wife", "husband", "family"],
-        "finance": ["工资", "薪水", "投资", "账户", "余额", "贷款", "信用卡",
-                     "salary", "investment", "account", "balance", "loan"],
-        "health": ["看医生", "体检", "生病", "药", "手术", "诊所",
-                    "doctor", "hospital", "medicine", "health"],
+        "calendar": [
+            "日程",
+            "日历",
+            "约了",
+            "见了",
+            "去了",
+            "行程",
+            "预约",
+            "航班",
+            "会议",
+            "开会",
+            "下周",
+            "上周",
+            "明天",
+            "后天",
+            "schedule",
+            "calendar",
+            "meeting",
+            "appointment",
+        ],
+        "family": [
+            "孩子",
+            "儿子",
+            "女儿",
+            "老婆",
+            "太太",
+            "妻子",
+            "爸",
+            "妈",
+            "child",
+            "son",
+            "daughter",
+            "wife",
+            "husband",
+            "family",
+        ],
+        "finance": [
+            "工资",
+            "薪水",
+            "投资",
+            "账户",
+            "余额",
+            "贷款",
+            "信用卡",
+            "salary",
+            "investment",
+            "account",
+            "balance",
+            "loan",
+        ],
+        "health": [
+            "看医生",
+            "体检",
+            "生病",
+            "药",
+            "手术",
+            "诊所",
+            "doctor",
+            "hospital",
+            "medicine",
+            "health",
+        ],
         "auth": ["密码", "password", "api_key", "token", "secret", "credential"],
-        "contact_private": ["电话", "手机号", "地址", "住在", "身份证",
-                             "phone", "address", "ID number"],
-        "skill": ["会", "擅长", "精通", "学过", "技能",
-                   "know", "skilled", "proficient", "experience with"],
-        "preference": ["喜欢", "偏好", "习惯", "爱好",
-                        "like", "prefer", "hobby", "favorite"],
+        "contact_private": [
+            "电话",
+            "手机号",
+            "地址",
+            "住在",
+            "身份证",
+            "phone",
+            "address",
+            "ID number",
+        ],
+        "skill": [
+            "会",
+            "擅长",
+            "精通",
+            "学过",
+            "技能",
+            "know",
+            "skilled",
+            "proficient",
+            "experience with",
+        ],
+        "preference": [
+            "喜欢",
+            "偏好",
+            "习惯",
+            "爱好",
+            "like",
+            "prefer",
+            "hobby",
+            "favorite",
+        ],
     }
 
     def detect_category(self, content: str) -> str:
@@ -90,11 +180,12 @@ class KnowledgeTagger:
                     return category
         return "general"
 
-    def classify(self, content: str, source: str = "unknown",
-                 user_override: Optional[str] = None) -> str:
+    def classify(
+        self, content: str, source: str = "unknown", user_override: Optional[str] = None
+    ) -> str:
         """
         返回 'public' 或 'private'
-        
+
         user_override: 用户显式指定的可见性
         """
         # User explicit override (but cannot override always-private)

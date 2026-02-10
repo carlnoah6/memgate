@@ -11,8 +11,9 @@ from typing import Optional
 from dataclasses import dataclass
 
 import sys as _sys
+
 _sys.path.insert(0, str(Path(__file__).parent))
-from knowledge_store import KnowledgeStore, KnowledgeItem, KNOWLEDGE_DIR
+from knowledge_store import KnowledgeStore, KnowledgeItem
 
 
 PRIVACY_DIR = Path(__file__).parent.parent / "privacy"
@@ -22,6 +23,7 @@ CONFIG_PATH = PRIVACY_DIR / "config.json"
 @dataclass
 class ChannelInfo:
     """频道信息"""
+
     channel_id: str
     participants: set  # set of user IDs
     channel_type: str  # "dm" or "group"
@@ -41,7 +43,7 @@ def load_config() -> dict:
 class PrivacyContext:
     """
     隐私上下文：决定当前 session 可以访问哪些知识
-    
+
     核心规则：
     1. 私聊（1人）→ 该用户的所有知识（public + private）
     2. 群聊（多人）→ 所有参与者的 public 知识
@@ -115,7 +117,7 @@ class PrivacyContext:
     def filter_memory_results(self, results: list[dict]) -> list[dict]:
         """
         过滤 memory_search 结果
-        
+
         results: list of {path: str, content: str, ...}
         """
         if not self.config.get("enabled", True):
