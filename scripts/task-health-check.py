@@ -74,6 +74,20 @@ def check_health():
                 "elapsed_min": None,
             })
 
+    # Auto-dissolve task group chats for completed/failed tasks
+    for t in board["tasks"]:
+        if t["status"] in ("done", "failed", "cancelled") and t.get("task_chat_id"):
+            try:
+                import subprocess
+                subprocess.run(
+                    ["python3", "/home/ubuntu/.openclaw/workspace/scripts/task-chat.py",
+                     "dissolve", t["task_chat_id"]],
+                    timeout=15, capture_output=True
+                )
+                t["task_chat_id"] = None
+            except Exception:
+                pass  # Will retry next heartbeat
+
     # Auto-cleanup old completed/failed/cancelled tasks
     cutoff = now - timedelta(days=CLEANUP_DAYS)
     before = len(board["tasks"])
