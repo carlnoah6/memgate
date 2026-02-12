@@ -110,6 +110,61 @@ def start_task(task_id, session_key=""):
     sys.exit(1)
 
 
+def _dissolve_task_chat(task_id):
+    """Auto-dissolve the group chat for a completed/failed/cancelled task."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["python3", os.path.join(os.path.dirname(__file__), "task-chat.py"),
+             "dissolve-task", task_id],
+            capture_output=True, text=True, timeout=15
+        )
+        if result.returncode == 0:
+            data = json.loads(result.stdout)
+            return data.get("dissolved", False)
+    except Exception as e:
+        print(f"Warning: chat dissolve error: {e}", file=sys.stderr)
+    return False
+
+
+def _send_result_to_chat(task, result_text, is_success=True):
+    """Send task result summary to the task's group chat before dissolving."""
+    chat_id = task.get("task_chat_id")
+    if not chat_id:
+        return
+    try:
+        import subprocess
+        icon = "✅" if is_success else "❌"
+        status_text = "完成" if is_success else "失败"
+        msg = f"{icon} 任务 {task['id']} {status_text}\n\n📋 {task['description']}\n\n📝 {result_text or '无详细信息'}"
+        subprocess.run(
+            ["bash", os.path.join(os.path.dirname(__file__), "lark-send-message.sh"),
+             chat_id, msg],
+            capture_output=True, text=True, timeout=15
+        )
+    except Exception:
+        pass
+
+
+def _send_result_to_source(task, result_text, is_success=True):
+    """Send task result back to the source chat (where Carl requested it)."""
+    source_chat = task.get("source_chat")
+    if not source_chat:
+        return
+    try:
+        import subprocess
+        icon = "✅" if is_success else "❌"
+        status_text = "完成" if is_success else "失败"
+        msg = f"{icon} {task['id']} {status_text}：{task['description']}\n\n{result_text or ''}"
+        subprocess.run(
+            ["bash", os.path.join(os.path.dirname(__file__), "lark-send-message.sh"),
+             source_chat, msg],
+            capture_output=True, text=True, timeout=15
+        )
+    except Exception:
+        pass
+
+
 def complete_task(task_id, result=""):
     board = load_board()
     for t in board["tasks"]:
@@ -123,6 +178,12 @@ def complete_task(task_id, result=""):
             out = {"id": task_id, "status": "done"}
             if unblocked:
                 out["unblocked"] = [u["id"] for u in unblocked]
+            # Auto: send result to task chat + source chat, then dissolve
+            _send_result_to_chat(t, result, is_success=True)
+            _send_result_to_source(t, result, is_success=True)
+            if t.get("task_chat_id"):
+                _dissolve_task_chat(task_id)
+                out["chat_dissolved"] = True
             print(json.dumps(out, ensure_ascii=False))
             return
     print(f"Task {task_id} not found", file=sys.stderr)
@@ -137,6 +198,11 @@ def fail_task(task_id, error=""):
             t["result"] = error
             t["completed"] = now_iso()
             save_board(board)
+            # Auto: send error to task chat + source chat, then dissolve
+            _send_result_to_chat(t, error, is_success=False)
+            _send_result_to_source(t, error, is_success=False)
+            if t.get("task_chat_id"):
+                _dissolve_task_chat(task_id)
             print(json.dumps({"id": task_id, "status": "failed"}, ensure_ascii=False))
             return
     print(f"Task {task_id} not found", file=sys.stderr)
@@ -150,6 +216,9 @@ def cancel_task(task_id):
             t["status"] = "cancelled"
             t["completed"] = now_iso()
             save_board(board)
+            # Auto: dissolve chat if exists
+            if t.get("task_chat_id"):
+                _dissolve_task_chat(task_id)
             print(json.dumps({"id": task_id, "status": "cancelled"}, ensure_ascii=False))
             return
     print(f"Task {task_id} not found", file=sys.stderr)
