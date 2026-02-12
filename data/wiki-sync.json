@@ -34,8 +34,8 @@
       "title": "📋 Backlog — 任务队列",
       "space_id": "7604126789916479197",
       "parent_token": "IUBdwFzDhisMDrkm1fAltnOhgGd",
-      "last_hash": "4b65e77968fbff9f388dbf5d9b358019",
-      "last_synced": "2026-02-10T08:27:59.042068+08:00",
+      "last_hash": "01ba802e7a96b909248a99a7721e71f6",
+      "last_synced": "2026-02-12T22:54:18.561023+08:00",
       "node_token": "APNVwIS2ni9iwkkOhfwl7ASUgqc",
       "obj_token": "TW6vdfVy4ohWvHx0GBQl1XsGgdc",
       "url": "https://fg9w9yu3odc.sg.larksuite.com/wiki/APNVwIS2ni9iwkkOhfwl7ASUgqc"
@@ -49,6 +49,31 @@
       "node_token": "BzPZwe5whiykOpkx2DnlXybXgtb",
       "obj_token": "JYGjdluAmoxRkOxyMozlCGA3gRe",
       "url": "https://fg9w9yu3odc.sg.larksuite.com/wiki/BzPZwe5whiykOpkx2DnlXybXgtb"
+    },
+    "data/backup-restore-guide.md": {
+      "title": "🔄 工作区备份与恢复指南",
+      "space_id": "7604126789916479197",
+      "parent_token": "IUBdwFzDhisMDrkm1fAltnOhgGd",
+      "last_hash": "d7daafbbccee93298711f2e8a90d96b3",
+      "last_synced": "2026-02-12T22:54:20.652079+08:00",
+      "node_token": "MORowsTtSi46FrkCCcclK77Hgze",
+      "obj_token": "WaYhdmSiIoQHFzx7P6GlDhG7gXe",
+      "url": "https://fg9w9yu3odc.sg.larksuite.com/wiki/MORowsTtSi46FrkCCcclK77Hgze"
+    },
+    "docs/openclaw-upgrade-plan-2.9.md": {
+      "title": "OpenClaw 2.9 升级方案",
+      "space_id": "7604126789916479197",
+      "parent_token": "IUBdwFzDhisMDrkm1fAltnOhgGd"
+    },
+    "docs/group-title-design.md": {
+      "title": "群标题自动更新功能 — 设计文档",
+      "space_id": "7604126789916479197",
+      "parent_token": "IUBdwFzDhisMDrkm1fAltnOhgGd",
+      "node_token": "QGqbwMLXdiyC3GkdAQWlwOjygLe",
+      "obj_token": "FnUiddMWyoDE0Gxv2sylYGcig4f",
+      "url": "https://fg9w9yu3odc.sg.larksuite.com/wiki/QGqbwMLXdiyC3GkdAQWlwOjygLe",
+      "last_hash": "f7c5dbfa3059898766652f58b3a40085",
+      "last_synced": "2026-02-13T00:06:21.964132+08:00"
     }
   },
   "defaults": {}

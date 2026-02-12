@@ -1,0 +1,32 @@
+{
+  "enabled": true,
+  "review": {
+    "enabled": true,
+    "blockOnViolation": true,
+    "llmSelfReview": false
+  },
+  "defaults": {
+    "visibility": "private",
+    "alwaysPrivateCategories": [
+      "calendar",
+      "family",
+      "finance",
+      "health",
+      "auth",
+      "contact_private",
+      "dm_content"
+    ]
+  },
+  "knowledgeBase": {
+    "path": "privacy/knowledge",
+    "autoSync": true,
+    "syncInterval": 3600
+  },
+  "channels": {
+    "autoDetect": true,
+    "manualMapping": {
+      "oc_453c88ec52dd029845c46249837e3ba0": ["carl"],
+      "oc_a2a70c6b1234567890abcdef12345678": ["carl", "alice", "bob"]
+    }
+  }
+}

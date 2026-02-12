@@ -1,50 +1,51 @@
 {
   "chats": {
     "oc_a2a70c6b4a29c2f2eb6c2500ea42a500": {
-      "name": "Luna 卢娜 - 数字员工",
-      "tokens": 190015,
-      "checked_at": 1770856086
+      "name": "Luna 卢娜数字员工",
+      "tokens": 113648,
+      "checked_at": 1770906701,
+      "protected": true
     },
     "oc_0900e63860f8b6d1b08285262701817f": {
       "name": "Luna任务",
-      "tokens": 153647,
-      "checked_at": 1770856087
+      "tokens": 56609,
+      "checked_at": 1770906701
     },
     "oc_630995d9b870d2ff6ab3fa34a4e7315a": {
       "name": "📋 Luna任务板",
-      "tokens": 121214,
-      "checked_at": 1770856087
+      "tokens": 71862,
+      "checked_at": 1770906701
     },
     "oc_4fe2e6e2dbfd0e6fc35c9dab672ab820": {
       "name": "Luan测试群聊",
-      "tokens": 101484,
-      "checked_at": 1770856088
+      "tokens": 63497,
+      "checked_at": 1770906701
     },
     "oc_7f3ebd31a5cf2fec9170952b29eb2700": {
-      "name": "Luna日程",
-      "tokens": 70940,
-      "checked_at": 1770856089
+      "name": "Luna 🔄 tid-0212-29 群标题自动更新功能 — 权限配置和测试",
+      "tokens": 155471,
+      "checked_at": 1770906700
     },
     "oc_680d9c843e6a0ad501de9299a97f3a7e": {
       "name": "Luna机器人主对话",
-      "tokens": 44703,
-      "checked_at": 1770856090
+      "tokens": 72915,
+      "checked_at": 1770906701
     },
     "oc_c448387bdb04698b47d3f690dcdaebe2": {
       "name": "🤖 t126 系统健康检查：验证所有 patch 状态 + 磁盘空间 +",
       "tokens": 42841,
-      "checked_at": 1770856091
+      "checked_at": 1770906701
     },
     "oc_4a92824a97312312abf48efd60df7100": {
       "name": "🤖 tid-160 测试任务v2：1分钟执行+群内进度汇报",
       "tokens": 33183,
-      "checked_at": 1770856092
+      "checked_at": 1770906702
     },
     "oc_453c88ec52dd029845c46249837e3ba0": {
       "name": "(unknown)",
-      "tokens": 0,
-      "checked_at": 1770856093
+      "tokens": 52104,
+      "checked_at": 1770906701
     }
   },
-  "updated_at": 1770856093
+  "updated_at": 1770906702
 }

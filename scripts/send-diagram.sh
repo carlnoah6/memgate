@@ -34,8 +34,8 @@ else
     shift
 fi
 
-APP_ID="cli_a90c3a6163785ed2"
-APP_SECRET="***LARK_SECRET_REMOVED***"
+APP_ID=""  # credentials managed by lark_common.py
+APP_SECRET=""
 DIAGRAM_TYPE="${DIAGRAM_TYPE:-d2}"
 D2_LAYOUT="${D2_LAYOUT:-dagre}"
 D2_THEME="${D2_THEME:-1}"
@@ -93,10 +93,7 @@ SIZE=$(stat -c%s "$TMPFILE" 2>/dev/null || stat -f%z "$TMPFILE" 2>/dev/null)
 echo "✅ Rendered: ${SIZE} bytes" >&2
 
 # ─── Upload & Send ────────────────────────────────────────
-TAT=$(curl -s -X POST "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal" \
-    -H "Content-Type: application/json" \
-    -d "{\"app_id\":\"$APP_ID\",\"app_secret\":\"$APP_SECRET\"}" \
-    | python3 -c "import sys,json;print(json.load(sys.stdin)['tenant_access_token'])")
+TAT=$(python3 -c "import sys; sys.path.insert(0, '$(dirname "$0")'); from lark_common import get_tenant_token; print(get_tenant_token())")
 
 IMAGE_KEY=$(curl -s -X POST "https://open.larksuite.com/open-apis/im/v1/images" \
     -H "Authorization: Bearer $TAT" \

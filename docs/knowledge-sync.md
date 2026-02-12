@@ -165,3 +165,27 @@ watcher 内置 3 秒防抖：同一文件在 3 秒内的多次修改只触发一
     "emoji": "🟡",           # 🔴 / 🟡 / 🟢
 },
 ```
+
+## 群聊隐私判断（2026-02-12 修正）
+
+### 教训
+早期实现简单判断 `kind == "group"` 就视为多人群，导致误判双人群（Carl + Bot）。
+
+### 正确方法
+必须通过 Lark API 检查群成员：
+1. 获取 bot open_id (`/bot/v3/info`)
+2. 获取群成员 (`/im/v1/chats/{chat_id}/members`)
+3. 排除 bot 自己
+4. 只剩 Carl → 视为私聊
+5. 有其他人 → 视为多人群
+
+### 实现
+- `scripts/check-group-privacy.py` — 单次检查脚本
+- `knowledge-sync.py::check_group_privacy_cached()` — 带缓存的检查函数
+- TTL: 1 小时，避免频繁 API 调用
+
+### 判定示例
+| 群聊 | 成员 | 判定 |
+|------|------|------|
+| `oc_680d9c...` | Carl | 私聊 ✅ |
+| `oc_a2a70c...` | Carl, QJunyi, zxc | 多人群 ❌ |

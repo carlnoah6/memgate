@@ -13,30 +13,15 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone, timedelta
 
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_tenant_token, BASE_URL
+
 SGT = timezone(timedelta(hours=8))
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 CARD_BUILDER = os.path.join(SCRIPTS_DIR, "lark-card-builder.py")
 STATE_FILE = "/home/ubuntu/.openclaw/workspace/data/dashboard-state.json"
 CHAT_ID = "oc_630995d9b870d2ff6ab3fa34a4e7315a"
-
-APP_ID = "cli_a90c3a6163785ed2"
-APP_SECRET = "***LARK_SECRET_REMOVED***"
-BASE_URL = "https://open.larksuite.com/open-apis"
-
-
-def get_tenant_token():
-    req = urllib.request.Request(
-        f"{BASE_URL}/auth/v3/tenant_access_token/internal",
-        data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode(),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.loads(resp.read())
-    token = data.get("tenant_access_token")
-    if not token:
-        raise RuntimeError(f"Failed to get token: {data}")
-    return token
 
 
 def load_state():

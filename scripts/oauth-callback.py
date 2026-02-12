@@ -2,13 +2,16 @@
 """Simple OAuth callback handler for Lark calendar authorization."""
 import json
 import os
+import sys
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 import urllib.request
 
-APP_ID = "cli_a90c3a6163785ed2"
-APP_SECRET = "***LARK_SECRET_REMOVED***"
-TOKEN_FILE = "/home/ubuntu/.openclaw/workspace/data/lark-user-token.json"
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import APP_ID, APP_SECRET, USER_TOKEN_FILE
+
+TOKEN_FILE = str(USER_TOKEN_FILE)
 
 class OAuthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -57,14 +60,9 @@ class OAuthHandler(BaseHTTPRequestHandler):
         """Exchange authorization code for user_access_token."""
         url = "https://open.larksuite.com/open-apis/authen/v1/oidc/access_token"
         
-        # First get app_access_token
-        app_token_url = "https://open.larksuite.com/open-apis/auth/v3/app_access_token/internal"
-        req = urllib.request.Request(app_token_url, 
-            data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode(),
-            headers={"Content-Type": "application/json"})
-        resp = urllib.request.urlopen(req)
-        app_data = json.loads(resp.read())
-        app_token = app_data.get("app_access_token", "")
+        # Get app_access_token via lark_common
+        from lark_common import get_app_token
+        app_token = get_app_token()
         
         # Exchange code
         req = urllib.request.Request(url,

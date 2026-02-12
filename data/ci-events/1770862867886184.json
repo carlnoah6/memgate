@@ -1,0 +1,9 @@
+{
+  "message": "\u274c CI Failure\nRepo: carlnoah6/api-proxy\nWorkflow: CI\nBranch: feat/security-hardening\nCommit: feat: security hardening - dynamic secrets and random admin key\n\nPR: #13\nLink: https://github.com/carlnoah6/api-proxy/actions/runs/21931074022",
+  "repo": "carlnoah6/api-proxy",
+  "workflow": "CI",
+  "conclusion": "failure",
+  "run_url": "https://github.com/carlnoah6/api-proxy/actions/runs/21931074022",
+  "branch": "feat/security-hardening",
+  "timestamp": 1770862867.8861823
+}

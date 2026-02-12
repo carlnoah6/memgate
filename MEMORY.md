@@ -70,6 +70,59 @@
 ### 批量行动，减少中断
 - 攒一批改动一起做，不要改一个就重启一次
 
+### 任务板更新规则（2026-02-12 Carl 确认）
+- **禁止自动推送任务板更新**：已从 HEARTBEAT.md 中移除 `task-board-notify.py` 调用
+- **原因**：Carl 不需要定期收到任务板状态更新，避免消息干扰
+- **记录**：当 Carl 说"不用定期给我发任务板更新"时，立即从心跳流程中移除相关调用
+- **验证**：检查 cron 任务列表和 HEARTBEAT.md 确保没有任务板推送配置
+
+### 📎 所有更新必须附带链接（2026-02-12 Carl 确认）
+**核心准则**：任何文档/表格/代码更新，回复时必须直接附带可点击链接。
+- ❌ 错误：「已更新 Wiki」→ 用户还得自己找链接
+- ✅ 正确：「已更新 Wiki：https://fg9w9yu3odc.sg.larksuite.com/wiki/xxx」
+- **原因**：Carl 在手机上操作，直接点击最高效；找目录切换来回浪费时间
+- **适用范围**：Wiki、Lark 表格、GitHub PR、任何有 URL 的资源
+
+### 🎯 群标题/状态显示 — 话题 > 任务（2026-02-12 群标题功能总结）
+**核心原则**：用户关心"在聊什么"，不是"系统在执行什么任务"。
+
+**设计演进**：
+| 版本 | 逻辑 | 问题 | 解决 |
+|------|------|------|------|
+| v1 | 显示 running 任务名 | 子任务跳动、所有群一样、无任务时"空闲" | ❌ |
+| v2 | 显示具体步骤 | 标题太长、看不懂 | ❌ |
+| v3 | 话题跟踪（3小时窗口） | 和规划器冲突 | 部分解决 |
+| **v4** | **混合模式** | 完美符合需求 | ✅ |
+
+**v4 混合模式逻辑**（固化在 `scripts/update-group-title.py`）：
+```
+1. 有活跃规划器 → "🔄 <规划器名字>"（如"群标题自动更新"）
+2. 无规划器但有对话 → "💬 聊<话题>"（如"聊飞书"）  
+3. 都无为 → "🌙 空闲"
+```
+
+**关键决策**：
+- ✅ 规划器名字（goal）而非具体任务/步骤
+- ✅ 3小时时间窗口（允许中断休息）
+- ✅ 15字符限制（手机端完整显示）
+- ❌ 不显示 task_id、不显示 Step X、不显示完整描述
+
+**经验总结**：
+1. **用户视角第一**：Carl 要"一眼知道在聊啥"，不是精确追踪
+2. **时间 > 状态**：对话自然节奏比系统状态更能反映"当前做什么"
+3. **简洁至上**：宁可模糊也不要冗长，15字符内表达完整意图
+4. **快速迭代**：3轮内找到正确方向，根据反馈实时调整
+
+**🐛 Bug 修复记录（2026-02-12 晚）**：
+| Bug | 症状 | 根因 | 修复 |
+|-----|------|------|------|
+| 变量定义顺序 | `NameError: WORKSPACE` | 常量定义在使用之后 | 调整代码顺序 |
+| Chat ID 提取 | 规划器检测总是失败 | `[:8]` 取前8位，实际文件名用后8位 | 改为 `[-8:]` |
+
+**教训**：文件名/ID 匹配必须**实际验证**，不能假设格式。代码写完后要用真实数据跑 `--analyze` 测试。
+
+**详细设计文档**: `docs/group-title-design.md`
+
 ### OpenClaw Session 管理（系统事实，不可想当然）
 - **Session 状态由 `sessions.json` 驱动**，OpenClaw 从文件加载状态，不是纯内存缓存
 - **清 session 两步走，无需重启**：
@@ -93,11 +146,44 @@
 | 主 session 做重活 | 自己 npm pack + 读源码 | replan 出去，代码调度保证 |
 | 新需求没进规划器 | 直接讨论方案 | 先 replan，代码跟踪保证不丢 |
 | watcher 重启放 HEARTBEAT.md | 写在 prompt 里靠自觉 | 写在 check-restart.sh 里代码执行 |
+| **重启流程靠 prompt** | **写在 HEARTBEAT.md 靠 LLM 遵守** | **硬编码在 restart-gateway.sh 里强制检查** |
 
 **检查清单（每次"固化"前自问）**：
 1. 这个流程能不能用脚本/代码保证？→ 能就写代码
 2. 如果 LLM 忘了这条规则，会出什么问题？→ 会出问题就不能靠 prompt
 3. 有没有现成的代码流程可以复用？→ 有就用，不要自己发明
+4. **重启流程检查**：是否在 restart-gateway.sh 里硬编码了所有检查？
+
+### 隐私/安全判断必须查 ground truth，禁止靠字段值（2026-02-12 血的教训）
+
+凡是涉及隐私、安全、权限的判断，必须通过 API/脚本获取真实数据，**禁止依赖简单的字段值**。
+
+| 场景 | ❌ 错误（靠字段值） | ✅ 正确（查 ground truth） |
+|------|-------------------|--------------------------|
+| 判断群聊隐私 | `kind == "group"` → 视为多人群 | 调 API 检查实际群成员 |
+| 识别 bot 身份 | 名字包含 "Luna" → 认为是 bot | `/bot/v3/info` 获取真实 open_id |
+| 判断私聊 | `kind == "direct"` → 直接信任 | 检查成员是否只有 Carl |
+
+**教训**：字段值只是技术分类，不代表实际语义。`kind: group` 可以是双人群（Carl+Bot），`name: Luna` 可以是真人用户。
+
+### 不确定时先查证，不要凭记忆说话（2026-02-12 教训）
+
+**错误示例**：群名更新时说"Lark Bot 没有权限通过 API 修改群名"，但 Carl 指出之前就是我改的。
+
+**根因**：
+- 没有先检查现有代码 (`update-group-title.py`)
+- 凭模糊记忆下结论
+- 遇到不确定的事，第一反应是"不行"而不是"查一下"
+
+**正确做法**：
+1. **不确定 → 查代码** — 看现有脚本怎么实现的
+2. **不确定 → 查日志** — 看之前成功/失败的记录
+3. **不确定 → 测试** — 小范围验证再下结论
+
+**固化检查清单**：
+- [ ] 说"不能/不行"之前，先找证据
+- [ ] 遇到权限/能力问题，先看已有代码
+- [ ] 避免"我记得..."，改用"代码显示..."
 
 ### 📋 规划器（planner.py）— 编排层（2026-02-12 review 后固化）
 
@@ -116,11 +202,12 @@
 | (隐藏) | cancelled | cancelled 步骤不显示 |
 | `🟢` / `✅` / `🚫` | list 命令 | active / completed / cancelled |
 
-**10 个命令**：
+**11 个命令**：
 
 | 命令 | 说明 |
 |------|------|
-| `init <chat_id> <goal> <steps_json>` | 创建计划，自动建第一步任务并标记 running |
+| `init <chat_id\|om_xxx> <goal> <steps_json>` | 创建**草稿**计划（不自动执行），发到群聊待确认 |
+| `start <chat_id\|om_xxx>` | 确认后启动草稿计划，创建并 spawn 第一步 |
 | `show <chat_id>` | 显示计划状态（format_plan 格式） |
 | `step-done <chat_id> <step_id> "结果"` | 标记完成 → 自动推进下一步 → 发 Lark 消息 |
 | `step-fail <chat_id> <step_id> "错误"` | 标记失败，**不自动推进**（等人工介入） |
@@ -130,6 +217,12 @@
 | `check-advances` | 扫描所有活跃 planner，报告需要推进的（心跳用） |
 | `list` | 列出所有 planner（active 优先） |
 | `find-by-task <task_id>` | 反查某个 task 属于哪个 plan |
+
+**⚠️ 规划器核心流程（2026-02-12 Carl 确认）**：
+```
+init（草稿）→ 展示给 Carl → 讨论/调整(replan) → Carl 确认 → start（开始执行）
+```
+**绝不能 init 后直接执行！** 必须等用户确认。这是代码强制的（init 只创建 draft，不 spawn）。
 
 **steps_json 格式（init 和 replan 统一）**：
 ```json
@@ -155,8 +248,15 @@
 - `cancel` → tm_cancel（running 任务）
 - 每个步骤的 task_id 存在 step JSON 中
 
+**⚠️ 群聊归属规则（2026-02-12 澄清）**：
+- **规划器本身不自动建群** — `planner.py` 只用 `chat_id` 作为规划文件的标识和通知目标
+- **自动建群的是任务面板** — 当 `task-manager.py add` 创建任务时，**默认自动建群**（`--no-chat` 跳过）
+- **归属原则：在哪聊，归属哪** — 规划器的 `chat_id` 应该对应**当前对话的群聊**，不应自动创建新群
+- 规划器通知会发到 `chat_id` 对应的群聊，所以归属要准确
+
 **使用原则**：
 - 任何多步项目都用规划器，不要手动管理状态或图标
+- **复杂问题用规划器，不要用子进程** — 规划器提供状态跟踪、可视化、可控推进，子进程适合独立研究任务
 - 项目进行中 Carl 提新需求 → **立刻 replan**，不在主 session 做重活
 - replan 保留 done/running，只替换 pending/failed/cancelled
 - 绝不在主 session 做调查/分析（违反 OS 模式 <10 秒原则）
@@ -181,8 +281,19 @@
 - **状态文件**：`data/knowledge-sync-state.json`（md5 + 内容快照）
 - **监控文件**：SOUL.md（🔴高）、MEMORY.md（🟡中）、TOOLS.md / HEARTBEAT.md（🟢低）
 - **机制**：inotifywait 检测变更 → 生成带实际 diff 内容的通知 → `openclaw agent --session-id` 直接注入目标 session（绕过 LLM，秒级）
-- **隐私**：MEMORY.md 变更不发到多人群聊
+- **隐私**：`privacy: private` 文件（MEMORY.md, USER.md 等）**完全不发送**到多人群聊，零元数据泄露
+- **串台事件追踪**：自动记录到 `data/cross-session-incidents.jsonl`，日报章节 8 展示统计
+- **监控命令**：`python3 scripts/knowledge-sync.py stats` 查看今日事件数（目标：维持 0）
+- **响应规则**：收到知识同步通知，**默认静默确认**（NO_REPLY），**不要写长篇分析** — 避免 token 浪费和消息干扰
 - **重启后需重新启动 watcher**：加入重启检查流程
+- **监控脚本**：`scripts/knowledge-sync-monitor.py`
+  - `check` — 检查 watcher 状态，发现问题时自动发送 Lark 警报
+  - `report` — 发送状态报告到 Carl
+  - 由 `heartbeat-scheduler.py` 定期调用（每 5 分钟）
+- **警报条件**：
+  1. watcher 进程未运行
+  2. 日志中出现 ERROR
+  3. 当日串台事件 > 0
 
 ## 🗣️ 语言规则
 - **默认中文** — 中文问→中文答，不夹英文段落
@@ -212,9 +323,70 @@
 - **Bot open_id: `ou_88371dccab8541963f7f6a108990d7b3`**（用于从群成员中识别自己）
 - ⚠️ 不能靠名字识别自己！组织里有真人用户也叫 "Luna"
 
-### 群聊隐私判断（必须用脚本，禁止靠名字判断）
-- 检查脚本: `python3 scripts/check-group-privacy.py <chat_id>`
-- **正确方法**: 获取 bot open_id → 获取群成员 → 排除 bot → 看剩下的是否只有 Carl
+
+### 🔒 串台事件零容忍规则（2026-02-12 确立）
+
+**定义**：串台 = 私密信息（文件、消息、上下文）被发送到错误的会话（通常是多人群聊）。
+
+**根本原因分类**：
+| 类型 | 根因 | 修复 |
+|------|------|------|
+| 知识同步串台 | private 文件向群聊发送了元数据 | 完全跳过发送，零泄露 |
+| 子任务 announce 串台 | sessions_spawn announce 走主 session delivery | `--no-deliver` + 脚本直接发送 |
+| 心跳回复串台 | 心跳 LLM 回复走 deliveryContext | 子任务用 cron 直接 spawn，绕开心跳 |
+| 流式卡片串台 | onAgentEvent 全局广播 | 加 sessionKey 过滤 |
+
+**预防机制（代码强制）**：
+1. **隐私标记检查**：`privacy: private` 文件在群聊中完全静默
+2. **群聊隐私判断**：`kind: group` ≠ 多人，必须通过 `check-group-privacy.py` 检查实际成员（见下方）
+3. **事件日志**：所有隐私过滤触发自动记录到 `cross-session-incidents.jsonl`
+4. **日报追踪**：每日展示串台事件数，目标维持 0
+5. **监控命令**：
+   ```bash
+   python3 scripts/knowledge-sync.py stats     # 今日统计
+   python3 scripts/knowledge-sync.py incidents # 最近事件
+   ```
+
+**发生后的处理**：
+1. 立即定位泄露范围（哪些群/人看到了）
+2. 向 Carl 报告详情
+3. 追查根因（不是症状）
+4. 代码级修复（不是 prompt 提醒）
+5. 更新 MEMORY.md 记录教训
+
+### 群聊隐私判断（必须用脚本，禁止靠字段值判断）
+
+**核心教训**：`kind: group` 只表示"不是 DM"，不代表"有多人"。Lark 群聊可以是：
+- 双人群（Carl + Bot）→ 实际上私聊
+- 多人群（Carl + Bot + 其他人）→ 真正的群聊
+
+**正确方法**：
+```bash
+# 检查群聊实际隐私级别
+python3 scripts/check-group-privacy.py <chat_id>
+```
+
+**判断逻辑**（代码实现）：
+1. 获取 bot 自己的 open_id（通过 `/bot/v3/info`）
+2. 获取群成员列表（通过 `/im/v1/chats/{chat_id}/members`）
+3. 排除 bot 自己
+4. 如果剩余成员只有 Carl → `is_private: true`
+5. 如果有其他人 → `is_private: false`
+
+**缓存机制**（`knowledge-sync.py`）：
+- 结果缓存 1 小时（TTL），避免频繁 API 调用
+- 缓存 key: chat_id → {is_private, expires}
+
+**已知群隐私级别**:
+- `oc_680d9c843e6a0ad501de9299a97f3a7e` → ✅ 私聊（Carl + Bot）
+- `oc_7f3ebd31a5cf2fec9170952b29eb2700` → ✅ 私聊（Carl + Bot）
+- `oc_a2a70c6b4a29c2f2eb6c2500ea42a500` → ❌ 多人群（Carl + QJunyi + zxc）
+- `oc_4fe2e6e2dbfd0e6fc35c9dab672ab820` → ❌ 多人群（Carl + Luna真人用户）
+
+**绝对禁止**：
+- ❌ 靠 `kind == "group"` 判断隐私级别
+- ❌ 靠群成员名字包含 "Luna" 判断（组织里有真人叫 Luna）
+- ❌ 靠群名判断
 - **错误方法**: ~~看群成员名字是否包含 "Luna" 和 "Carl"~~（会被同名用户骗过）
 - 已知群隐私级别:
   - `oc_680d9c843e6a0ad501de9299a97f3a7e` → ✅ 私聊（Carl + Bot）
@@ -229,6 +401,10 @@
 - **「显示所有规划器」**= 显示全部规划器，每个标注所属**群聊名称**
 - **格式固定**：永远运行 `planner.py show <chat_id>` 获取输出，直接贴出，**禁止手写/折叠/缩略**
 - 如果需要补充说明，在 `planner.py show` 的输出之后另起一段写
+- **已完成步骤显示耗时**（⏱3m）而不是完成时间
+- **desc 自动截短**：去掉 `Review:` 前缀和括号细节，≤40 字符
+- **task_id 无反引号**：直接 `t024` 不是 `` `t024` ``
+- **结果摘要 ≤60 字符**
 
 ## 📝 沟通规则
 
@@ -239,7 +415,8 @@
 
 ### 重启后主动汇报
 - 心跳检测 `scripts/check-restart.sh` → 立刻汇报，不要让用户等
-- **重启必须用统一脚本**: `bash scripts/restart-gateway.sh "原因"`（自动 mark + cron wake now + sleep 5s + restart）
+- **重启必须用统一脚本**: `bash scripts/restart-gateway.sh "原因" "source_session"`（自动 mark + cron wake now + sleep 5s + restart）
+- **重启前强制检查**（代码保证）：参数验证、session 匹配、子任务检查、Gateway 状态、交互确认
 - **重启前必须先完成回复**：先告诉 Carl 要重启了，等流式卡片关闭后再执行脚本，避免文字被截断
 - **绝不要手动分步执行**，手动容易漏 wakeMode 导致重启后不汇报
 - curl 调 wake API 不通（gateway 用 WebSocket JSON-RPC），只能用 `openclaw cron add --wake now`
@@ -328,6 +505,25 @@
 - **API Fallback 已完成**（Carl 确认）
 
 ### 2026-02-12
+- **模型上下文长度配置更新** — 根据官方文档修正 DeepSeek 和 Kimi 的 contextWindow
+  - **DeepSeek Chat/Reasoner**：官方 128K → 从 64K 更新为 128K（`contextWindow: 128000`）
+  - **Kimi-k2.5**：官方 256K → 配置正确，保持 256K（`contextWindow: 256000`）
+  - **验证方法**：查官方 GitHub 文档，Kimi 页面明确标注 "Context Length: 256K"
+  - **教训**：API 参数必须查证官方文档，不能凭记忆或推测
+- **主对话卡死排查** — agent embedded run 超时后 lane 阻塞 5 小时，看门狗 Python bug 导致自动恢复失败
+  - 根因：`17:16 UTC` embedded run timeout → main lane 永久阻塞
+  - 看门狗检测到了但 f-string 语法错误每次 crash：`{hb_minutes:.0f if hb_minutes else '?'}`
+  - 修复：watchdog Python bug + 详见 `memory/2026-02-12-debug-unresponsive.md`
+- **子任务串台根治** — 三层修复
+  1. `patches/fix-announce-no-reply.py` — 子任务返回 NO_REPLY 时 suppress announce
+  2. `planner.py` step-done 改为 `_spawn_via_cron()` 直接 spawn 隔离任务（`--message --no-deliver`），绕过心跳 LLM
+  3. 不再依赖 `schedule_advance` + 心跳 check-advances 间接 spawn
+  - **教训**：串台有多层原因（announce → 心跳回复），修一层会暴露下一层，要追到底
+- **僵尸任务检测** — task-health-check.py 增加 session_key 为空检测
+  - 运行中但 session_key 空 + 超 2 分钟 → 自动标记失败
+  - **教训**：不要猜任务状态（"快完成了"），用 sessions_list 查实际数据
+- **规划器格式固化** — format_plan() 增加完成时间、开始时间、80 字符摘要
+  - Carl 规则：「显示规划器」= 跑 planner.py show，直接贴输出，禁止手写/折叠
 - **仪表盘（Dashboard）功能完成** — 可刷新的持续性 Lark 交互卡片
   - Carl 说「仪表盘」= 发送/刷新 `lark-task-dashboard.py`
   - **刷新按钮 5 个坑全踩完**，详见 `memory/reference/lark-card-update.md`：
@@ -358,6 +554,17 @@
   - **通知必须带 diff 内容**：session 无法自行重新读文件，必须把变更文本直接写入通知
   - **lark-send-message.sh 修复**：urlopen 必须加 timeout + 参数位置 fallback 处理
   - 重启自动恢复 watcher：写在 check-restart.sh（代码保证），不写在 HEARTBEAT.md（prompt 依赖）
+- **重启流程代码强制化** — 将 HEARTBEAT.md 中的重启流程硬编码到 `restart-gateway.sh`
+  - **强制检查**：参数验证、session 匹配、子任务检查、Gateway 状态、交互确认
+  - **JSON 标记**：`mark-restart.sh` 改为 JSON 格式包含 source_session
+  - **验证机制**：检查 wake job 是否创建成功
+  - **教训**：关键操作必须用代码强制，不能依赖 LLM 自觉遵守 prompt
+- **📢 知识同步总线正式上线** — 完整监控体系就绪
+  - **上线准备完成**：文档更新（MEMORY.md）、监控报警（`knowledge-sync-monitor.py`）、最终测试通过
+  - **监控机制**：`heartbeat-scheduler.py` 每 5 分钟调用 `knowledge-sync-monitor.py check`
+  - **报警条件**：watcher 停止 / 日志 ERROR / 当日串台事件 > 0
+  - **状态命令**：`python3 scripts/knowledge-sync.py status` 查看实时状态
+  - **功能状态**：✅ 已启用 — 文件变更自动广播到所有活跃 session，零隐私泄露
 
 ### 2026-02-11
 - **🖥️ OS 模式架构上线** — Luna 从"问答机器人"转型为"异步操作系统"
@@ -419,3 +626,28 @@
 ### 2026-02-06
 - 首次启动，配置 Claude 代理、Brave 搜索、Browser-Use
 - 完成 Lark 登录，定义角色结构
+
+---
+
+## 🛠️ 工具约束与系统边界
+
+### Browser Use 限制（2026-02-12 确立）
+**核心约束**：Browser Use 无法处理需要人工交互的登录流程
+
+| 场景 | 结果 | 建议方案 |
+|------|------|---------|
+| 微信扫码登录 | ❌ 无法完成 | 使用 Cookie 持久化（预登录后保存） |
+| 短信验证码登录 | ❌ 无法完成 | 使用 Cookie 持久化 |
+| 账号密码登录（无 2FA） | ✅ 可以 | 直接提供用户名/密码给 Browser Use |
+| 已登录状态的页面抓取 | ✅ 可以 | 先用其他方式登录，再使用 Browser Use |
+
+**血的教训**：tid-0212-35（Kimi 余额监控任务）尝试用 Browser Use 登录 Moonshot 平台，因需要微信/手机号验证而失败，session 异常终止。这类任务应预先评估登录可行性，而非直接 spawn。
+
+**决策流程**：
+```
+需要 Browser Use → 是否需要登录？
+  ├─ 不需要 → 直接使用
+  └─ 需要 → 是否支持账号密码（无 2FA）？
+       ├─ 是 → 提供凭据给 Browser Use
+       └─ 否 → 改用 Cookie 方案 或 标记为「需人工配置」
+```

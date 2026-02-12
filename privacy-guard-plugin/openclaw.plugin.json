@@ -1,0 +1,171 @@
+{
+  "id": "privacy-guard",
+  "name": "Privacy Guard",
+  "description": "Multi-user privacy isolation framework for OpenClaw agents",
+  "version": "1.0.0",
+  "author": "Luna Team",
+  "license": "MIT",
+  "keywords": ["privacy", "security", "multi-user", "isolation", "knowledge"],
+  "categories": ["security", "memory"],
+  "openclaw": {
+    "minVersion": "2026.2.0",
+    "extensions": ["./index.js"],
+    "configSchema": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Privacy Guard framework"
+        },
+        "review": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Enable output review before sending messages"
+            },
+            "llmSelfReview": {
+              "type": "boolean",
+              "default": false,
+              "description": "Use LLM for comprehensive review (slower but more thorough)"
+            },
+            "blockOnViolation": {
+              "type": "boolean",
+              "default": true,
+              "description": "Block messages with privacy violations"
+            }
+          },
+          "default": {}
+        },
+        "knowledgeBase": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "default": "./privacy/knowledge",
+              "description": "Path to knowledge store directory"
+            },
+            "autoTag": {
+              "type": "boolean",
+              "default": true,
+              "description": "Automatically tag knowledge as public/private"
+            }
+          },
+          "default": {}
+        },
+        "knowledge_base": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "default": "./privacy/knowledge",
+              "description": "Path to knowledge store directory"
+            },
+            "autoTag": {
+              "type": "boolean",
+              "default": true,
+              "description": "Automatically tag knowledge as public/private"
+            }
+          },
+          "default": {}
+        },
+        "defaults": {
+          "type": "object",
+          "properties": {
+            "visibility": {
+              "type": "string",
+              "enum": ["private", "public"],
+              "default": "private",
+              "description": "Default visibility for new knowledge"
+            },
+            "alwaysPrivateCategories": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": ["calendar", "family", "finance", "health", "auth", "contact_private", "dm_content"],
+              "description": "Categories that are always private"
+            }
+          },
+          "default": {}
+        }
+      },
+      "additionalProperties": false
+    },
+    "hooks": {
+      "session:init": "onSessionInit",
+      "message:beforeSend": "onBeforeSendMessage",
+      "memory:search": "onMemorySearch",
+      "file:read": "onFileRead"
+    },
+    "tools": {
+      "privacy-context": {
+        "name": "privacyContext",
+        "description": "Get current privacy context and accessible knowledge",
+        "parameters": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      "privacy-review": {
+        "name": "privacyReview",
+        "description": "Review a message for privacy violations",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "message": {
+              "type": "string",
+              "description": "Message to review"
+            },
+            "channelType": {
+              "type": "string",
+              "enum": ["dm", "group"],
+              "description": "Channel type"
+            },
+            "participants": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "List of participant user IDs"
+            }
+          },
+          "required": ["message", "channelType", "participants"]
+        }
+      },
+      "knowledge-add": {
+        "name": "addKnowledge",
+        "description": "Add knowledge item to store",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "user": {
+              "type": "string",
+              "description": "User ID"
+            },
+            "content": {
+              "type": "string",
+              "description": "Knowledge content"
+            },
+            "category": {
+              "type": "string",
+              "description": "Category (e.g., skill, calendar, family)"
+            },
+            "visibility": {
+              "type": "string",
+              "enum": ["public", "private"],
+              "description": "Visibility level"
+            },
+            "source": {
+              "type": "string",
+              "description": "Source of knowledge"
+            }
+          },
+          "required": ["user", "content", "category"]
+        }
+      }
+    }
+  }
+}

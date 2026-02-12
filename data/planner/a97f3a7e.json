@@ -1,0 +1,79 @@
+{
+  "chat_id": "oc_680d9c843e6a0ad501de9299a97f3a7e",
+  "goal": "OpenClaw 升级重新评估 (2.3-1 → 2.9)",
+  "status": "active",
+  "created_at": "2026-02-12T22:34:43.629806+08:00",
+  "updated_at": "2026-02-12T23:28:09.769992+08:00",
+  "steps": [
+    {
+      "id": 1,
+      "desc": "盘点当前状态",
+      "detail": "全面盘点 OpenClaw 升级相关现状：\n1. 检查生产环境 OpenClaw 版本、配置和运行状态\n2. 检查预发布环境版本和文件（~/.openclaw-staging/npm/）\n3. 查找之前的升级报告（upgrade-compatibility-report.md 等）\n4. 列出当前所有应用的 patch（patches/ 目录）\n5. 检查当前 Feishu 相关代码变更\n输出：当前状态总结报告",
+      "status": "done",
+      "task_id": "tid-0212-31",
+      "started_at": "2026-02-12T22:35:39.131213+08:00",
+      "result": "OpenClaw 升级盘点完成：生产 2026.2.3-1，预发布 2026.2.9，共 13 个 patch（9 个可移除、3 个需重写、1 个需验证）",
+      "completed_at": "2026-02-12T22:38:47.610518+08:00"
+    },
+    {
+      "id": 2,
+      "desc": "评估代码变更影响",
+      "detail": "评估近期代码变更对升级的影响：\n1. 对比生产代码与 2.9 版本的差异\n2. 检查近期 commits/PR 对升级的影响\n3. 重新评估哪些 patch 仍然需要（wildcard、mention、lane、streaming 等）\n4. 检查流式卡片现状和需求\n输出：变更影响评估报告",
+      "status": "done",
+      "task_id": "tid-0212-32",
+      "started_at": "2026-02-12T22:38:48.525938+08:00",
+      "result": "评估完成：当前 2026.2.3-1 → 目标 2026.2.9，14 个补丁需重新评估，流式卡片仍需 Luna Patch v4",
+      "completed_at": "2026-02-12T22:41:01.836733+08:00"
+    },
+    {
+      "id": 3,
+      "desc": "制定升级方案",
+      "detail": "基于最新状态重新制定升级方案：\n1. 确认升级路径（2.3-1 → 2.9 是否仍合适，或需其他版本）\n2. 明确需要保留/重写/移除的 patch 清单\n3. 流式卡片解决方案\n4. 回滚方案\n5. 风险评估\n输出：完整升级方案文档",
+      "status": "done",
+      "task_id": "tid-0212-33",
+      "started_at": "2026-02-12T22:41:02.939043+08:00",
+      "result": "完成 OpenClaw 2.9 升级方案文档：1) 确认升级路径 2.3-1→2.9 合适; 2) 13个patches全部需保留并重写; 3) 流式卡片保持Luna patches方案; 4) 提供完整回滚方案; 5) 风险可控，建议低流量时段执行。文档路径: docs/openclaw-upgrade-plan-2.9.md",
+      "completed_at": "2026-02-12T22:44:32.604486+08:00"
+    },
+    {
+      "id": 4,
+      "desc": "准备执行清单",
+      "detail": "准备详细的执行清单：\n1. 步骤清单（含检查点）\n2. 所需资源和时间估算\n3. 测试方案\n4. 上线 checklist\n输出：可执行的升级计划",
+      "status": "done",
+      "task_id": "tid-0212-34",
+      "started_at": "2026-02-12T22:44:33.706768+08:00",
+      "result": "完成 OpenClaw 2.9 升级执行清单：含5个阶段步骤清单、时间估算(乐观36m/正常54m/悲观90m)、测试方案(预升级/升级后/回归)、上线checklist、应急预案",
+      "completed_at": "2026-02-12T22:47:29.265873+08:00"
+    },
+    {
+      "id": 5,
+      "desc": "半夜准备阶段",
+      "detail": "在半夜低流量时段执行升级前准备：\n1. 检查当前 OpenClaw 状态\n2. 完整备份 node_modules、config、state\n3. 创建预发布环境（安装 2.9 到 staging 目录）\n4. 在预发布环境应用所有 13 个 patches\n5. 启动预发布 gateway\n6. 发送通知给 Carl：预发布环境已就绪，等待验收\n输出：预发布环境访问方式和验收 checklist",
+      "status": "done",
+      "task_id": "tid-0212-36",
+      "started_at": "2026-02-12T23:00:39.604109+08:00",
+      "result": "预发布环境已就绪: OpenClaw 2.9 @ :18790, 备份完成, 验收 checklist 已发送",
+      "completed_at": "2026-02-12T23:06:23.836951+08:00"
+    },
+    {
+      "id": 6,
+      "desc": "等待 Carl 验收预发布环境",
+      "detail": "此步骤为人工检查点：\n等待 Carl 登录预发布环境进行验证\n验证内容包括：\n- Feishu 私聊/群聊消息收发\n- 流式卡片显示正常\n- 工具调用和子任务\n- Planner 回调功能\n- Heartbeat 触发\nCarl 确认无误后，标记此步骤完成\n如果发现问题，记录并修复后再继续",
+      "status": "pending"
+    },
+    {
+      "id": 7,
+      "desc": "Carl 在线时执行正式升级",
+      "detail": "Carl 在电脑前时执行：\n1. 停止生产环境 Gateway\n2. 再次备份（升级前最终备份）\n3. 执行 npm update -g openclaw（升级到 2.9）\n4. 按顺序应用 13 个 patches\n5. 启动 Gateway\n6. 执行验证 checklist\n7. 发送升级完成通知\n输出：升级完成报告和验证结果",
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "desc": "升级后观察和固化",
+      "detail": "升级后 24 小时内：\n1. 监控 Gateway 日志\n2. 观察消息收发是否正常\n3. 检查是否有异常错误\n4. 确认稳定后，更新文档和配置\n5. 清理临时文件和旧备份\n输出：观察报告和最终状态确认",
+      "status": "pending"
+    }
+  ],
+  "started_at": "2026-02-12T22:35:39.060880+08:00",
+  "completed_at": "2026-02-12T22:47:29.711777+08:00"
+}

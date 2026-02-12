@@ -76,6 +76,32 @@ def main():
     
     print(json.dumps(result))
     
+    # 运行知识同步监控检查（静默执行，如有问题会自己发警报）
+    import subprocess
+    try:
+        subprocess.run(
+            ["python3", "/home/ubuntu/.openclaw/workspace/scripts/knowledge-sync-monitor.py", "check"],
+            capture_output=True,
+            timeout=10
+        )
+    except:
+        pass  # Silent fail, monitor.py handles its own alerts
+    
+    # 检查 Carl 的任务完成状态
+    try:
+        result = subprocess.run(
+            ["python3", "/home/ubuntu/.openclaw/workspace/scripts/check-carl-todos.py"],
+            capture_output=True,
+            timeout=15
+        )
+        if result.returncode == 0:
+            check_result = json.loads(result.stdout)
+            if check_result.get("completed"):
+                # 有任务完成，添加到 due_tasks 让心跳 handler 处理
+                due_tasks.append("carl-todo-completed")
+    except:
+        pass  # Silent fail
+    
     # 如果有到期任务，更新状态
     if due_tasks:
         for task in due_tasks:

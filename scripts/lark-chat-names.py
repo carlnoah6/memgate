@@ -10,29 +10,19 @@
 
 import json, os, sys, urllib.request, time
 
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_tenant_token, BASE_URL
+
 WORKSPACE = os.path.expanduser('~/.openclaw/workspace')
 CACHE_FILE = os.path.join(WORKSPACE, 'data/chat-names.json')
 SESSIONS_FILE = os.path.expanduser('~/.openclaw/agents/main/sessions/sessions.json')
-CONFIG_FILE = os.path.expanduser('~/.openclaw/openclaw.json')
-DOMAIN = 'open.feishu.cn'
 CACHE_TTL = 3600  # 1 hour
-
-def get_tenant_token():
-    with open(CONFIG_FILE) as f:
-        c = json.load(f)
-    app_id = c['channels']['feishu']['accounts']['main']['appId']
-    app_secret = c['channels']['feishu']['accounts']['main']['appSecret']
-    req = urllib.request.Request(
-        f'https://{DOMAIN}/open-apis/auth/v3/tenant_access_token/internal',
-        data=json.dumps({'app_id': app_id, 'app_secret': app_secret}).encode(),
-        headers={'Content-Type': 'application/json'})
-    resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-    return resp.get('tenant_access_token', '')
 
 def get_chat_name(token, chat_id):
     try:
         req = urllib.request.Request(
-            f'https://{DOMAIN}/open-apis/im/v1/chats/{chat_id}',
+            f'{BASE_URL}/im/v1/chats/{chat_id}',
             headers={'Authorization': f'Bearer {token}'})
         r = json.loads(urllib.request.urlopen(req, timeout=5).read())
         return r.get('data', {}).get('name', '(unknown)')

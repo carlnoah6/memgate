@@ -7,9 +7,12 @@
 import json, sys, os, subprocess, time
 from datetime import datetime, timezone, timedelta
 
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_user_token, DEFAULT_CALENDAR_ID
+
 SGT = timezone(timedelta(hours=8))
-CAL_ID = "feishu.cn_4iEgRqZUqa0mcprkekLxTg@group.calendar.feishu.cn"
-TOKEN_FILE = "/home/ubuntu/.openclaw/workspace/data/lark-user-token.json"
+CAL_ID = DEFAULT_CALENDAR_ID
 
 # 分类规则 (优先级从上到下)
 # 颜色代码 (RGB Int32) - 来自用户手动示教
@@ -34,8 +37,7 @@ RULES = [
 ]
 
 def get_token():
-    with open(TOKEN_FILE) as f:
-        return json.load(f)["access_token"]
+    return get_user_token()
 
 def get_events(days=30):
     token = get_token()

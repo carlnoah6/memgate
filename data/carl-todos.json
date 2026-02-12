@@ -1,0 +1,17 @@
+{
+  "todos": [
+    {
+      "id": "wait-0212-1",
+      "type": "💻电脑",
+      "desc": "Browser Use 登录 Kimi 后台授权",
+      "planner_id": "672ab820",
+      "step_id": 1,
+      "status": "waiting",
+      "created": "2026-02-12T22:51:47.771282+08:00",
+      "remind_at": "2026-02-13T10:51:47.771282+08:00",
+      "lark_task_guid": "48ea90e3-1b80-486e-a676-a3fef923baa0",
+      "lark_task_id": "t102596",
+      "lark_task_url": "https://applink.larksuite.com/client/todo/detail?guid=48ea90e3-1b80-486e-a676-a3fef923baa0&suite_entity_num=t102596"
+    }
+  ]
+}

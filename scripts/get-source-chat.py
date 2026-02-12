@@ -9,27 +9,17 @@ Output: just the chat_id (oc_xxx), suitable for piping.
 Exit 1 if lookup fails.
 """
 import json
+import os
 import sys
 import urllib.request
 
-APP_ID = "cli_a90c3a6163785ed2"
-APP_SECRET = "***LARK_SECRET_REMOVED***"
-BASE = "https://open.larksuite.com/open-apis"
-
-
-def get_tenant_token() -> str:
-    req = urllib.request.Request(
-        f"{BASE}/auth/v3/tenant_access_token/internal",
-        data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        return json.loads(resp.read()).get("tenant_access_token", "")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_tenant_token, BASE_URL
 
 
 def get_chat_id(token: str, message_id: str) -> str:
     req = urllib.request.Request(
-        f"{BASE}/im/v1/messages/{message_id}",
+        f"{BASE_URL}/im/v1/messages/{message_id}",
         headers={"Authorization": f"Bearer {token}"},
     )
     with urllib.request.urlopen(req, timeout=10) as resp:

@@ -9,12 +9,20 @@ himalaya list -s 5
 如果有新邮件，读取内容判断是否需要行动。
 
 ## 2. 日历检查
-用 user_access_token 查今明两天日程：
+**必须使用脚本获取日历，禁止自行构造 API 调用或查询记忆！**
+
 ```bash
-TOKEN=$(python3 -c "import json; print(json.load(open('/home/ubuntu/.openclaw/workspace/data/lark-user-token.json'))['access_token'])")
+# 获取今天和明天的日程（脚本会自动处理时区和日期计算）
+python3 /home/ubuntu/.openclaw/workspace/scripts/lark-calendar-today.py
+
+# 如果需要单独检查明天
+python3 /home/ubuntu/.openclaw/workspace/scripts/lark-calendar-today.py $(date -d "+1 day" +%Y-%m-%d)
 ```
-日历 ID: `feishu.cn_4iEgRqZUqa0mcprkekLxTg@group.calendar.feishu.cn`
-API 域名: `open.larksuite.com`
+
+⚠️ **重要规则**：
+- **禁止**从 memory/ 或 memory_search 中获取日程信息（可能是过期数据）
+- **禁止**自行构造 curl 调用 Lark API（日期参数容易出错）
+- **必须**使用上面的脚本，它会正确计算时区和日期
 
 ## 3. 邮件→日历合并
 预约确认类邮件（餐厅、演出等），检查日历中是否已有匹配事件。有匹配则合并信息（地址、电话、确认号），无匹配才创建新事件。**绝对不要创建重复事件。**
@@ -115,6 +123,35 @@ Body: {"update_text_elements": {"elements": [{"type": "text_run", "text_run": {"
 ```
 - 常规检查无异常不发消息
 - 有紧急邮件、即将到来的日程（<2h）、或处理了评论时才发消息
+
+## 5. 系统日志健康检查
+
+检查 OpenClaw 及相关脚本运行状态，发现异常及时告警。
+
+### 检查范围
+```bash
+# 检查 watchdog 日志是否有错误
+grep -iE "(error|fail|exception|traceback|syntax)" /home/ubuntu/.openclaw/workspace/logs/watchdog.log | tail -5
+
+# 检查知识同步 watcher 状态
+python3 /home/ubuntu/.openclaw/workspace/scripts/knowledge-sync.py status
+
+# 检查 dashboard 更新状态
+tail -10 /home/ubuntu/.openclaw/workspace/data/dashboard-update.log
+```
+
+### 关注项
+- **Traceback/SyntaxError**：Python 脚本语法或运行时错误
+- **ValueError/TypeError**：数据处理错误
+- **fail**：命令执行失败
+- **rate_limited**：API 限流（正常，但频繁出现需关注）
+- **watcher 停止**：知识同步总线异常
+
+### 处理方式
+发现严重错误时：
+1. 记录错误内容和时间
+2. 在日报「系统健康」章节汇总
+3. 如服务中断，发送 Lark 消息通知 Carl
 
 ## Wiki 操作用 user_access_token
 Wiki 读写必须用 user_access_token，不能用 tenant_access_token。

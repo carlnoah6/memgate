@@ -6,9 +6,11 @@ Usage: python3 lark-token-refresh.py [--check]
 """
 import json, os, sys, time, urllib.request
 
-TOKEN_FILE = "/home/ubuntu/.openclaw/workspace/data/lark-user-token.json"
-APP_ID = "cli_a90c3a6163785ed2"
-APP_SECRET = "***LARK_SECRET_REMOVED***"
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_app_token, USER_TOKEN_FILE
+
+TOKEN_FILE = str(USER_TOKEN_FILE)
 
 def load_token():
     with open(TOKEN_FILE) as f:
@@ -18,14 +20,6 @@ def save_token(data):
     os.makedirs(os.path.dirname(TOKEN_FILE), exist_ok=True)
     with open(TOKEN_FILE, "w") as f:
         json.dump(data, f, indent=2)
-
-def get_app_token():
-    req = urllib.request.Request(
-        "https://open.larksuite.com/open-apis/auth/v3/app_access_token/internal",
-        data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode(),
-        headers={"Content-Type": "application/json"})
-    resp = urllib.request.urlopen(req)
-    return json.loads(resp.read()).get("app_access_token", "")
 
 def refresh_token(refresh_token_str):
     app_token = get_app_token()

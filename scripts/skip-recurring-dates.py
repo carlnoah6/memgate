@@ -23,13 +23,15 @@
 import json, sys, os, requests
 from datetime import datetime, timezone, timedelta
 
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_user_token, DEFAULT_CALENDAR_ID
+
 SGT = timezone(timedelta(hours=8))
-CAL_ID = "feishu.cn_4iEgRqZUqa0mcprkekLxTg@group.calendar.feishu.cn"
-TOKEN_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "lark-user-token.json")
+CAL_ID = DEFAULT_CALENDAR_ID
 
 def get_token():
-    with open(TOKEN_FILE) as f:
-        return json.load(f)["access_token"]
+    return get_user_token()
 
 def get_event(token, event_id):
     url = f"https://open.larksuite.com/open-apis/calendar/v4/calendars/{CAL_ID}/events/{event_id}"

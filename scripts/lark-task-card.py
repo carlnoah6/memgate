@@ -19,29 +19,12 @@ from pathlib import Path
 # Add scripts dir to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from task_engine import TaskEngine, SGT, PRIORITY_ICONS
+from lark_common import get_tenant_token, BASE_URL
 
 BASE = Path("/home/ubuntu/.openclaw/workspace")
 CARD_STATE = BASE / "data" / "task-card-state.json"
-LARK_APP_ID = "cli_a90c3a6163785ed2"
-LARK_APP_SECRET = "***LARK_SECRET_REMOVED***"
 
 engine = TaskEngine()
-
-
-def get_tenant_token() -> str:
-    """获取 Lark tenant access token"""
-    req = urllib.request.Request(
-        "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
-        data=json.dumps({
-            "app_id": LARK_APP_ID,
-            "app_secret": LARK_APP_SECRET,
-        }).encode(),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        data = json.loads(resp.read())
-    return data["tenant_access_token"]
 
 
 def build_card() -> dict:
@@ -178,7 +161,7 @@ def send_card(chat_id: str) -> str:
     }).encode()
 
     req = urllib.request.Request(
-        "https://open.larksuite.com/open-apis/im/v1/messages?receive_id_type=chat_id",
+        f"{BASE_URL}/im/v1/messages?receive_id_type=chat_id",
         data=body,
         headers={
             "Authorization": f"Bearer {token}",
@@ -207,7 +190,7 @@ def update_card(message_id: str):
     }).encode()
 
     req = urllib.request.Request(
-        f"https://open.larksuite.com/open-apis/im/v1/messages/{message_id}",
+        f"{BASE_URL}/im/v1/messages/{message_id}",
         data=body,
         headers={
             "Authorization": f"Bearer {token}",

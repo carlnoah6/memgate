@@ -13,49 +13,23 @@ import subprocess
 import sys
 from datetime import datetime, timezone, timedelta
 
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_tenant_token as _get_tenant_token, send_message as _lark_send
+
 SGT = timezone(timedelta(hours=8))
 TASK_BOARD = "/home/ubuntu/.openclaw/workspace/data/task-board.json"
 STATE_FILE = "/home/ubuntu/.openclaw/workspace/data/task-board-notify-state.json"
 CHAT_ID = "oc_630995d9b870d2ff6ab3fa34a4e7315a"
 SEND_SCRIPT = "/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh"
 
-# Lark API direct send (bypass lark-send-message.sh which may hang)
-APP_ID = "cli_a90c3a6163785ed2"
-APP_SECRET = "***LARK_SECRET_REMOVED***"
-
-
-def get_tenant_token():
-    import urllib.request
-    req = urllib.request.Request(
-        "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
-        data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode(),
-        headers={"Content-Type": "application/json"},
-        method="POST"
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        return json.loads(resp.read())["tenant_access_token"]
-
 
 def send_message(text):
-    token = get_tenant_token()
-    import urllib.request
-    body = json.dumps({
-        "receive_id": CHAT_ID,
-        "msg_type": "text",
-        "content": json.dumps({"text": text})
-    }).encode()
-    req = urllib.request.Request(
-        "https://open.larksuite.com/open-apis/im/v1/messages?receive_id_type=chat_id",
-        data=body,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json"
-        },
-        method="POST"
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        result = json.loads(resp.read())
-        return result.get("code") == 0
+    try:
+        _lark_send(CHAT_ID, text)
+        return True
+    except Exception:
+        return False
 
 
 def load_board():

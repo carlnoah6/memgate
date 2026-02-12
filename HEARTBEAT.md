@@ -61,12 +61,22 @@ bash scripts/restart-gateway.sh "重启原因" "$CURRENT_SESSION"
 ```
 
 脚本自动完成：
-1. 写重启标记（`mark-restart.sh`）
-2. 通过 `openclaw cron add --wake now` 创建 wake job（重启后 15 秒触发心跳）
-3. 等待 5 秒（让流式卡片关闭）
-4. 执行 `openclaw gateway restart`
+1. **强制检查**（参数、session 验证、子任务检查、Gateway 状态）
+2. 写重启标记（`mark-restart.sh`，JSON 格式包含 source_session）
+3. 通过 `openclaw cron add --wake now` 创建 wake job（重启后 15 秒触发心跳）
+4. 等待 5 秒（让流式卡片关闭）
+5. 验证 wake job 创建成功
+6. 执行 `openclaw gateway restart`
 
 **绝不要手动分步执行这些操作！** 用脚本才能保证 wakeMode 等参数正确。
+
+**强制检查内容**（代码保证，不依赖 LLM）：
+- ✅ 必须提供重启原因
+- ✅ 必须提供 source_session
+- ✅ source_session 格式验证
+- ✅ 当前 session 匹配验证（警告）
+- ✅ 检查活跃子任务（有则阻止重启）
+- ✅ 交互式确认（如果从终端运行）
 
 **背景说明**：
 - `openclaw gateway restart` 是全进程重启，不会自动发 GatewayRestart 消息
@@ -87,9 +97,6 @@ python3 patches/fix-feishu-group-session-key.py
 
 # 禁用误导性的队列通知（thinking model 下 3 秒超时太短导致误报）
 python3 patches/disable-queue-notification.py
-
-# 修复流式卡片泄露 NO_REPLY/HEARTBEAT_OK 文字
-python3 patches/fix-streaming-silent-reply.py
 
 # 修复流式卡片串台（onAgentEvent 全局广播 → 加 sessionKey 过滤）
 python3 patches/fix-streaming-cross-session.py
@@ -112,8 +119,8 @@ python3 patches/fix-announce-no-reply.py
 1. 运行调度脚本：`python3 scripts/heartbeat-scheduler.py`
 2. 运行看门狗：`python3 scripts/watchdog-log.py`
 3. 运行任务面板健康检查：`python3 scripts/task-health-check.py`
-4. 运行任务板推送：`python3 scripts/task-board-notify.py`（仅当状态变化时推送到「Luna 任务板」群）
-5. 运行规划器推进检查：`python3 scripts/planner.py check-advances`
+4. 运行规划器推进检查：`python3 scripts/planner.py check-advances`
+   - `spawns_needed` 非空 → **立即用 `sessions_spawn` 执行**每个 spawn 请求（prompt 在 JSON 里）
    - `advances_needed` 非空 → 有步骤完成后下一步没被 spawn，需要手动 spawn
    - 同时检查 `data/planner-pending/` 目录中的待处理文件
    - `stale` 非空 → 有卡死任务被自动标记失败，通知 Carl
@@ -212,7 +219,8 @@ spawn 后台研究时，**必须先读取 `scripts/research-spawn-checklist.md`*
 - Carl 说群名时，用 `--resolve` 反查 chat_id，不要猜
 
 ### 常用目标
-- Carl 私聊: `oc_453c88ec52dd029845c46249837e3ba0`
+- Carl 主对话（Luna机器人主对话）: `oc_680d9c843e6a0ad501de9299a97f3a7e`
+- Bot 1:1 DM（自动生成，不常用）: `oc_453c88ec52dd029845c46249837e3ba0`
 - Luna 群聊: `oc_a2a70c6b4a29c2f2eb6c2500ea42a500`
 - Carl 私人知识库: space `7604150806383693538`
 - Luna 协同知识库: space `7604126789916479197`

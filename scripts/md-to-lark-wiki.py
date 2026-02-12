@@ -11,11 +11,14 @@ Markdown → Lark Wiki DocX blocks 转换 + 上传
     python3 scripts/md-to-lark-wiki.py --create --space <space_id> --parent <parent_token> --title "标题" < report.md
 """
 
-import json, urllib.request, urllib.error, re, sys, time, argparse
+import json, urllib.request, urllib.error, re, sys, os, time, argparse
+
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_user_token
 
 def get_token():
-    with open('/home/ubuntu/.openclaw/workspace/data/lark-user-token.json') as f:
-        return json.load(f)['access_token']
+    return get_user_token()
 
 BASE = "https://open.larksuite.com/open-apis"
 

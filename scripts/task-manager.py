@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Luna OS - Task Board Manager
 
-任务面板管理工具。主 session 用这个跟踪所有异步任务。
+任务面板管理工具 (CLI Wrapper around TaskEngine)。
+主 session 用这个跟踪所有异步任务。
 支持依赖关系和自动并行调度。
 
 Usage:
@@ -18,6 +19,7 @@ Usage:
   task-manager.py status                                → 快速状态概览 (JSON)
   task-manager.py active                                → 仅活跃任务 (JSON)
   task-manager.py cleanup [days]                        → 清理 N 天前的已完成任务
+  task-manager.py set-session <id> <session_key>        → 补设 session key
 """
 
 import json
@@ -25,278 +27,176 @@ import sys
 import os
 from datetime import datetime, timezone, timedelta
 
+# Ensure we can import task_engine from the same directory
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from task_engine import TaskEngine
+
 SGT = timezone(timedelta(hours=8))
-TASK_BOARD = "/home/ubuntu/.openclaw/workspace/data/task-board.json"
 
+def print_json(data):
+    print(json.dumps(data, ensure_ascii=False))
 
-def load_board():
-    if os.path.exists(TASK_BOARD):
-        with open(TASK_BOARD) as f:
-            return json.load(f)
-    return {"tasks": [], "next_id": 1}
-
-
-def save_board(board):
-    os.makedirs(os.path.dirname(TASK_BOARD), exist_ok=True)
-    with open(TASK_BOARD, "w") as f:
-        json.dump(board, f, indent=2, ensure_ascii=False)
-
-
-def now_iso():
-    return datetime.now(SGT).isoformat()
-
-
-def add_task(description, source_chat=None, depends_on=None, create_chat=True):
-    board = load_board()
-    task_id = f"t{board['next_id']:03d}"
-    board["next_id"] += 1
-    task = {
-        "id": task_id,
-        "status": "queued",
-        "description": description,
-        "created": now_iso(),
-        "started": None,
-        "session_key": None,
-        "source_chat": source_chat,
-        "depends_on": depends_on or [],
-        "result": None,
-        "completed": None,
-        "task_chat_id": None,
-    }
-    board["tasks"].append(task)
-    save_board(board)
+def cmd_add(args):
+    # Parse --after and --no-chat flags
+    depends_on = None
+    create_chat = True
+    filtered = []
+    i = 0
+    while i < len(args):
+        if args[i] == "--after" and i + 1 < len(args):
+            depends_on = [x.strip() for x in args[i + 1].split(",")]
+            i += 2
+        elif args[i] == "--no-chat":
+            create_chat = False
+            i += 1
+        else:
+            filtered.append(args[i])
+            i += 1
     
-    out = {"id": task_id, "status": "queued"}
-    if depends_on:
-        out["depends_on"] = depends_on
+    desc = filtered[0] if len(filtered) > 0 else ""
+    source = filtered[1] if len(filtered) > 1 else None
+    
+    if not desc:
+        print("Error: Task description is required", file=sys.stderr)
+        sys.exit(1)
 
-    # Auto-create Lark group chat (unless --no-chat)
-    if create_chat:
-        try:
-            import subprocess
-            result = subprocess.run(
-                ["python3", os.path.join(os.path.dirname(__file__), "task-chat.py"),
-                 "create", task_id, description],
-                capture_output=True, text=True, timeout=15
-            )
-            if result.returncode == 0:
-                chat_data = json.loads(result.stdout)
-                chat_id = chat_data.get("chat_id", "")
-                if chat_id:
-                    # task-chat.py already updates task board with chat_id
-                    out["task_chat_id"] = chat_id
-            else:
-                # Chat creation failed, task still created
-                out["chat_warning"] = "群聊创建失败，任务已创建"
-                print(f"Warning: chat creation failed: {result.stderr[:100]}", file=sys.stderr)
-        except Exception as e:
-            out["chat_warning"] = f"群聊创建异常: {str(e)[:50]}"
-            print(f"Warning: chat creation error: {e}", file=sys.stderr)
-
-    print(json.dumps(out, ensure_ascii=False))
-
-
-def start_task(task_id, session_key=""):
-    board = load_board()
-    for t in board["tasks"]:
-        if t["id"] == task_id:
-            t["status"] = "running"
-            t["session_key"] = session_key
-            t["started"] = now_iso()
-            save_board(board)
-            print(json.dumps({"id": task_id, "status": "running"}, ensure_ascii=False))
-            return
-    print(f"Task {task_id} not found", file=sys.stderr)
-    sys.exit(1)
-
-
-def _dissolve_task_chat(task_id):
-    """Auto-dissolve the group chat for a completed/failed/cancelled task."""
+    engine = TaskEngine()
     try:
-        import subprocess
-        result = subprocess.run(
-            ["python3", os.path.join(os.path.dirname(__file__), "task-chat.py"),
-             "dissolve-task", task_id],
-            capture_output=True, text=True, timeout=15
-        )
-        if result.returncode == 0:
-            data = json.loads(result.stdout)
-            return data.get("dissolved", False)
+        task = engine.add(desc, source, depends_on=depends_on, create_chat=create_chat)
+        
+        # Construct output matching old format
+        out = {
+            "id": task["id"],
+            "status": task["status"],
+        }
+        if task.get("depends_on"):
+            out["depends_on"] = task["depends_on"]
+        if task.get("task_chat_id"):
+            out["task_chat_id"] = task["task_chat_id"]
+        # Note: Chat creation failure warning is handled inside TaskEngine (it returns None for chat_id)
+        # We don't have explicit "chat_warning" in TaskEngine return yet, but that's acceptable.
+        
+        print_json(out)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+def cmd_start(task_id, session_key=""):
+    engine = TaskEngine()
+    try:
+        result = engine.start(task_id, session_key)
+        print_json(result)
     except Exception as e:
-        print(f"Warning: chat dissolve error: {e}", file=sys.stderr)
-    return False
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
-
-def _send_result_to_chat(task, result_text, is_success=True):
-    """Send task result summary to the task's group chat before dissolving."""
-    chat_id = task.get("task_chat_id")
-    if not chat_id:
-        return
+def cmd_complete(task_id, result_text=""):
+    engine = TaskEngine()
     try:
-        import subprocess
-        icon = "✅" if is_success else "❌"
-        status_text = "完成" if is_success else "失败"
-        msg = f"{icon} 任务 {task['id']} {status_text}\n\n📋 {task['description']}\n\n📝 {result_text or '无详细信息'}"
-        subprocess.run(
-            ["bash", os.path.join(os.path.dirname(__file__), "lark-send-message.sh"),
-             chat_id, msg],
-            capture_output=True, text=True, timeout=15
-        )
-    except Exception:
-        pass
+        result = engine.complete(task_id, result_text)
+        # Trigger group title update for related chats
+        _update_group_title_for_task(engine, task_id)
+        print_json(result)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
-
-def _send_result_to_source(task, result_text, is_success=True):
-    """Send task result back to the source chat (where Carl requested it)."""
-    source_chat = task.get("source_chat")
-    if not source_chat:
-        return
+def cmd_fail(task_id, error_text=""):
+    engine = TaskEngine()
     try:
-        import subprocess
-        icon = "✅" if is_success else "❌"
-        status_text = "完成" if is_success else "失败"
-        msg = f"{icon} {task['id']} {status_text}：{task['description']}\n\n{result_text or ''}"
-        subprocess.run(
-            ["bash", os.path.join(os.path.dirname(__file__), "lark-send-message.sh"),
-             source_chat, msg],
-            capture_output=True, text=True, timeout=15
-        )
-    except Exception:
-        pass
+        result = engine.fail(task_id, error_text)
+        # Trigger group title update for related chats
+        _update_group_title_for_task(engine, task_id)
+        print_json(result)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
+def cmd_cancel(task_id):
+    engine = TaskEngine()
+    try:
+        result = engine.cancel(task_id)
+        print_json(result)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
-def complete_task(task_id, result=""):
-    board = load_board()
-    for t in board["tasks"]:
-        if t["id"] == task_id:
-            t["status"] = "done"
-            t["result"] = result
-            t["completed"] = now_iso()
-            save_board(board)
-            # Show newly unblocked tasks
-            unblocked = _get_ready_tasks(board, just_completed=task_id)
-            out = {"id": task_id, "status": "done"}
-            if unblocked:
-                out["unblocked"] = [u["id"] for u in unblocked]
-            # Auto: send result to task chat + source chat (不解散，Carl 要看)
-            _send_result_to_chat(t, result, is_success=True)
-            _send_result_to_source(t, result, is_success=True)
-            print(json.dumps(out, ensure_ascii=False))
-            return
-    print(f"Task {task_id} not found", file=sys.stderr)
-    sys.exit(1)
-
-
-def fail_task(task_id, error=""):
-    board = load_board()
-    for t in board["tasks"]:
-        if t["id"] == task_id:
-            t["status"] = "failed"
-            t["result"] = error
-            t["completed"] = now_iso()
-            save_board(board)
-            # Auto: send error to task chat + source chat (不解散)
-            _send_result_to_chat(t, error, is_success=False)
-            _send_result_to_source(t, error, is_success=False)
-            print(json.dumps({"id": task_id, "status": "failed"}, ensure_ascii=False))
-            return
-    print(f"Task {task_id} not found", file=sys.stderr)
-    sys.exit(1)
-
-
-def cancel_task(task_id):
-    board = load_board()
-    for t in board["tasks"]:
-        if t["id"] == task_id:
-            t["status"] = "cancelled"
-            t["completed"] = now_iso()
-            save_board(board)
-            print(json.dumps({"id": task_id, "status": "cancelled"}, ensure_ascii=False))
-            return
-    print(f"Task {task_id} not found", file=sys.stderr)
-    sys.exit(1)
-
-
-def _get_done_ids(board):
-    """Get set of completed task IDs"""
-    return {t["id"] for t in board["tasks"] if t["status"] == "done"}
-
-
-def _get_ready_tasks(board, just_completed=None):
-    """Find tasks that are queued and have all dependencies met"""
-    done_ids = _get_done_ids(board)
-    ready = []
-    for t in board["tasks"]:
-        if t["status"] != "queued":
-            continue
-        deps = t.get("depends_on", [])
-        if not deps or all(d in done_ids for d in deps):
-            ready.append(t)
-    return ready
-
-
-def ready_tasks():
-    """Show tasks ready to be spawned (queued + deps met) as JSON"""
-    board = load_board()
-    ready = _get_ready_tasks(board)
-    result = []
-    for t in ready:
-        result.append({
-            "id": t["id"],
-            "description": t["description"],
-            "source_chat": t.get("source_chat"),
-            "depends_on": t.get("depends_on", []),
-        })
-    print(json.dumps(result, ensure_ascii=False))
-
-
-def list_tasks(status_filter=None):
-    board = load_board()
-    tasks = board["tasks"]
-    if status_filter:
-        tasks = [t for t in tasks if t["status"] == status_filter]
-
+def cmd_list(status_filter=None):
+    engine = TaskEngine()
+    # Use enrich=True to get elapsed times and priorities
+    tasks = engine.list_tasks(status_filter, enrich=True)
+    
     if not tasks:
         print("📋 任务面板为空")
         return
 
-    done_ids = _get_done_ids(board)
+    # Helper to determine if a task is done
+    done_ids = {t["id"] for t in tasks if t["status"] == "done"}
+    
     active = [t for t in tasks if t["status"] in ("queued", "running")]
     done = [t for t in tasks if t["status"] == "done"]
     failed = [t for t in tasks if t["status"] == "failed"]
+    
+    # Sort active: running first, then priority (desc), then created
+    # TaskEngine already sorts ready tasks, but here we have all active
+    active.sort(key=lambda t: (
+        0 if t["status"] == "running" else 1,
+        -t.get("priority_value", 2),
+        t.get("created", "")
+    ))
 
     if active:
         print("🔄 进行中:")
         for t in active:
             deps = t.get("depends_on", [])
             unmet = [d for d in deps if d not in done_ids]
-
+            
             if t["status"] == "running":
                 icon = "🏃"
             elif unmet:
-                icon = "🔒"  # blocked by dependency
+                icon = "🔒"
             else:
                 icon = "⏳"
-
+            
             elapsed = ""
-            if t.get("started"):
-                start = datetime.fromisoformat(t["started"])
-                mins = (datetime.now(SGT) - start).total_seconds() / 60
-                elapsed = f" ({mins:.0f}min)"
-
+            if t.get("elapsed_min"):
+                elapsed = f" ({t['elapsed_min']:.0f}min)"
+            
             dep_info = ""
             if unmet:
                 dep_info = f" [blocked by {','.join(unmet)}]"
-
+            
+            pri_icon = t.get("priority_icon", "")
+            # Only show priority icon if it's not normal or if we want to be explicit
+            # task-manager original didn't show priority, let's add it if it's interesting
+            # But let's stick to original format mostly.
+            
             print(f"  {icon} [{t['id']}] {t['description']}{elapsed}{dep_info}")
 
     if done:
         print(f"\n✅ 最近完成 (共{len(done)}个):")
+        # Show last 5
         for t in done[-5:]:
             summary = t.get("result", "")
             if summary and len(summary) > 60:
                 summary = summary[:60] + "..."
-            print(f"  [{t['id']}] {t['description']}")
+            
+            duration = ""
+            if t.get("started") and t.get("completed"):
+                try:
+                    start = datetime.fromisoformat(t["started"])
+                    end = datetime.fromisoformat(t["completed"])
+                    secs = (end - start).total_seconds()
+                    if secs < 60:
+                        duration = f" ⏱{secs:.0f}s"
+                    elif secs < 3600:
+                        duration = f" ⏱{secs/60:.0f}m"
+                    else:
+                        duration = f" ⏱{secs/3600:.1f}h"
+                except:
+                    pass
+            
+            print(f"  [{t['id']}]{duration} {t['description']}")
             if summary:
                 print(f"       → {summary}")
 
@@ -305,83 +205,89 @@ def list_tasks(status_filter=None):
         for t in failed[-3:]:
             print(f"  [{t['id']}] {t['description']}: {t.get('result', '未知错误')}")
 
+def cmd_ready():
+    engine = TaskEngine()
+    ready = engine.ready()
+    print_json(ready)
 
-def active_tasks():
-    """JSON output of active tasks only - for heartbeat monitoring"""
-    board = load_board()
-    active = [t for t in board["tasks"] if t["status"] in ("queued", "running")]
-    result = []
-    for t in active:
-        elapsed_min = None
-        if t.get("started"):
-            start = datetime.fromisoformat(t["started"])
-            elapsed_min = round((datetime.now(SGT) - start).total_seconds() / 60, 1)
-        result.append({
-            "id": t["id"],
-            "status": t["status"],
-            "description": t["description"],
-            "elapsed_min": elapsed_min,
-            "session_key": t.get("session_key"),
-            "depends_on": t.get("depends_on", []),
-        })
-    print(json.dumps(result, ensure_ascii=False))
+def cmd_active():
+    engine = TaskEngine()
+    active = engine.active(enrich=True)
+    # Filter keys to match old output exactly if needed, but extra keys are usually fine for JSON consumers
+    # Old active() returned: id, status, description, elapsed_min, session_key, depends_on
+    # TaskEngine active() returns more. We'll stick to the engine output which is a superset.
+    print_json(active)
 
+def cmd_status():
+    engine = TaskEngine()
+    status = engine.status()
+    print_json(status)
 
-def status():
-    """Quick status overview as JSON"""
-    board = load_board()
-    tasks = board["tasks"]
-    today = datetime.now(SGT).strftime("%Y-%m-%d")
-    ready = _get_ready_tasks(board)
-    result = {
-        "running": sum(1 for t in tasks if t["status"] == "running"),
-        "queued": sum(1 for t in tasks if t["status"] == "queued"),
-        "ready": len(ready),
-        "done_today": sum(
-            1
-            for t in tasks
-            if t["status"] == "done" and (t.get("completed") or "").startswith(today)
-        ),
-        "failed_today": sum(
-            1
-            for t in tasks
-            if t["status"] == "failed" and (t.get("completed") or "").startswith(today)
-        ),
-        "total": len(tasks),
-    }
-    print(json.dumps(result, ensure_ascii=False))
+def cmd_set_session(task_id, session_key):
+    engine = TaskEngine()
+    try:
+        result = engine.set_session_key(task_id, session_key)
+        print_json(result)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
+def cmd_cleanup(days):
+    engine = TaskEngine()
+    count = engine.cleanup(days)
+    print(f"Cleaned up {count} old tasks")
 
-def set_session_key(task_id, session_key):
-    board = load_board()
-    for t in board["tasks"]:
-        if t["id"] == task_id:
-            t["session_key"] = session_key
-            save_board(board)
-            print(json.dumps({"id": task_id, "session_key": session_key}, ensure_ascii=False))
+def _update_group_title_for_task(engine, task_id):
+    """任务状态变更后，触发相关群聊的标题更新。
+    
+    这是一个 fire-and-forget 操作，失败不会阻塞主流程。
+    """
+    import subprocess
+    try:
+        task = engine.get_task(task_id)
+        if not task:
             return
-    print(f"Task {task_id} not found", file=sys.stderr)
-    sys.exit(1)
-
-
-def cleanup(days=7):
-    """Remove completed/failed/cancelled tasks older than N days"""
-    board = load_board()
-    cutoff = datetime.now(SGT) - timedelta(days=days)
-    before = len(board["tasks"])
-    board["tasks"] = [
-        t
-        for t in board["tasks"]
-        if t["status"] in ("queued", "running")
-        or (
-            t.get("completed")
-            and datetime.fromisoformat(t["completed"]) > cutoff
-        )
-    ]
-    after = len(board["tasks"])
-    save_board(board)
-    print(f"Cleaned up {before - after} old tasks ({after} remaining)")
-
+        
+        # 获取相关群聊列表
+        chat_ids = set()
+        if task.get("source_chat"):
+            chat_ids.add(task["source_chat"])
+        if task.get("task_chat_id"):
+            chat_ids.add(task["task_chat_id"])
+        
+        if not chat_ids:
+            return
+        
+        # 检查配置，只更新启用的群聊
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data", "group-title-config.json")
+        enabled_chats = set()
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+            if not config.get("enabled", True):
+                return
+            for chat_id, settings in config.get("groups", {}).items():
+                if settings.get("enabled", config.get("default_enabled", False)):
+                    enabled_chats.add(chat_id)
+        except Exception:
+            # 配置读取失败，使用默认行为（全部启用）
+            enabled_chats = chat_ids
+        
+        # 触发标题更新（异步，不阻塞）
+        script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "update-group-title.py")
+        for chat_id in chat_ids:
+            if chat_id in enabled_chats:
+                try:
+                    subprocess.Popen(
+                        ["python3", script_path, "--chat-id", chat_id],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        start_new_session=True
+                    )
+                except Exception:
+                    pass  # 忽略更新失败
+    except Exception:
+        pass  # 确保不影响主流程
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -391,50 +297,32 @@ if __name__ == "__main__":
     cmd = sys.argv[1]
 
     if cmd == "add":
-        # Parse --after and --no-chat flags
-        args = sys.argv[2:]
-        depends_on = None
-        create_chat = True
-        filtered = []
-        i = 0
-        while i < len(args):
-            if args[i] == "--after" and i + 1 < len(args):
-                depends_on = [x.strip() for x in args[i + 1].split(",")]
-                i += 2
-            elif args[i] == "--no-chat":
-                create_chat = False
-                i += 1
-            else:
-                filtered.append(args[i])
-                i += 1
-        desc = filtered[0] if len(filtered) > 0 else ""
-        source = filtered[1] if len(filtered) > 1 else None
-        add_task(desc, source, depends_on, create_chat)
+        cmd_add(sys.argv[2:])
     elif cmd == "start":
-        start_task(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
+        cmd_start(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
     elif cmd == "complete":
-        complete_task(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
+        cmd_complete(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
     elif cmd == "fail":
-        fail_task(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
+        cmd_fail(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
     elif cmd == "cancel":
-        cancel_task(sys.argv[2])
+        cmd_cancel(sys.argv[2])
     elif cmd == "list":
         f = sys.argv[2] if len(sys.argv) > 2 else None
-        list_tasks(f)
+        cmd_list(f)
     elif cmd == "ready":
-        ready_tasks()
+        cmd_ready()
     elif cmd == "active":
-        active_tasks()
+        cmd_active()
     elif cmd == "status":
-        status()
+        cmd_status()
     elif cmd == "set-session":
         if len(sys.argv) < 4:
             print("Usage: task-manager.py set-session <id> <session_key>", file=sys.stderr)
             sys.exit(1)
-        set_session_key(sys.argv[2], sys.argv[3])
+        cmd_set_session(sys.argv[2], sys.argv[3])
     elif cmd == "cleanup":
         d = int(sys.argv[2]) if len(sys.argv) > 2 else 7
-        cleanup(d)
+        cmd_cleanup(d)
     else:
         print(f"Unknown command: {cmd}")
         sys.exit(1)

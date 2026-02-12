@@ -64,6 +64,38 @@ python3 scripts/lark-task-dashboard.py
 python3 scripts/lark-task-dashboard.py
 ```
 
+## 📸 HTML → 图片渲染（Playwright）
+
+需要可视化内容（架构图、流程图、数据图表等）时，用 HTML 设计 + Playwright 截图：
+
+**流程：**
+1. 写 HTML 文件（带 CSS 样式）→ `data/<name>.html`
+2. Playwright 截图 → `data/<name>.png`
+3. 用 `message` 工具发送图片到聊天
+
+**命令：**
+```bash
+# 截图（已安装 Chromium，无需额外安装）
+npx playwright screenshot --browser chromium --full-page \
+  --viewport-size "920,1400" \
+  file:///home/ubuntu/.openclaw/workspace/data/<name>.html \
+  /home/ubuntu/.openclaw/workspace/data/<name>.png
+```
+
+**发送：**
+```
+message(action=send, channel=feishu, target=<chat_id>,
+        filePath=<png路径>, message="标题")
+```
+
+**设计要点：**
+- 深色背景（`#0d1117`）在聊天界面更好看
+- 宽度建议 900-920px，高度按内容自适应
+- 用 `--full-page` 自动捕获完整页面
+
+**已有模板：**
+- `data/luna-architecture.html` — 系统架构全景图（五层架构）
+
 ---
 
 Add whatever helps you do your job. This is your cheat sheet.

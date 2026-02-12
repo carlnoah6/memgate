@@ -1,0 +1,9 @@
+{
+  "protected_chats": {
+    "oc_a2a70c6b4a29c2f2eb6c2500ea42a500": {
+      "name": "Luna 卢娜数字员工",
+      "reason": "特殊标识群，包含多个用户，自动改名会造成混淆",
+      "protected": true
+    }
+  }
+}

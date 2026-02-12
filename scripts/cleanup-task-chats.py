@@ -29,9 +29,11 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timezone, timedelta
 
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_tenant_token, BASE_URL
+
 SGT = timezone(timedelta(hours=8))
-APP_ID = "cli_a90c3a6163785ed2"
-APP_SECRET = "***LARK_SECRET_REMOVED***"
 TASK_BOARD = "/home/ubuntu/.openclaw/workspace/data/task-board.json"
 
 # Task chats are named "🤖 tid-XXX description"
@@ -41,7 +43,7 @@ TASK_CHAT_PREFIX = "\U0001f916"  # 🤖
 PROTECTED_CHATS = {
     "oc_680d9c843e6a0ad501de9299a97f3a7e",  # Luna机器人主对话
     "oc_7f3ebd31a5cf2fec9170952b29eb2700",  # Luna日程
-    "oc_a2a70c6b4a29c2f2eb6c2500ea42a500",  # Luna 卢娜 - 数字员工
+    "oc_a2a70c6b4a29c2f2eb6c2500ea42a500",  # Luna 卢娜数字员工 (PROTECTED - 特殊标识群，勿自动改名)
     "oc_630995d9b870d2ff6ab3fa34a4e7315a",  # Luna任务板
     "oc_0900e63860f8b6d1b08285262701817f",  # Luna任务
     "oc_4fe2e6e2dbfd0e6fc35c9dab672ab820",  # Luan测试群聊
@@ -49,24 +51,12 @@ PROTECTED_CHATS = {
 }
 
 
-def get_tenant_token():
-    """Get Lark tenant access token."""
-    req = urllib.request.Request(
-        "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
-        data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode(),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        return json.loads(resp.read())["tenant_access_token"]
-
-
 def list_bot_chats(token):
     """List all chats the bot is in, handling pagination."""
     chats = []
     page_token = ""
     while True:
-        url = "https://open.larksuite.com/open-apis/im/v1/chats?page_size=100"
+        url = f"{BASE_URL}/im/v1/chats?page_size=100"
         if page_token:
             url += f"&page_token={page_token}"
         req = urllib.request.Request(
@@ -94,7 +84,7 @@ def list_bot_chats(token):
 def dissolve_chat(token, chat_id):
     """Dissolve a group chat via Lark API."""
     req = urllib.request.Request(
-        f"https://open.larksuite.com/open-apis/im/v1/chats/{chat_id}",
+        f"{BASE_URL}/im/v1/chats/{chat_id}",
         headers={"Authorization": f"Bearer {token}"},
         method="DELETE",
     )

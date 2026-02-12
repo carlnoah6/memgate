@@ -13,10 +13,9 @@ TITLE="$2"
 CONTENT="$3"
 shift 3 || { echo "用法: $0 <chat_id> <title> <content> [label:value ...]"; exit 1; }
 
-# 获取 tenant_access_token
-TENANT_TOKEN=$(curl -s -X POST "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal" \
-  -H "Content-Type: application/json" \
-  -d '{"app_id":"cli_a90c3a6163785ed2","app_secret":"***LARK_SECRET_REMOVED***"}' | python3 -c "import json,sys; print(json.load(sys.stdin)['tenant_access_token'])")
+# 获取 tenant_access_token via lark_common
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TENANT_TOKEN=$(python3 -c "import sys; sys.path.insert(0, '$SCRIPT_DIR'); from lark_common import get_tenant_token; print(get_tenant_token())")
 
 # 构建按钮 JSON
 BUTTONS="[]"

@@ -10,13 +10,15 @@
 import json, sys, os, argparse, subprocess
 from datetime import datetime, timezone, timedelta
 
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_user_token, DEFAULT_CALENDAR_ID
+
 SGT = timezone(timedelta(hours=8))
-CAL_ID = "feishu.cn_4iEgRqZUqa0mcprkekLxTg@group.calendar.feishu.cn"
-TOKEN_FILE = "/home/ubuntu/.openclaw/workspace/data/lark-user-token.json"
+CAL_ID = DEFAULT_CALENDAR_ID
 
 def get_token():
-    with open(TOKEN_FILE) as f:
-        return json.load(f)["access_token"]
+    return get_user_token()
 
 def create_event(summary, start_dt, end_dt, description="", recurrence=""):
     token = get_token()

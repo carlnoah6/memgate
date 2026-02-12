@@ -4,8 +4,5 @@
   "token_type": "Bearer",
   "expires_in": 7200,
   "refresh_expires_in": 2592000,
-  "scope": "auth:user.id:read calendar:calendar calendar:calendar:readonly docx:document docx:document:readonly drive:drive sheets:spreadsheet task:task:write task:tasklist:read task:tasklist:write wiki:wiki wiki:wiki:readonly",
-  "app_id": "cli_a90c3a6163785ed2",
-  "app_secret": "***LARK_SECRET_REMOVED***",
-  "expires_at": 1770863940
+  "scope": "auth:user.id:read calendar:calendar calendar:calendar:readonly docx:document docx:document:readonly drive:drive sheets:spreadsheet task:task:write task:tasklist:read task:tasklist:write wiki:wiki wiki:wiki:readonly"
 }

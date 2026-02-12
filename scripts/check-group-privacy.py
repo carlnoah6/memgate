@@ -24,59 +24,21 @@
 """
 
 import json
+import os
 import sys
-import urllib.request
 from pathlib import Path
 
-WORKSPACE = Path(__file__).resolve().parent.parent
-APP_ID = "cli_a90c3a6163785ed2"
-APP_SECRET = "***LARK_SECRET_REMOVED***"
-CARL_OPEN_ID = "ou_35f664e694dd100adf97b867e68e1d3a"
-
-
-def get_tenant_token():
-    req = urllib.request.Request(
-        "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
-        data=json.dumps({"app_id": APP_ID, "app_secret": APP_SECRET}).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-    return resp["tenant_access_token"]
-
-
-def get_bot_open_id(token):
-    """获取 bot 自己的 open_id，用于从群成员中排除自己"""
-    req = urllib.request.Request(
-        "https://open.larksuite.com/open-apis/bot/v3/info",
-        headers={"Authorization": f"Bearer {token}"},
-    )
-    resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-    return resp["bot"]["open_id"]
-
-
-def get_group_members(token, chat_id):
-    """获取群聊所有成员"""
-    members = []
-    page_token = ""
-    while True:
-        url = f"https://open.larksuite.com/open-apis/im/v1/chats/{chat_id}/members?page_size=100"
-        if page_token:
-            url += f"&page_token={page_token}"
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
-        resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-        if resp.get("code") != 0:
-            raise RuntimeError(f"API error: {resp}")
-        members.extend(resp["data"].get("items", []))
-        if not resp["data"].get("has_more"):
-            break
-        page_token = resp["data"].get("page_token", "")
-    return members
+# Add scripts dir to path for lark_common import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_tenant_token, get_bot_info, get_chat_members, CARL_OPEN_ID
 
 
 def check_group_privacy(chat_id):
     token = get_tenant_token()
-    bot_open_id = get_bot_open_id(token)
-    members = get_group_members(token, chat_id)
+    bot_info = get_bot_info(token=token)
+    bot_open_id = bot_info.get("bot", bot_info).get("open_id", "")
+    raw_members = get_chat_members(chat_id, token=token)
+    members = raw_members
 
     annotated = []
     non_bot = []

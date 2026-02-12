@@ -1,0 +1,9 @@
+{
+  "task_id": "tid-0212-35",
+  "status": "failed",
+  "reason": "Login required - Moonshot platform requires authentication (WeChat scan, mobile login, or account/password) to access balance information",
+  "timestamp": "2026-02-12T22:51:00+08:00",
+  "platform": "https://platform.moonshot.cn/dashboard",
+  "browser_use_task_id": "18f138af-94cc-4e0b-bb15-2cba35cc00d1",
+  "cost_usd": 0.006
+}

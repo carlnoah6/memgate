@@ -11,6 +11,8 @@ Usage:
   knowledge-sync.py diff <file_path>                   — 显示某文件与上次快照的差异
   knowledge-sync.py broadcast [--file <name>] [--dry-run]  — 检测变更 → 生成带 diff 的通知 → 广播
   knowledge-sync.py watch                              — 启动 inotifywait 文件监听守护进程
+  knowledge-sync.py stats [date]                       — 显示串台事件统计
+  knowledge-sync.py incidents                          — 显示最近的串台事件日志
 
 v2 变更：
   - broadcast: 直接通过 `openclaw agent --session-id` 注入通知到活跃 session
@@ -25,6 +27,9 @@ import re
 import hashlib
 import difflib
 import subprocess
+# Group privacy cache: chat_id -> {"is_private": bool, "expires": timestamp}
+_GROUP_PRIVACY_CACHE = {}
+_GROUP_PRIVACY_CACHE_TTL = 3600  # 1 hour
 import signal
 import time
 import logging
@@ -334,6 +339,63 @@ def get_active_sessions(active_minutes=120):
         })
     
     return targets
+
+
+
+
+def check_group_privacy_cached(chat_id):
+    """Check if a group chat is actually private (only Carl + Bot).
+    
+    Uses cache to avoid repeated API calls.
+    Returns True if private (safe to send private content), False otherwise.
+    """
+    global _GROUP_PRIVACY_CACHE
+    
+    now = time.time()
+    
+    # Check cache
+    if chat_id in _GROUP_PRIVACY_CACHE:
+        cached = _GROUP_PRIVACY_CACHE[chat_id]
+        if cached["expires"] > now:
+            return cached["is_private"]
+    
+    # Not in cache or expired - need to check via API
+    try:
+        # Import lark_common functions
+        sys.path.insert(0, os.path.join(WORKSPACE, "scripts"))
+        from lark_common import get_tenant_token, get_bot_info, get_chat_members, CARL_OPEN_ID
+        
+        token = get_tenant_token()
+        bot_info = get_bot_info(token=token)
+        bot_open_id = bot_info.get("bot", bot_info).get("open_id", "")
+        
+        members = get_chat_members(chat_id, token=token)
+        
+        non_bot = []
+        for m in members:
+            mid = m["member_id"]
+            if mid != bot_open_id:
+                non_bot.append(mid)
+        
+        # Private = only Carl (no other humans)
+        is_private = len(non_bot) <= 1 and all(m == CARL_OPEN_ID for m in non_bot)
+        
+        # Cache result
+        _GROUP_PRIVACY_CACHE[chat_id] = {
+            "is_private": is_private,
+            "expires": now + _GROUP_PRIVACY_CACHE_TTL
+        }
+        
+        return is_private
+        
+    except Exception as e:
+        logging.warning(f"Failed to check group privacy for {chat_id}: {e}")
+        # On error, be conservative - treat as non-private
+        _GROUP_PRIVACY_CACHE[chat_id] = {
+            "is_private": False,
+            "expires": now + 60  # Short cache on error
+        }
+        return False
 
 
 def is_group_session(session):
@@ -749,14 +811,43 @@ def cmd_broadcast(target_file=None, dry_run=False, skip_session_key=None):
                 results["skipped"] += 1
                 continue
             
-            # Privacy filter: don't send private file diffs to group chats
+            # Privacy filter: check if we can send private content to this session
             is_group = is_group_session(session)
-            message = public_msg if is_group else private_msg
             
-            # For private files in group chats, check if we should skip entirely
+            # For private files in group chats: check if it's actually private (only Carl + Bot)
             if change["privacy"] == "private" and is_group:
-                # Still send a notification, but without diff content (public_msg handles this)
-                pass
+                # Extract chat_id from session key (e.g., agent:main:feishu:group:oc_xxx -> oc_xxx)
+                chat_id = None
+                if ':group:' in session_key:
+                    chat_id = session_key.split(':group:')[-1]
+                
+                if chat_id:
+                    is_actually_private = check_group_privacy_cached(chat_id)
+                    if is_actually_private:
+                        # Safe to send - treat as private chat
+                        logging.info(f"[PRIVACY] Group {chat_id} is actually private (Carl+Bot), allowing broadcast")
+                        is_group = False  # Treat as non-group for message selection
+                    else:
+                        # True multi-person group: SKIP entirely (no metadata leakage)
+                        logging.info(f"[PRIVACY] Skipped private file {change['file']} for multi-person group {chat_id}")
+                        log_cross_session_incident(change["file"], session_key, "private_to_group_skipped")
+                        results["skipped"] += 1
+                        results["details"].append({
+                            "session_key": session_key,
+                            "file": change["file"],
+                            "success": True,
+                            "is_group": True,
+                            "privacy_filtered": True,
+                            "reason": "private_file_in_multi_person_group",
+                        })
+                        continue  # Skip to next session
+                else:
+                    # Can't extract chat_id, be conservative and skip
+                    logging.warning(f"[PRIVACY] Could not extract chat_id from {session_key}, skipping private file")
+                    continue
+            
+            # For non-private files in groups, or any file in private chats: proceed
+            message = public_msg if is_group else private_msg
             
             success = inject_message(session_id, message, dry_run=dry_run)
             
@@ -951,12 +1042,108 @@ def main():
                 i += 1
         
         return cmd_broadcast(target_file=target_file, dry_run=dry_run, skip_session_key=skip_session)
+    elif cmd == "stats":
+        date_str = sys.argv[2] if len(sys.argv) > 2 else None
+        stats = get_daily_cross_session_stats(date_str)
+        print(json.dumps(stats, indent=2, ensure_ascii=False))
+        return 0
+    
+    elif cmd == "incidents":
+        # Show recent incidents log
+        incidents_file = os.path.join(WORKSPACE, "data", "cross-session-incidents.jsonl")
+        if not os.path.exists(incidents_file):
+            print("No incidents logged yet.")
+            return 0
+        with open(incidents_file, "r") as f:
+            lines = f.readlines()
+        # Show last 20 lines
+        for line in lines[-20:]:
+            line = line.strip()
+            if line:
+                print(line)
+        return 0
+
     elif cmd == "watch":
         return cmd_watch()
     else:
         print(f"Unknown command: {cmd}")
         print(__doc__)
         return 2
+
+
+def log_cross_session_incident(file_changed, session_key, incident_type="private_to_group"):
+    """Log a cross-session incident for daily reporting.
+    
+    Args:
+        file_changed: The file that was being broadcast
+        session_key: The session that was skipped
+        incident_type: Type of incident (private_to_group, etc.)
+    """
+    incident = {
+        "timestamp": now_iso(),
+        "file": file_changed,
+        "session_key": session_key,
+        "type": incident_type,
+        "prevented": True,  # We prevented the leak
+    }
+    
+    # Append to incidents log file
+    incidents_file = os.path.join(WORKSPACE, "data", "cross-session-incidents.jsonl")
+    os.makedirs(os.path.dirname(incidents_file), exist_ok=True)
+    
+    with open(incidents_file, "a") as f:
+        f.write(json.dumps(incident, ensure_ascii=False) + "\n")
+    
+    return incident
+
+def get_daily_cross_session_stats(date_str=None):
+    """Get cross-session incident stats for a specific date.
+    
+    Returns:
+        dict: {"total_incidents": N, "by_file": {...}, "by_type": {...}}
+    """
+    if date_str is None:
+        date_str = datetime.now(SGT).strftime("%Y-%m-%d")
+    
+    incidents_file = os.path.join(WORKSPACE, "data", "cross-session-incidents.jsonl")
+    
+    stats = {
+        "date": date_str,
+        "total_incidents": 0,
+        "by_file": {},
+        "by_type": {},
+        "prevented": 0,  # How many we successfully prevented
+        "leaked": 0,     # How many actually leaked (should be 0)
+    }
+    
+    if not os.path.exists(incidents_file):
+        return stats
+    
+    with open(incidents_file, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                incident = json.loads(line)
+                ts = incident.get("timestamp", "")
+                if date_str in ts:
+                    stats["total_incidents"] += 1
+                    
+                    file_name = incident.get("file", "unknown")
+                    stats["by_file"][file_name] = stats["by_file"].get(file_name, 0) + 1
+                    
+                    incident_type = incident.get("type", "unknown")
+                    stats["by_type"][incident_type] = stats["by_type"].get(incident_type, 0) + 1
+                    
+                    if incident.get("prevented"):
+                        stats["prevented"] += 1
+                    else:
+                        stats["leaked"] += 1
+            except json.JSONDecodeError:
+                continue
+    
+    return stats
 
 
 if __name__ == "__main__":

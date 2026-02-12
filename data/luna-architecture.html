@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { 
+  background: #0d1117; 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #c9d1d9;
+  padding: 30px;
+}
+.container { max-width: 900px; margin: 0 auto; }
+h1 { 
+  text-align: center; 
+  color: #58a6ff; 
+  font-size: 22px; 
+  margin-bottom: 6px;
+  letter-spacing: 1px;
+}
+.subtitle {
+  text-align: center;
+  color: #8b949e;
+  font-size: 12px;
+  margin-bottom: 24px;
+}
+.layer {
+  border: 1px solid #30363d;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  position: relative;
+  background: #161b22;
+}
+.layer-title {
+  position: absolute;
+  top: -10px;
+  left: 16px;
+  background: #161b22;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8b949e;
+  letter-spacing: 1px;
+}
+.boxes { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.box {
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-width: 140px;
+  text-align: center;
+  flex: 1;
+}
+.box-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.box-sub { font-size: 11px; opacity: 0.7; line-height: 1.4; }
+.box-icon { font-size: 20px; margin-bottom: 4px; }
+
+/* Colors for each layer */
+.layer-external { border-color: #1f6feb40; }
+.layer-external .layer-title { color: #58a6ff; }
+.box-lark { background: #1a3a5c; border: 1px solid #1f6feb; }
+.box-webchat { background: #1a3a5c; border: 1px solid #1f6feb; }
+.box-tailscale { background: #1a3a5c; border: 1px solid #1f6feb; }
+
+.layer-core { border-color: #3fb95040; }
+.layer-core .layer-title { color: #3fb950; }
+.box-gateway { background: #1a3c2a; border: 1px solid #3fb950; min-width: 100%; }
+.box-agent { background: #1a3c2a; border: 1px solid #3fb95080; }
+.box-session { background: #1a3c2a; border: 1px solid #3fb95060; }
+
+.layer-model { border-color: #d2a8ff40; }
+.layer-model .layer-title { color: #d2a8ff; }
+.box-claude { background: #2d1f4e; border: 1px solid #d2a8ff; }
+.box-gemini { background: #2d1f4e; border: 1px solid #d2a8ff80; }
+.box-kimi { background: #2d1f4e; border: 1px solid #d2a8ff60; }
+
+.layer-tools { border-color: #f0883e40; }
+.layer-tools .layer-title { color: #f0883e; }
+.box-tool { background: #3d2a1a; border: 1px solid #f0883e80; }
+
+.layer-data { border-color: #f778ba40; }
+.layer-data .layer-title { color: #f778ba; }
+.box-data { background: #3d1a2e; border: 1px solid #f778ba80; }
+
+.arrow-down {
+  text-align: center;
+  color: #30363d;
+  font-size: 22px;
+  margin: 4px 0;
+  letter-spacing: 4px;
+}
+.subagent-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+}
+.subagent {
+  background: #0d1117;
+  border: 1px solid #3fb95040;
+  border-radius: 6px;
+  padding: 6px 4px;
+  text-align: center;
+  font-size: 10px;
+  color: #7ee787;
+}
+.subagent .sa-icon { font-size: 14px; }
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 4px;
+}
+.tag-green { background: #238636; color: #fff; }
+.tag-blue { background: #1f6feb; color: #fff; }
+.tag-purple { background: #6e40c9; color: #fff; }
+.tag-orange { background: #d18616; color: #fff; }
+.file-tree {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #8b949e;
+  padding: 8px 12px;
+  background: #0d1117;
+  border-radius: 6px;
+  margin-top: 8px;
+}
+.file-tree .folder { color: #58a6ff; }
+.file-tree .file { color: #c9d1d9; }
+.file-tree .desc { color: #6e7681; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🌙 Luna 系统架构</h1>
+  <p class="subtitle">AWS EC2 · OpenClaw Gateway · Lark Integration · 2026-02-12</p>
+
+  <!-- 外部接入层 -->
+  <div class="layer layer-external">
+    <div class="layer-title">🌐 外部接入层</div>
+    <div class="boxes">
+      <div class="box box-lark">
+        <div class="box-icon">💬</div>
+        <div class="box-title">Lark / 飞书</div>
+        <div class="box-sub">Webhook 插件<br><span class="tag tag-blue">自建 fork</span></div>
+      </div>
+      <div class="box box-webchat">
+        <div class="box-icon">🖥️</div>
+        <div class="box-title">WebChat</div>
+        <div class="box-sub">OpenClaw 原生<br>Web 界面</div>
+      </div>
+      <div class="box box-tailscale">
+        <div class="box-icon">🔒</div>
+        <div class="box-title">Tailscale Funnel</div>
+        <div class="box-sub">公网入口 · HTTPS<br>anz-luna.grolar-wage.ts.net</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼ ▼ ▼</div>
+
+  <!-- 核心引擎层 -->
+  <div class="layer layer-core">
+    <div class="layer-title">⚙️ 核心引擎层</div>
+    <div class="boxes" style="flex-direction:column;">
+      <div class="box box-gateway">
+        <div class="box-title">🚀 OpenClaw Gateway <span style="font-weight:400;font-size:12px;color:#7ee787">:18789</span></div>
+        <div class="box-sub">local · loopback · password auth · 心跳 5min · 最大并发 4</div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <div class="box box-agent" style="flex:2;">
+          <div class="box-title">🤖 Agent: main</div>
+          <div class="box-sub" style="text-align:left;">
+            <b>Main Session</b> — 调度器（< 10s 响应）<br>
+            <b>Heartbeat</b> — 每 5 分钟轮询<br>
+            <b>Subagents</b> — 异步执行（最多 8 并发）
+          </div>
+          <div class="subagent-grid">
+            <div class="subagent"><div class="sa-icon">📧</div>periodic</div>
+            <div class="subagent"><div class="sa-icon">💬</div>comments</div>
+            <div class="subagent"><div class="sa-icon">🔬</div>research</div>
+            <div class="subagent"><div class="sa-icon">📊</div>dailyReport</div>
+            <div class="subagent"><div class="sa-icon">🌅</div>greeting</div>
+          </div>
+        </div>
+        <div class="box box-session" style="flex:1;">
+          <div class="box-title">🧵 Session 隔离</div>
+          <div class="box-sub">
+            per-channel-peer<br><br>
+            每个用户 × 每个渠道<br>= 独立 session<br><br>
+            <span class="tag tag-green">任务面板</span><br>
+            <span class="tag tag-green">规划器</span><br>
+            <span class="tag tag-green">知识同步</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼ ▼ ▼</div>
+
+  <!-- 模型层 -->
+  <div class="layer layer-model">
+    <div class="layer-title">🧠 模型层</div>
+    <div class="boxes">
+      <div class="box box-claude">
+        <div class="box-icon">🟣</div>
+        <div class="box-title">Claude Opus 4.6</div>
+        <div class="box-sub">主模型 · thinking<br>200K context · 16K output<br>via API 代理<br><span class="tag tag-purple">antigravity</span></div>
+      </div>
+      <div class="box box-gemini">
+        <div class="box-icon">💎</div>
+        <div class="box-title">Gemini 3 Pro High</div>
+        <div class="box-sub">备用模型 · reasoning<br>200K context · 8K output<br><span class="tag tag-purple">antigravity</span></div>
+      </div>
+      <div class="box box-kimi">
+        <div class="box-icon">🌙</div>
+        <div class="box-title">Kimi K2.5</div>
+        <div class="box-sub">备用模型<br>256K context · 8K output<br><span class="tag tag-purple">moonshot</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼ ▼ ▼</div>
+
+  <!-- 工具层 -->
+  <div class="layer layer-tools">
+    <div class="layer-title">🔧 工具 & 外部服务</div>
+    <div class="boxes">
+      <div class="box box-tool">
+        <div class="box-icon">💬</div>
+        <div class="box-title">Lark API</div>
+        <div class="box-sub">Bot + OAuth<br>日历 · Wiki · 消息</div>
+      </div>
+      <div class="box box-tool">
+        <div class="box-icon">🔍</div>
+        <div class="box-title">Brave Search</div>
+        <div class="box-sub">Web 搜索<br>缓存 60min</div>
+      </div>
+      <div class="box box-tool">
+        <div class="box-icon">🌐</div>
+        <div class="box-title">Browser Use</div>
+        <div class="box-sub">MCP · Cloud<br>按时长计费</div>
+      </div>
+      <div class="box box-tool">
+        <div class="box-icon">⚡</div>
+        <div class="box-title">系统工具</div>
+        <div class="box-sub">exec · read · write<br>edit · web_fetch</div>
+      </div>
+      <div class="box box-tool">
+        <div class="box-icon">🛡️</div>
+        <div class="box-title">运维</div>
+        <div class="box-sub">看门狗 · Patch<br>7 个 Feishu patch</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼ ▼ ▼</div>
+
+  <!-- 数据层 -->
+  <div class="layer layer-data">
+    <div class="layer-title">💾 数据持久层</div>
+    <div style="display:flex;gap:10px;">
+      <div class="box box-data" style="flex:1;">
+        <div class="box-title">📁 Workspace</div>
+        <div class="file-tree">
+<span class="folder">workspace/</span><br>
+├── <span class="file">SOUL.md</span> <span class="desc">灵魂</span><br>
+├── <span class="file">MEMORY.md</span> <span class="desc">长期记忆</span><br>
+├── <span class="file">HEARTBEAT.md</span> <span class="desc">心跳调度</span><br>
+├── <span class="folder">memory/</span> <span class="desc">每日日志+研究</span><br>
+├── <span class="folder">data/</span> <span class="desc">运行数据</span><br>
+├── <span class="folder">scripts/</span> <span class="desc">80+ 自动化脚本</span><br>
+├── <span class="folder">patches/</span> <span class="desc">7 个热修复</span><br>
+└── <span class="folder">people/</span> <span class="desc">人脉档案</span>
+        </div>
+      </div>
+      <div class="box box-data" style="flex:1;">
+        <div class="box-title">📚 Lark Wiki</div>
+        <div class="box-sub" style="text-align:left;line-height:2;">
+          🟢 Luna 协同知识库<br>
+          <span style="font-size:10px;color:#6e7681;">Space 7604126789916479197</span><br>
+          🔒 Carl 私人知识库<br>
+          <span style="font-size:10px;color:#6e7681;">Space 7604150806383693538</span><br><br>
+          <span class="tag tag-orange">MD → Wiki 自动同步</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

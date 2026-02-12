@@ -12,17 +12,20 @@ Rewrite the 1B Token Club Wiki document with proper Lark formatting.
 import json
 import re
 import sys
+import os
 import time
 import requests
+
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_user_token
 
 DOC_ID = "GtIudQ8sPoCtBVxc47olz1dPgMb"
 API_BASE = "https://open.larksuite.com/open-apis"
 SOURCE_FILE = "/home/ubuntu/.openclaw/workspace/memory/research/1b-token-daily-architecture-2026-02-09.md"
-TOKEN_FILE = "/home/ubuntu/.openclaw/workspace/data/lark-user-token.json"
 
 def get_token():
-    with open(TOKEN_FILE) as f:
-        return json.load(f)["access_token"]
+    return get_user_token()
 
 def api_call(method, path, data=None, token=None):
     """Make API call with retry."""

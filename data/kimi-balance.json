@@ -1,0 +1,7 @@
+{
+  "balance_cny": 500.00,
+  "last_updated": "2026-02-12T22:00:00+08:00",
+  "platform": "Moonshot (Kimi)",
+  "rate_per_1m_tokens_cny": 12.00,
+  "note": "余额需手动更新 - 从 https://platform.moonshot.cn/dashboard 获取"
+}

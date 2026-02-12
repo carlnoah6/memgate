@@ -13,13 +13,12 @@
 import json, sys, os
 from datetime import datetime, timezone, timedelta
 
-SGT = timezone(timedelta(hours=8))
-CAL_ID = "feishu.cn_4iEgRqZUqa0mcprkekLxTg@group.calendar.feishu.cn"
-TOKEN_FILE = "/home/ubuntu/.openclaw/workspace/data/lark-user-token.json"
+# Add scripts dir to path for lark_common import
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_user_token, lark_api, DEFAULT_CALENDAR_ID
 
-def get_token():
-    with open(TOKEN_FILE) as f:
-        return json.load(f)["access_token"]
+SGT = timezone(timedelta(hours=8))
+CAL_ID = DEFAULT_CALENDAR_ID
 
 def parse_date_arg(arg):
     """解析日期参数，返回 (start_date, end_date) 作为 SGT date 对象"""
@@ -44,7 +43,6 @@ def parse_date_arg(arg):
 
 def query_events(start_date, end_date):
     """查询日历事件并正确过滤"""
-    import subprocess
     
     # 转换为 Unix 时间戳（SGT 的 00:00 和 24:00）
     start_dt = datetime(start_date.year, start_date.month, start_date.day, 0, 0, 0, tzinfo=SGT)
@@ -53,20 +51,13 @@ def query_events(start_date, end_date):
     start_ts = int(start_dt.timestamp())
     end_ts = int(end_dt.timestamp())
     
-    token = get_token()
-    url = f"https://open.larksuite.com/open-apis/calendar/v4/calendars/{CAL_ID}/events?start_time={start_ts}&end_time={end_ts}&page_size=50"
-    
-    result = subprocess.run(
-        ["curl", "-s", url, "-H", f"Authorization: Bearer {token}"],
-        capture_output=True, text=True
+    data = lark_api(
+        "GET",
+        f"/calendar/v4/calendars/{CAL_ID}/events?start_time={start_ts}&end_time={end_ts}&page_size=50",
+        token_type="user",
     )
     
-    data = json.loads(result.stdout)
-    if data.get("code") != 0:
-        print(f"API 错误: {data.get('msg', 'unknown')}", file=sys.stderr)
-        sys.exit(1)
-    
-    items = data.get("data", {}).get("items", [])
+    items = data.get("items", [])
     
     # 过滤和处理事件
     events = []

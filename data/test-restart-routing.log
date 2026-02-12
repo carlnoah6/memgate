@@ -1,0 +1,26 @@
+=== 重启来源追踪 & 回复路由测试 ===
+测试时间: Thu Feb 12 05:43:11 UTC 2026
+
+开始运行测试...
+
+[测试1] mark-restart.sh 基本功能...
+  ✅ 通过
+[测试2] mark-restart.sh JSON 内容正确性...
+  ✅ 通过
+[测试3] mark-restart.sh 特殊字符处理...
+  ✅ 通过
+[测试4] check-restart.sh 检测到标记文件...
+  ✅ 通过
+[测试5] check-restart.sh JSON 解析正确性...
+  ✅ 通过
+[测试6] check-restart.sh 正常运行状态...
+  ✅ 通过 (PID 未变化)
+[测试7] restart-gateway.sh 参数验证...
+  ✅ 通过
+
+=== 测试结果 ===
+通过: 7
+失败: 0
+总计: 7
+
+🎉 所有测试通过!

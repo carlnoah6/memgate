@@ -86,15 +86,25 @@ with urllib.request.urlopen(req) as resp:
   curl -s "http://localhost:8180/admin/usage/daily?date={date_str}" -H "x-api-key: sk-admin-luna2026"
   ```
   ⚠️ 返回的 `by_model` 字段包含每个模型的 input/output/requests，**必须在日报中展示**
+- **Kimi 账户余额**：
+  - **使用脚本获取标准化数据**：
+    ```bash
+    python3 /home/ubuntu/.openclaw/workspace/scripts/get-kimi-balance.py
+    ```
+  - 该脚本自动：读取余额文件 + 调 API Proxy 获取今日用量 + 计算预估天数
+  - 如果脚本失败，Fallback 方案：
+    - 读取 `/home/ubuntu/.openclaw/workspace/data/kimi-balance.json` 获取当前余额
+    - 从 API 用量中提取 `kimi-k2.5` 的今日消耗
+    - 计算预估剩余可用天数（余额 / 今日消耗）
 - Fallback 状态：
   ```bash
   curl -s "http://localhost:8180/admin/fallback" -H "x-api-key: sk-admin-luna2026"
   ```
 - Session 日志统计（遍历 `/home/ubuntu/.openclaw/agents/main/sessions/*.jsonl` 和 subagents）
 
-## 第五步：生成日报（7 个章节，缺一不可）
+## 第五步：生成日报（8 个章节，缺一不可）
 
-基于复盘结果生成日报，格式**必须**包含以下所有章节：
+基于复盘结果生成日报，格式**必须**包含以下所有 8 个章节：
 
 ```markdown
 # 🌙 Luna 日报 - YYYY-MM-DD
@@ -130,6 +140,12 @@ with urllib.request.urlopen(req) as resp:
 ### 各 API Key 今日用量（表格）
 ### API 配额变化 & Fallback 状态
 
+## 💰 Kimi 账户
+（从 data/kimi-balance.json 和 API Proxy 用量数据计算）
+- 当前余额：XXX 元
+- 今日消耗：XXX tokens / 约 X 元
+- 预估剩余可用：X 天
+
 ## 📌 明日重点
 （来自复盘的明日待办）
 
@@ -148,7 +164,7 @@ with urllib.request.urlopen(req) as resp:
 - [ ] Code Review 中的工作区清理是否已实际执行（而不是"待清理"）？
 
 ### 6.2 日报格式检查（逐项对照）
-日报**必须**包含以下 7 个章节标题，缺一个就不合格：
+日报**必须**包含以下 8 个章节标题，缺一个就不合格：
 
 | # | 必须包含的章节 | 检查方法 |
 |---|---|---|
@@ -157,8 +173,9 @@ with urllib.request.urlopen(req) as resp:
 | 3 | `## 📝 教训与改进` | 必须有🔴/🟡标注的具体教训 |
 | 4 | `## ⏰ Carl 时间分配统计` | 必须从日历API获取真实数据，有事件就统计时长 |
 | 5 | `## 📊 Luna Token 用量统计` | 必须有7日趋势表+按模型用量表+API Key用量表+配额/Fallback状态 |
-| 6 | `## 📌 明日重点` | 必须有1-3个具体待办 |
-| 7 | 页脚 `本日报由 Luna 自动生成` | 包含数据截止时间 |
+| 6 | `## 💰 Kimi 账户` | 必须包含余额、今日消耗、预估剩余天数 |
+| 7 | `## 📌 明日重点` | 必须有1-3个具体待办 |
+| 8 | 页脚 `本日报由 Luna 自动生成` | 包含数据截止时间 |
 
 ### 6.3 数据准确性检查
 - [ ] 日期和星期几是否用代码计算的？（不是心算）

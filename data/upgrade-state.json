@@ -1,0 +1,35 @@
+{
+  "upgrade_step": 7,
+  "task_id": "tid-0212-39",
+  "timestamp": "2026-02-12T23:27:00+08:00",
+  "current_version": "2026.2.3-1",
+  "target_version": "2026.2.9",
+  "backup_completed": true,
+  "backups": {
+    "code": "/tmp/openclaw-backup-2.3-1-*",
+    "config": "/tmp/openclaw-json-bak-2.3-1-*.json",
+    "patches": "/tmp/patches-bak-*"
+  },
+  "status": "waiting_for_carl_confirmation",
+  "message_sent": true,
+  "risks": [
+    "Feishu streaming cards removed (UX change)",
+    "3 patches need rewrite for new TypeScript extension architecture",
+    "Service downtime during upgrade"
+  ],
+  "patches_to_rewrite": [
+    "fix-feishu-group-wildcard.py",
+    "fix-feishu-mention-stripped.py", 
+    "fix-lane-concurrency.py"
+  ],
+  "patches_can_remove": [
+    "apply-feishu-streaming-fix.py",
+    "disable-queue-notification.py",
+    "fix-feishu-group-session-key.py",
+    "fix-streaming-card-ux.py",
+    "fix-streaming-cross-session.py",
+    "fix-streaming-race-condition.py",
+    "fix-streaming-silent-reply.py",
+    "fix-feishu-command-authorized.py"
+  ]
+}

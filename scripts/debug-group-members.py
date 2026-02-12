@@ -10,44 +10,13 @@ import sys
 import urllib.request
 from pathlib import Path
 
-WORKSPACE = Path(__file__).resolve().parent.parent
-SECRETS_FILE = WORKSPACE / "data/lark-secrets.json"
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_tenant_token
 
-def load_config():
-    config = {
-        "app_id": os.getenv("LARK_APP_ID"),
-        "app_secret": os.getenv("LARK_APP_SECRET"),
-    }
-
-    if SECRETS_FILE.exists():
-        try:
-            with open(SECRETS_FILE, "r") as f:
-                file_config = json.load(f)
-                if file_config.get("app_id"):
-                    config["app_id"] = file_config["app_id"]
-                if file_config.get("app_secret"):
-                    config["app_secret"] = file_config["app_secret"]
-        except Exception as e:
-            print(f"Warning: Failed to load secrets file: {e}", file=sys.stderr)
-    
-    return config
-
-def get_tenant_token(app_id, app_secret):
-    req = urllib.request.Request(
-        "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal",
-        data=json.dumps({"app_id": app_id, "app_secret": app_secret}).encode(),
-        headers={"Content-Type": "application/json"},
-    )
-    try:
-        resp = json.loads(urllib.request.urlopen(req, timeout=10).read())
-        return resp.get("tenant_access_token")
-    except Exception as e:
-        print(f"Error getting token: {e}")
-        return None
 
 def dump_members(chat_id):
-    config = load_config()
-    token = get_tenant_token(config["app_id"], config["app_secret"])
+    token = get_tenant_token()
     if not token:
         print("Failed to get token")
         return

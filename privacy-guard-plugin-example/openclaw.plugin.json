@@ -1,0 +1,68 @@
+{
+  "id": "privacy-guard",
+  "name": "Privacy Guard",
+  "version": "0.1.0",
+  "description": "Multi-user privacy isolation framework for OpenClaw",
+  "author": "Luna Team",
+  "license": "MIT",
+  "type": "agent-plugin",
+  "entry": "src/index.ts",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable privacy protection"
+      },
+      "review": {
+        "type": "object",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable output review before sending"
+          },
+          "blockOnViolation": {
+            "type": "boolean",
+            "default": true,
+            "description": "Block message sending on privacy violation"
+          },
+          "llmSelfReview": {
+            "type": "boolean",
+            "default": false,
+            "description": "Use LLM for additional review (slower but more accurate)"
+          }
+        }
+      },
+      "knowledgeBase": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "default": "privacy/knowledge",
+            "description": "Path to knowledge base directory"
+          },
+          "autoSync": {
+            "type": "boolean",
+            "default": true,
+            "description": "Automatically sync knowledge from external sources"
+          }
+        }
+      },
+      "channels": {
+        "type": "object",
+        "properties": {
+          "autoDetect": {
+            "type": "boolean",
+            "default": true,
+            "description": "Automatically detect channel participants"
+          }
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "openclaw": "^2026.2.0"
+  }
+}

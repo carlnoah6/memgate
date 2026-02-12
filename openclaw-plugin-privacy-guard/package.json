@@ -1,0 +1,25 @@
+{
+  "name": "openclaw-plugin-privacy-guard",
+  "version": "0.1.0",
+  "description": "Privacy protection plugin for OpenClaw agents, providing context-aware knowledge filtering and output review.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "openclaw",
+    "plugin",
+    "privacy",
+    "security",
+    "guardrail"
+  ],
+  "author": "OpenClaw Research",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

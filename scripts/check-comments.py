@@ -25,12 +25,10 @@ except Exception as e:
 
 # Get Tenant Token
 try:
-    token_cmd = """curl -s -X POST "https://open.larksuite.com/open-apis/auth/v3/tenant_access_token/internal" \
-      -H "Content-Type: application/json" \
-      -d '{"app_id":"cli_a90c3a6163785ed2","app_secret":"***LARK_SECRET_REMOVED***"}'"""
-    import subprocess
-    result = subprocess.check_output(token_cmd, shell=True)
-    tenant_token = json.loads(result)['tenant_access_token']
+    # Get Tenant Token via lark_common
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from lark_common import get_tenant_token
+    tenant_token = get_tenant_token()
 except Exception as e:
     print(f"Error getting tenant token: {e}")
     sys.exit(1)

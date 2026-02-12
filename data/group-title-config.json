@@ -1,0 +1,41 @@
+{
+  "version": 3,
+  "topic_tracking": {
+    "enabled": true,
+    "time_window_minutes": 180,
+    "cooldown_minutes": 360,
+    "max_title_length": 15
+  },
+  "topic_keywords": {
+    "openclaw": ["openclaw", "gateway", "重启", "升级", "部署", "ci", "patch"],
+    "api_proxy": ["api proxy", "api-proxy", "token", "多租户", "统计", "fallback"],
+    "lark": ["lark", "飞书", "群标题", "表格", "wiki", "日历", "多维表格"],
+    "planning": ["规划器", "planner", "任务面板", "task-manager", "编排"],
+    "research": ["调研", "research", "claude", "kimi", "模型", "训练"],
+    "family": ["元宝", "朵朵", "生日", "学校", "聚会", "演出"],
+    "coding": ["代码", "coding", "github", "pr", "review", "重构"],
+    "sync": ["同步", "sync", "知识同步", "watcher", "内存"]
+  },
+  "topic_display_names": {
+    "openclaw": "OpenClaw",
+    "api_proxy": "API代理",
+    "lark": "飞书",
+    "planning": "规划器",
+    "research": "调研",
+    "family": "家庭",
+    "coding": "代码",
+    "sync": "同步",
+    "general": "聊天"
+  },
+  "planner_keywords": ["规划器", "planner", "step", "步骤", "plan"],
+  "verbs": {
+    "planner": "规划器",
+    "chatting": "聊",
+    "idle": "空闲"
+  },
+  "icons": {
+    "planner": "🔄",
+    "chatting": "💬",
+    "idle": "🌙"
+  }
+}

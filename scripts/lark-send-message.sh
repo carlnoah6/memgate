@@ -58,82 +58,43 @@ if [ "$MSG_TYPE" = "post" ] && [ -z "$POST_JSON" ]; then
     exit 1
 fi
 
-# 用环境变量传递参数给 Python
+# 用环境变量传递参数给 Python（使用 lark_common.py）
 export LARK_CHAT_ID="$CHAT_ID"
 export LARK_MESSAGE="$MESSAGE"
 export LARK_MSG_TYPE="$MSG_TYPE"
 export LARK_POST_JSON="$POST_JSON"
-export LARK_APP_ID="cli_a90c3a6163785ed2"
-export LARK_APP_SECRET="***LARK_SECRET_REMOVED***"
+export LARK_SCRIPT_DIR="$SCRIPT_DIR"
 
 python3 << 'PYEOF'
-import json, os, sys, urllib.request, urllib.error
+import os, sys
+
+sys.path.insert(0, os.environ.get("LARK_SCRIPT_DIR", "/home/ubuntu/.openclaw/workspace/scripts"))
+from lark_common import send_message, get_tenant_token, lark_api
 
 chat_id = os.environ["LARK_CHAT_ID"]
-app_id = os.environ["LARK_APP_ID"]
-app_secret = os.environ["LARK_APP_SECRET"]
 msg_type = os.environ["LARK_MSG_TYPE"]
 
-BASE = "https://open.larksuite.com/open-apis"
-
-# 获取 tenant_access_token
-token_req = urllib.request.Request(
-    f"{BASE}/auth/v3/tenant_access_token/internal",
-    data=json.dumps({"app_id": app_id, "app_secret": app_secret}).encode(),
-    headers={"Content-Type": "application/json"}
-)
 try:
-    with urllib.request.urlopen(token_req, timeout=10) as resp:
-        token_data = json.loads(resp.read())
-except Exception as e:
-    print(f"ERROR: Failed to get token: {e}", file=sys.stderr)
-    sys.exit(1)
-
-tenant_token = token_data.get("tenant_access_token", "")
-if not tenant_token:
-    print(f"ERROR: No tenant_access_token in response: {token_data}", file=sys.stderr)
-    sys.exit(1)
-
-# 构建消息内容
-if msg_type == "post":
-    content = os.environ["LARK_POST_JSON"]
-elif msg_type == "text":
-    content = json.dumps({"text": os.environ["LARK_MESSAGE"]})
-else:
-    print(f"ERROR: Unknown msg_type: {msg_type}", file=sys.stderr)
-    sys.exit(1)
-
-# 发送消息
-send_body = json.dumps({
-    "receive_id": chat_id,
-    "msg_type": msg_type,
-    "content": content
-})
-
-send_req = urllib.request.Request(
-    f"{BASE}/im/v1/messages?receive_id_type=chat_id",
-    data=send_body.encode(),
-    headers={
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {tenant_token}"
-    }
-)
-
-try:
-    with urllib.request.urlopen(send_req, timeout=10) as resp:
-        send_data = json.loads(resp.read())
-except urllib.error.HTTPError as e:
-    body = e.read().decode()
-    print(f"ERROR: HTTP {e.code}: {body}", file=sys.stderr)
-    sys.exit(1)
+    if msg_type == "post":
+        content = os.environ["LARK_POST_JSON"]
+        result = lark_api(
+            "POST",
+            "/im/v1/messages?receive_id_type=chat_id",
+            body={
+                "receive_id": chat_id,
+                "msg_type": "post",
+                "content": content,
+            },
+            token=get_tenant_token(),
+        )
+        print("OK: Message sent successfully")
+    elif msg_type == "text":
+        send_message(chat_id, os.environ["LARK_MESSAGE"])
+        print("OK: Message sent successfully")
+    else:
+        print(f"ERROR: Unknown msg_type: {msg_type}", file=sys.stderr)
+        sys.exit(1)
 except Exception as e:
     print(f"ERROR: {e}", file=sys.stderr)
-    sys.exit(1)
-
-code = send_data.get("code", -1)
-if code == 0:
-    print("OK: Message sent successfully")
-else:
-    print(f"ERROR: code={code} msg={send_data.get('msg', 'unknown')}", file=sys.stderr)
     sys.exit(1)
 PYEOF

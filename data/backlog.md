@@ -12,16 +12,16 @@
 - [x] 3. 核心模块（知识存储 + 上下文隔离 + 输出审查）✅ 2026-02-10 → `privacy/`
 - [x] 4. 自我攻防测试（18/18 通过）✅ 2026-02-10 → `privacy/tests/test_isolation.py`
 - [x] 5. 集成到 Luna 实际运行（session 注入 + memory_search 过滤）✅ 2026-02-10 → `scripts/privacy-check.py` + `scripts/privacy-hook.sh` + AGENTS.md 更新 + Carl 知识库初始化（8 public / 31 private）+ 集成测试 11/11 通过
-- [ ] 6. 抽象为通用 OpenClaw 插件并发布
+- [x] 6. 抽象为通用 OpenClaw 插件并发布 ✅ 2026-02-12 → `privacy-guard-plugin/` + 研究文档 `memory/research/privacy-guard-plugin-abstraction-2026-02-11.md` + 插件已打包准备发布
 
 #### API 代理层 Fallback — 到限额自动切换 ✅ 2026-02-10
 - **已完成** — Carl 确认已上线，三层自动切换（Claude → Gemini → Kimi）
 - 配置: `/home/ubuntu/api-proxy/fallback.json`
 
-#### 重启来源追踪 & 回复路由
+#### 重启来源追踪 & 回复路由 ✅ 2026-02-12
 - **问题**：重启可能从任何 session 触发，但重启后汇报只回到主 session
 - **方案**：`mark-restart.sh` 记录触发来源，重启后路由到正确 session
-- **状态**：进行中 (2026-02-10) — 子任务 81624641 正在开发
+- **状态**：已完成 — 7/7 测试通过，验证脚本: `scripts/test-restart-routing.sh`
 
 #### 🚀 每天消耗 1B Token 的 AI 系统架构
 - [x] 1. 供给端分析 ✅ 2026-02-09 → `memory/research/1b-token-daily-architecture-2026-02-09.md`
@@ -84,3 +84,17 @@
 
 ## 已完成
 （完成的任务移到这里，附上完成日期和成果文件路径）
+
+### 重启来源追踪 & 回复路由
+- ✅ 已完成 2026-02-12 — 7/7 测试通过，实现"谁触发，汇报给谁"的路由机制
+- 核心脚本: `scripts/mark-restart.sh` + `scripts/check-restart.sh` + `scripts/restart-gateway.sh`
+- 测试脚本: `scripts/test-restart-routing.sh`
+- 验证报告: `memory/research/restart-routing-verification-2026-02-12.md`
+
+### Privacy Guard — 多用户隐私隔离框架
+- [x] 1. 调研现有方案 ✅ 2026-02-10 → 无现有插件，学术论文 Collaborative Memory (arxiv 2505.18279) 最相关
+- [x] 2. 设计框架文档 ✅ 2026-02-10 → `docs/privacy-framework.md` + [Wiki](https://fg9w9yu3odc.sg.larksuite.com/wiki/D1GEwdu2EiTmA3kI63KlDQEageb)
+- [x] 3. 核心模块（知识存储 + 上下文隔离 + 输出审查）✅ 2026-02-10 → `privacy/`
+- [x] 4. 自我攻防测试（18/18 通过）✅ 2026-02-10 → `privacy/tests/test_isolation.py`
+- [x] 5. 集成到 Luna 实际运行（session 注入 + memory_search 过滤）✅ 2026-02-10 → `scripts/privacy-check.py` + `scripts/privacy-hook.sh` + AGENTS.md 更新 + Carl 知识库初始化（8 public / 31 private）+ 集成测试 11/11 通过
+- [x] 6. 抽象为通用 OpenClaw 插件并发布 ✅ 2026-02-12 → `privacy-guard-plugin/` + 研究文档 `memory/research/privacy-guard-plugin-abstraction-2026-02-11.md` + 插件已打包准备发布

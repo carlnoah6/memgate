@@ -17,8 +17,11 @@ import os
 import sys
 import urllib.request
 
+# Import centralized token management
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from lark_common import get_user_token, BASE_URL
+
 TRACKED_DOCS_PATH = "/home/ubuntu/.openclaw/workspace/data/tracked-docs.json"
-TOKEN_PATH = "/home/ubuntu/.openclaw/workspace/data/lark-user-token.json"
 API_BASE = "https://open.larksuite.com"
 
 # 两个知识库
@@ -28,8 +31,7 @@ SPACES = [
 ]
 
 def get_token():
-    with open(TOKEN_PATH) as f:
-        return json.load(f)["access_token"]
+    return get_user_token()
 
 def get_all_nodes(space_id, token, parent=None):
     """递归获取知识库下所有节点"""

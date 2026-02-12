@@ -13,7 +13,22 @@ fi
 
 # 优先检查标记文件（覆盖 config.patch 等 SIGUSR1 热重载场景）
 if [ -f "$MARKER" ]; then
-    echo "重启原因: $(cat $MARKER)"
+    # 解析 JSON 格式的标记文件
+    MARKER_CONTENT=$(cat "$MARKER")
+    REASON="未知原因"
+    SOURCE_SESSION="unknown"
+    
+    # 尝试解析 JSON
+    if echo "$MARKER_CONTENT" | python3 -c "import json, sys; json.load(sys.stdin)" 2>/dev/null; then
+        REASON=$(echo "$MARKER_CONTENT" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('reason', '未知原因'))")
+        SOURCE_SESSION=$(echo "$MARKER_CONTENT" | python3 -c "import json, sys; data=json.load(sys.stdin); print(data.get('source_session', 'unknown'))")
+        echo "RESTART_INFO: {\"reason\": \"$REASON\", \"source_session\": \"$SOURCE_SESSION\"}"
+    else
+        # 旧格式（纯文本）
+        REASON="$MARKER_CONTENT"
+        echo "重启原因: $REASON"
+    fi
+    
     rm -f "$MARKER"
     echo "$CURRENT_PID" > "$PID_FILE"
     # 重启后自动启动知识同步 watcher
@@ -27,7 +42,7 @@ if [ -f "$PID_FILE" ]; then
     LAST_PID=$(cat "$PID_FILE")
     if [ "$CURRENT_PID" != "$LAST_PID" ]; then
         echo "$CURRENT_PID" > "$PID_FILE"
-        echo "重启原因: 未知（PID 从 $LAST_PID 变为 $CURRENT_PID）"
+        echo "RESTART_INFO: {\"reason\": \"PID 变化（从 $LAST_PID 变为 $CURRENT_PID）\", \"source_session\": \"unknown\"}"
         # 重启后自动启动知识同步 watcher
         bash "$(dirname "$0")/start-knowledge-watcher.sh" 2>/dev/null &
         echo "just_restarted"

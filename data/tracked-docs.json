@@ -281,24 +281,208 @@
     "id": "VCvBdwKTMobJqdxrjeNlesISgOH",
     "title": "🔧 OpenClaw 优化",
     "file_type": "docx",
-    "node_token": "IUBdwFzDhisMDrkm1fAltnOhgGd"
+    "node_token": "IUBdwFzDhisMDrkm1fAltnOhgGd",
+    "space_id": "7604126789916479197"
   },
   {
     "id": "KHA1dTXD4o3rrsxJvoOlG1q8gaf",
     "title": "API 代理层 Fallback — 到限额自动切换",
     "file_type": "docx",
-    "node_token": "Mbp2wVwxxigMcNk6EBZlYDGgg8b"
+    "node_token": "Mbp2wVwxxigMcNk6EBZlYDGgg8b",
+    "space_id": "7604126789916479197"
   },
   {
     "id": "Sts7dbXYSovEtJxpjVJlgrjmgCd",
     "title": "重启来源追踪 & 回复路由",
     "file_type": "docx",
-    "node_token": "XyWGwre7kiWYRTk2031lrdRGgLd"
+    "node_token": "XyWGwre7kiWYRTk2031lrdRGgLd",
+    "space_id": "7604126789916479197"
   },
   {
     "id": "TW6vdfVy4ohWvHx0GBQl1XsGgdc",
     "title": "📋 Backlog — 任务队列",
     "file_type": "docx",
-    "node_token": "APNVwIS2ni9iwkkOhfwl7ASUgqc"
+    "node_token": "APNVwIS2ni9iwkkOhfwl7ASUgqc",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "INord98zXoiLBkxqyxMlr7vugAh",
+    "title": "2026-02-10 日报",
+    "file_type": "docx",
+    "node_token": "UdNzwX0Xoi2cQgkiRD4laHvGg7f",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "Tf4QdChFkoYMIyxRJpzlgUadgoh",
+    "title": "2026-02-11 日报",
+    "file_type": "docx",
+    "node_token": "MglRw2CkyiO0mNkupPdlCYWBg6d",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "JeQ6davc6oUqtdxMjQzljRbDgXe",
+    "title": "重启来源追踪 & 回复路由方案 (2026-02-10)",
+    "file_type": "docx",
+    "node_token": "NjInw3WTGi6ifHkzlAulmrLigkK",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "Cf0rdNRlDoNaZVxBgDulBSb8gtb",
+    "title": "研发日志：重启来源追踪与路由 (2026-02-10)",
+    "file_type": "docx",
+    "node_token": "Q5fVwcaHIiwSHQkJvUElMFzAgDe",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "WIphdUQXjoLdLRxuINTlxRyPgdX",
+    "title": "MemGate 文档 (v0.1.0)",
+    "file_type": "docx",
+    "node_token": "VLODwkRmsi9BCLkFcT7lCa0Pgjg",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "LYf4dX6elogRFzxWiToltfEPgqe",
+    "title": "MemGate CI/CD 配置",
+    "file_type": "docx",
+    "node_token": "RRcMwCLcXiJ84Hke3LjlquJMgig",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "XLnjdwINso12uBxSuY9laZhYggS",
+    "title": "MemGate v0.1.0 Release Note",
+    "file_type": "docx",
+    "node_token": "V8iKwyyl7ibYVwkSv61lGR5ogLg",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "G4WhdKUjkoGUvDxllPXly9XOgAh",
+    "title": "OS Mode 并发控制",
+    "file_type": "docx",
+    "node_token": "Tfwow05ZgiA1e0kCNYwlJpGCgpc",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "TlIgdvebToL2KbxXlZGly2wqg5b",
+    "title": "OS Mode 稳定性与监控",
+    "file_type": "docx",
+    "node_token": "IwPTwCxq7il0t9krvyml4IRwgod",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "JYGjdluAmoxRkOxyMozlCGA3gRe",
+    "title": "CLI 命令参考",
+    "file_type": "docx",
+    "node_token": "BzPZwe5whiykOpkx2DnlXybXgtb",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "WaYhdmSiIoQHFzx7P6GlDhG7gXe",
+    "title": "🔄 工作区备份与恢复指南",
+    "file_type": "docx",
+    "node_token": "MORowsTtSi46FrkCCcclK77Hgze",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "H2KpdZybIoYiRuxDQRHlG92sgch",
+    "title": "Balatro RL Environment Survey",
+    "file_type": "docx",
+    "node_token": "JV3EwW6PDiOTHGkWYBfljBJ8gYg",
+    "space_id": "7604150806383693538"
+  },
+  {
+    "id": "U7SjdPlcsoxeNjx9fvblgEyYglh",
+    "title": "硬件环境决策 (Hardware Setup)",
+    "file_type": "docx",
+    "node_token": "T4dYw9LYWihYyOkiC07lJYi7gZJ",
+    "space_id": "7604150806383693538"
+  },
+  {
+    "id": "W3rhd28rsottUjxj28tlqd8vgyc",
+    "title": "硬件环境决策 (Hardware Setup)",
+    "file_type": "docx",
+    "node_token": "HoDHwDiGIiXXApkwBaElbu8MgJc",
+    "space_id": "7604150806383693538"
+  },
+  {
+    "id": "QMj8d6oOYoWqEXxIOM5l3hjUgFe",
+    "title": "硬件环境决策 (Hardware Setup)",
+    "file_type": "docx",
+    "node_token": "MbRDwKDhhiKreOkwqf2lwAGEgbf",
+    "space_id": "7604150806383693538"
+  },
+  {
+    "id": "J6OTdQ8nGobtJ5xZcFTlEaEYgPh",
+    "title": "基础环境构建 (Base Environment)",
+    "file_type": "docx",
+    "node_token": "UQofww19eiqChFknSkjlwweJgBe",
+    "space_id": "7604150806383693538"
+  },
+  {
+    "id": "OD4xdVtDoo0uO9xuy6GloiJMgzd",
+    "title": "Project Scaffolding Structure",
+    "file_type": "docx",
+    "node_token": "G2LFwjS11iGxuSkPogvltfangfg",
+    "space_id": "7604150806383693538"
+  },
+  {
+    "id": "Rr8vd8XNLoavFgxJFlzl5xuigIW",
+    "title": "Data Downloaders (FineWeb & StarCoder)",
+    "file_type": "docx",
+    "node_token": "UWbmw3qI7izbWzkXwUOlb0JUgMf",
+    "space_id": "7604150806383693538"
+  },
+  {
+    "id": "YA1HdIX4nohUScxfPMzllXqegWh",
+    "title": "Project Scaffolding & Structure",
+    "file_type": "docx",
+    "node_token": "FR7pwpj2RiP9tSk0lxglWUalgBh",
+    "space_id": "7604150806383693538"
+  },
+  {
+    "id": "Uav2dkkykodRRtxMQBAl5kXogbe",
+    "title": "Privacy Guard 插件化设计与发布",
+    "file_type": "docx",
+    "node_token": "YAC4w3Tg0iSyizkvpvWl2SIrgLh",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "N0jDdHs0kowI9PxiNeklfSEngEb",
+    "title": "Privacy Guard OpenClaw 插件设计与实现",
+    "file_type": "docx",
+    "node_token": "KkFfwh3tWixqTJkEyCslpdr7gkf",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "KLePdGQ6ao87E4xBgFdlj5I6gOh",
+    "title": "Privacy Guard 插件化设计与发布",
+    "file_type": "docx",
+    "node_token": "BVm1wG9ebiNWJLkTWJ2luMc9gYg",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "FfUEdLWICoHO6ExKWBxlykvhgHd",
+    "title": "Privacy Guard 插件化设计与发布",
+    "file_type": "docx",
+    "node_token": "Xif9wWurAiiGaokCPOylpfWbgPd",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "XVJFdxrjyoGsLJxUf0jlDWKSgqe",
+    "title": "Privacy Guard 插件化设计",
+    "file_type": "docx",
+    "node_token": "NyODwHkgSiGD54kvQM1lgG98gJh",
+    "space_id": "7604126789916479197"
+  },
+  {
+    "id": "BROpdy62Co1Xx5xBCf9l6ZrHgVd",
+    "title": "OpenClaw 2.9 升级方案",
+    "file_type": "docx",
+    "node_token": "Hi9FwYaKSiE7MDkYHJTlRmWng1d"
+  },
+  {
+    "id": "A5itdZ7PRoaSstxwMPplJoFKgFd",
+    "title": "OpenClaw 2.9 升级执行清单",
+    "file_type": "docx",
+    "node_token": "S9MPw0nlqipUNhkxpYQl9Jzxgte"
   }
 ]

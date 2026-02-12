@@ -47,8 +47,8 @@ LOCKFILE = Path("/tmp/independent-watchdog.lock")
 OPENCLAW = "/home/ubuntu/.npm-global/bin/openclaw"
 GATEWAY_LOG_DIR = Path("/tmp/openclaw")
 
-# 阈值
-HEARTBEAT_THRESHOLD_MINUTES = 10   # 心跳超过 10 分钟未执行 → 可能卡死
+# 阈值（动态读取心跳配置后覆盖）
+HEARTBEAT_THRESHOLD_MINUTES = 10   # 默认：心跳超过 10 分钟未执行 → 可能卡死
 SESSION_THRESHOLD_MINUTES = 15     # Session 无更新超过 15 分钟 → 辅助确认
 LOG_THRESHOLD_MINUTES = 10         # 日志无更新超过 10 分钟 → 辅助确认
 COOLDOWN_MINUTES = 5               # 重启后冷却 5 分钟
@@ -56,9 +56,74 @@ MAX_RESTARTS_PER_HOUR = 3          # 每小时最多重启 3 次
 ALERT_INTERVAL_MINUTES = 30        # 告警最多每 30 分钟发一次
 GRACE_PERIOD_MINUTES = 15          # 首次启动/状态文件缺失时的宽限期
 
-# Lark 通知
-APP_ID = "cli_a90c3a6163785ed2"
-APP_SECRET = "***LARK_SECRET_REMOVED***"
+# 心跳间隔倍数（阈值 = 间隔 × 倍数）
+HEARTBEAT_THRESHOLD_MULTIPLIER = 2.5  # 阈值是心跳间隔的 2.5 倍（给一些缓冲）
+
+
+def parse_heartbeat_interval():
+    """从 HEARTBEAT.md 或 AGENTS.md 解析心跳间隔（分钟）
+    
+    支持的格式：
+    - 心跳已启用（every: 5m）
+    - 心跳: every 30m
+    - Heartbeat: every 5min
+    - every: 30m
+    - every: 5 minutes
+    
+    返回：间隔分钟数（默认 5）
+    """
+    import re
+    
+    files_to_check = [
+        WORKSPACE / "HEARTBEAT.md",
+        WORKSPACE / "AGENTS.md",
+    ]
+    
+    patterns = [
+        r'every[:\s]+(\d+)\s*(m|min|minute|minutes)?',  # every: 5m, every 30m, every: 5 minutes
+        r'心跳.*?(\d+)\s*(分钟|m|min)',  # 中文：心跳（每 5 分钟）
+        r'heartbeat.*?(\d+)\s*(m|min|minute|minutes)?',  # Heartbeat every 5m
+    ]
+    
+    for file_path in files_to_check:
+        if not file_path.exists():
+            continue
+        try:
+            content = file_path.read_text()
+            for pattern in patterns:
+                match = re.search(pattern, content, re.IGNORECASE)
+                if match:
+                    minutes = int(match.group(1))
+                    if 1 <= minutes <= 1440:  # 合理范围：1分钟到24小时
+                        logmsg(f"📖 从 {file_path.name} 读取心跳间隔: {minutes} 分钟")
+                        return minutes
+        except Exception as e:
+            logmsg(f"⚠️ 读取 {file_path.name} 失败: {e}")
+            continue
+    
+    logmsg("📖 使用默认心跳间隔: 5 分钟")
+    return 5  # 默认值
+
+
+def get_heartbeat_threshold():
+    """获取心跳阈值（基于配置的间隔）"""
+    interval = parse_heartbeat_interval()
+    threshold = int(interval * HEARTBEAT_THRESHOLD_MULTIPLIER)
+    # 确保最小阈值（避免间隔太小导致误报）
+    return max(threshold, 8)  # 至少 8 分钟
+
+# Lark 通知 — use lark_common centralized credentials
+try:
+    import importlib.util
+    _lc_spec = importlib.util.spec_from_file_location("lark_common", str(WORKSPACE / "scripts" / "lark_common.py"))
+    _lc = importlib.util.module_from_spec(_lc_spec)
+    _lc_spec.loader.exec_module(_lc)
+    APP_ID = _lc.APP_ID
+    APP_SECRET = _lc.APP_SECRET
+except Exception:
+    # Fallback: hardcoded credentials (watchdog must never fail to start)
+    APP_ID = "cli_a90c3a6163785ed2"
+    APP_SECRET = "***LARK_SECRET_REMOVED***"
 CARL_CHAT = "oc_453c88ec52dd029845c46249837e3ba0"
 
 
@@ -390,6 +455,10 @@ def main():
             return
 
         # ── Check 3: 多信号综合判断 ──
+        # 动态获取心跳阈值（基于配置的心跳间隔）
+        heartbeat_threshold = get_heartbeat_threshold()
+        logmsg(f"心跳阈值: {heartbeat_threshold} 分钟（基于配置间隔 × {HEARTBEAT_THRESHOLD_MULTIPLIER}）")
+        
         last_heartbeat = get_last_heartbeat_time()
         last_session = get_last_session_time()
         last_log = get_last_log_time()
@@ -413,7 +482,7 @@ def main():
 
         # ── 判断心跳是否超时 ──
         if hb_minutes is not None:
-            heartbeat_dead = hb_minutes > HEARTBEAT_THRESHOLD_MINUTES
+            heartbeat_dead = hb_minutes > heartbeat_threshold
         else:
             # 心跳状态文件不存在（首次启动/损坏）
             # 给宽限期：如果进程和其他信号都正常，不立即判死
@@ -447,7 +516,8 @@ def main():
                 alive_signals.append(f"日志 {log_minutes:.1f}分钟前更新")
 
             reason = (
-                f"心跳停止 {int(hb_minutes) if hb_minutes else '?'}分钟，"
+                f"心跳停止 {int(hb_minutes) if hb_minutes else '?'}分钟"
+                f"（阈值 {heartbeat_threshold} 分钟），"
                 f"但系统仍活跃（{', '.join(alive_signals)}）"
             )
             logmsg(f"⚠️ {reason}")
