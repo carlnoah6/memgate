@@ -178,12 +178,9 @@ def complete_task(task_id, result=""):
             out = {"id": task_id, "status": "done"}
             if unblocked:
                 out["unblocked"] = [u["id"] for u in unblocked]
-            # Auto: send result to task chat + source chat, then dissolve
+            # Auto: send result to task chat + source chat (不解散，Carl 要看)
             _send_result_to_chat(t, result, is_success=True)
             _send_result_to_source(t, result, is_success=True)
-            if t.get("task_chat_id"):
-                _dissolve_task_chat(task_id)
-                out["chat_dissolved"] = True
             print(json.dumps(out, ensure_ascii=False))
             return
     print(f"Task {task_id} not found", file=sys.stderr)
@@ -198,11 +195,9 @@ def fail_task(task_id, error=""):
             t["result"] = error
             t["completed"] = now_iso()
             save_board(board)
-            # Auto: send error to task chat + source chat, then dissolve
+            # Auto: send error to task chat + source chat (不解散)
             _send_result_to_chat(t, error, is_success=False)
             _send_result_to_source(t, error, is_success=False)
-            if t.get("task_chat_id"):
-                _dissolve_task_chat(task_id)
             print(json.dumps({"id": task_id, "status": "failed"}, ensure_ascii=False))
             return
     print(f"Task {task_id} not found", file=sys.stderr)
@@ -216,9 +211,6 @@ def cancel_task(task_id):
             t["status"] = "cancelled"
             t["completed"] = now_iso()
             save_board(board)
-            # Auto: dissolve chat if exists
-            if t.get("task_chat_id"):
-                _dissolve_task_chat(task_id)
             print(json.dumps({"id": task_id, "status": "cancelled"}, ensure_ascii=False))
             return
     print(f"Task {task_id} not found", file=sys.stderr)

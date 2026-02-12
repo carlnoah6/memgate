@@ -75,9 +75,16 @@ def check_health():
                 "elapsed_min": None,
             })
 
-    # Auto-dissolve task group chats for completed/failed tasks
+    # Auto-dissolve task group chats for tasks completed > 24h ago
+    # (Carl wants to keep recent groups for review)
+    dissolve_cutoff = now - timedelta(hours=24)
     for t in board["tasks"]:
         if t["status"] in ("done", "failed", "cancelled") and t.get("task_chat_id"):
+            completed_time = t.get("completed")
+            if not completed_time:
+                continue
+            if datetime.fromisoformat(completed_time) > dissolve_cutoff:
+                continue  # Too recent, keep the group
             try:
                 import subprocess
                 subprocess.run(
