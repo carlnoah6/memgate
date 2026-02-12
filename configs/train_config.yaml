@@ -1,0 +1,72 @@
+# =============================================================================
+# Training Configuration — Phase 2: Distributed Training Loop
+# =============================================================================
+
+# --- Model ---
+model:
+  dim: 4096
+  n_layers: 32
+  n_heads: 32
+  n_kv_heads: 8
+  vocab_size: 100000
+  multiple_of: 256
+  ffn_dim_multiplier: null
+  norm_eps: 1e-5
+  max_seq_len: 4096
+  rope_theta: 500000.0
+  use_bias: false
+
+# --- Training ---
+training:
+  # Optimization
+  lr: 3e-4
+  min_lr: 3e-5                   # 10% of peak lr for cosine decay floor
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  grad_clip_max_norm: 1.0
+
+  # Batch sizing
+  micro_batch_size: 4
+  gradient_accumulation_steps: 8  # effective batch = micro_batch * grad_accum * world_size
+
+  # Schedule
+  max_steps: 100000
+  warmup_steps: 2000              # linear warmup then cosine decay
+
+  # Mixed precision
+  dtype: bf16                     # bf16 | fp16 | fp32
+
+  # Checkpointing
+  checkpoint_dir: checkpoints
+  checkpoint_interval: 1000       # save every N steps
+  resume_from: null               # path to resume checkpoint
+
+  # Evaluation
+  eval_interval: 500              # evaluate every N steps
+  eval_steps: 50                  # number of eval batches per evaluation
+
+  # Logging
+  log_interval: 10                # log metrics every N steps
+  wandb_project: null             # set to enable WandB; controlled by WANDB_DISABLED env
+  wandb_run_name: null
+
+  # Reproducibility
+  seed: 42
+
+# --- Data ---
+data:
+  train_path: data/train
+  val_path: data/val
+  seq_len: 4096
+  num_workers: 4
+
+# --- Distributed ---
+distributed:
+  backend: nccl
+  fsdp:
+    enabled: true
+    sharding_strategy: FULL_SHARD   # FULL_SHARD | SHARD_GRAD_OP | NO_SHARD
+    mixed_precision: true
+    activation_checkpointing: false
+    cpu_offload: false

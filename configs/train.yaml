@@ -1,0 +1,15 @@
+model:
+  name: "transformer_v1"
+  hidden_size: 768
+  num_layers: 12
+  num_heads: 12
+
+training:
+  batch_size: 32
+  learning_rate: 0.0001
+  epochs: 10
+  save_dir: "checkpoints"
+
+data:
+  train_path: "data/train.jsonl"
+  val_path: "data/val.jsonl"

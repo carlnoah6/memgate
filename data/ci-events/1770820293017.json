@@ -1,0 +1,9 @@
+{
+  "message": "\ud83d\ude80 Deploy Succeeded\nRepo: carlnoah6/api-proxy\nWorkflow: Deploy\nBranch: main\nCommit: fix: webhook saves events to files instead of direct Lark messages (#9)\nLink: https://github.com/carlnoah6/api-proxy/actions/runs/21909135735",
+  "repo": "carlnoah6/api-proxy",
+  "workflow": "Deploy",
+  "conclusion": "success",
+  "run_url": "https://github.com/carlnoah6/api-proxy/actions/runs/21909135735",
+  "branch": "main",
+  "timestamp": 1770820293.0177324
+}

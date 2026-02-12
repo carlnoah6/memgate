@@ -1,0 +1,6 @@
+# Data Configuration
+batch_size: 32
+num_workers: 4
+train_path: "data/raw/train.txt"
+val_path: "data/raw/val.txt"
+tokenizer_path: "data/tokenizer.json"

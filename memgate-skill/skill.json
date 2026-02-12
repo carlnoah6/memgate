@@ -1,0 +1,1 @@
+{"name":"memgate","version":"0.1.0","description":"Privacy-aware memory isolation and checking for AI agents","entry":"memgate_skill.py","dependencies":{"python":["memgate"]},"permissions":["read","write"]}

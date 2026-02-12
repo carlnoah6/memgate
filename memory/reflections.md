@@ -136,4 +136,43 @@
 
 ---
 
+## 2026-02-11（周三，OS 模式架构日）
+
+### 💡 规律与教训
+
+1. **规律：绝不修改本地生产代码，包括"临时 debug log"** → 因为 `git checkout .` 会把代码拉到远程最新，可能丢失本地 untracked 文件和非 git 管理的改动 → 以后排查问题只读日志、用 curl 测试，修改代码走 PR 流程 → **升级候选：已写入 SOUL.md 铁律**
+
+2. **规律：修复事故时先恢复干净状态再分析** → 因为在脏状态上叠加修复容易引入更多问题 → `git stash && git checkout .` 是第一步，然后再定位根因
+
+3. **规律：inotifywait 监听单文件有陷阱** → 原子写入（unlink+create/rename）不触发 modify 事件 → 必须监听目录 + close_write,moved_to 事件
+
+4. **规律：事件驱动系统的 handler 必须异步** → 同步 handler 阻塞主循环导致后续事件漏检 → 用 subprocess.Popen 替代 subprocess.run
+
+5. **规律：固化 = 代码，不是 prompt** → 需要"记住去做"的事都应写进代码/脚本/配置 → LLM 记忆不可靠，代码保证执行 → **反复出现的模式，已升级到 SOUL.md**
+
+6. **规律：多入口写同一种数据必须共用映射逻辑** → init 和 replan 各自映射 title/desc/prompt 导致不一致 → 抽出 normalize_step() 统一处理
+
+7. **规律：urllib.request.urlopen 必须显式设置 timeout** → 默认无 timeout，网络不稳定时无限挂住 → 所有 HTTP 调用加 timeout=15
+
+### 🔧 问题与解法
+
+- **API Proxy 事故**：根因是 PR #11/#12 删除了 server.py 和 oauth handler，本地 `git checkout .` 暴露了这个问题 → 修复 systemd ExecStart + Tailscale Funnel 路由
+- **知识同步总线 3 个 bug**：inotifywait/参数错位/同步阻塞 → 分别用目录监听/参数 fallback/异步 Popen 解决
+- **planner.py 4 个问题**：key 映射不一致/auto-advance 不 spawn/task_id 混淆/has_running 检查缺失 → normalize_step + 文档化已知限制 + 增加边界检查
+
+### 🔍 安全发现
+- Tailscale Funnel 操作需小心：`serve --set-path` 会关掉 Funnel，需重新 `funnel --bg` 开启
+- `funnel --bg 443` 不带 `--set-path` 会把 `/` 路由改成 443，必须显式指定
+
+### 📊 Token 趋势
+- 02-10: 272.0M tokens (6,330 req)
+- 02-11: 87.9M tokens (5,327 req, -68%) — 显著下降，系统趋于稳定
+
+### 🎯 改进方向
+- 通过 PR 恢复 `/oauth/callback` 路由
+- 实战验证 OS 模式 task-manager 完整流程
+- Token 消耗目标降至 50M/天
+
+---
+
 *（后续每天的反思会追加在这里）*

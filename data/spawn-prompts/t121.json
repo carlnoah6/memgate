@@ -1,0 +1,11 @@
+{
+  "task_id": "t121",
+  "task": "# 子任务: MemGate v0.4.0 docstring 补全：完成 semantic_detector.py 的 Google-style docstring 更新，然后 commit + push 到 PR #12\n\n项目: MemGate\n\n## Wiki\n不需要上传 Wiki，仅存本地。\n\n## 进度汇报\n无专用群聊，完成后直接发结果到源 chat。\n\n## 消息发送（强制规则）\n- **禁止用 `message` 工具**（子任务没有 Feishu 配置，会报错）\n- 必须用脚本: `/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"<chat_id>\" \"<消息内容>\"`\n\n## 完成后（必须执行）\n成功时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/task-manager.py complete t121 \"结果摘要（一句话）\"\n/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"oc_4fe2e6e2dbfd0e6fc35c9dab672ab820\" \"✅ t121 完成: <结果摘要>\"\n```\n\n失败时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/task-manager.py fail t121 \"失败原因\"\n/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"oc_4fe2e6e2dbfd0e6fc35c9dab672ab820\" \"❌ t121 失败: <原因>\"\n```\n",
+  "label": "t121",
+  "runTimeoutSeconds": 1800,
+  "source_chat": "oc_4fe2e6e2dbfd0e6fc35c9dab672ab820",
+  "task_chat_id": null,
+  "project": "MemGate",
+  "wiki_space": null,
+  "wiki_parent": null
+}

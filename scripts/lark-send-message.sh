@@ -32,11 +32,12 @@ elif [ "$MODE" = "--post-json" ]; then
     MSG_TYPE="post"
     POST_JSON="$MESSAGE"
     MESSAGE=""
-elif [ "$MODE" = "-" ] || [ -z "$MODE" ]; then
+elif [ "$MODE" = "-" ]; then
     # Plain text from stdin
-    if [ "$MODE" = "-" ]; then
-        MESSAGE=$(cat)
-    fi
+    MESSAGE=$(cat)
+elif [ -n "$MODE" ] && [ "$MODE" != "-" ] && [ "$MODE" != "--post" ] && [ "$MODE" != "--post-json" ]; then
+    # MODE is actually the message text (2-arg call: script <chat_id> "message")
+    MESSAGE="$MODE"
 fi
 
 if [ "$MSG_TYPE" = "text" ] && [ -z "$MESSAGE" ]; then
@@ -82,7 +83,7 @@ token_req = urllib.request.Request(
     headers={"Content-Type": "application/json"}
 )
 try:
-    with urllib.request.urlopen(token_req) as resp:
+    with urllib.request.urlopen(token_req, timeout=10) as resp:
         token_data = json.loads(resp.read())
 except Exception as e:
     print(f"ERROR: Failed to get token: {e}", file=sys.stderr)
@@ -119,7 +120,7 @@ send_req = urllib.request.Request(
 )
 
 try:
-    with urllib.request.urlopen(send_req) as resp:
+    with urllib.request.urlopen(send_req, timeout=10) as resp:
         send_data = json.loads(resp.read())
 except urllib.error.HTTPError as e:
     body = e.read().decode()

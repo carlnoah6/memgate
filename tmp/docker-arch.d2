@@ -1,0 +1,158 @@
+title: |md
+  # API Proxy — Docker Architecture
+| {
+  near: top-center
+  style.font-size: 28
+}
+
+# ── GitHub CI/CD ──
+github: GitHub {
+  style.fill: "#1a1a1a"
+  style.font-color: "#ffffff"
+  style.stroke: "#333"
+
+  repo: carlnoah6/api-proxy {
+    style.fill: "#333"
+    style.font-color: "#ffffff"
+  }
+  ci: CI\n(lint + test) {
+    style.fill: "#333"
+    style.font-color: "#ffffff"
+  }
+  cd: CD\n(build + push image) {
+    style.fill: "#333"
+    style.font-color: "#ffffff"
+  }
+  ghcr: ghcr.io\n(Container Registry) {
+    style.fill: "#7c4dff"
+    style.font-color: "#ffffff"
+    style.bold: true
+  }
+
+  repo -> ci: PR / push {
+    style.stroke: "#999"
+  }
+  ci -> cd: ✅ tests pass {
+    style.stroke: "#1e8e3e"
+    style.font-color: "#1a1a1a"
+  }
+  cd -> ghcr: docker push {
+    style.stroke: "#7c4dff"
+    style.font-color: "#1a1a1a"
+  }
+}
+
+# ── Public Internet ──
+internet: Internet {
+  style.fill: "#f9ab00"
+  style.font-color: "#1a1a1a"
+
+  openclaw: OpenClaw\n(LLM requests) {
+    style.fill: "#e37400"
+    style.font-color: "#ffffff"
+  }
+  gh-webhook: GitHub\n(webhook events) {
+    style.fill: "#e37400"
+    style.font-color: "#ffffff"
+  }
+}
+
+# ── Tailscale Funnel ──
+funnel: Tailscale Funnel {
+  style.fill: "#7c4dff"
+  style.font-color: "#ffffff"
+  style.font-size: 18
+
+  route-api: "/api → :8180" {
+    style.fill: "#6200ea"
+    style.font-color: "#ffffff"
+  }
+  route-wh: "/webhook → :8280" {
+    style.fill: "#6200ea"
+    style.font-color: "#ffffff"
+  }
+}
+
+# ── EC2 Server (Docker) ──
+server: EC2 Server {
+  style.fill: "#e8f0fe"
+  style.stroke: "#1a73e8"
+  style.font-color: "#1a1a1a"
+  style.font-size: 18
+
+  docker: Docker Compose {
+    style.fill: "#1a73e8"
+    style.font-color: "#ffffff"
+    style.bold: true
+
+    proxy: api-proxy\n:8180 {
+      style.fill: "#0d47a1"
+      style.font-color: "#ffffff"
+    }
+    webhook: webhook\n:8280 {
+      style.fill: "#0d47a1"
+      style.font-color: "#ffffff"
+    }
+  }
+
+  upstream: Antigravity\n:8080 {
+    style.fill: "#1e8e3e"
+    style.font-color: "#ffffff"
+  }
+
+  luna: Luna (OpenClaw)\n:18789 {
+    style.fill: "#f9ab00"
+    style.font-color: "#1a1a1a"
+  }
+
+  events: data/ci-events/ {
+    style.fill: "#fff"
+    style.stroke: "#999"
+    style.font-color: "#666"
+    shape: page
+  }
+}
+
+# ── Flows ──
+internet.openclaw -> funnel.route-api: HTTPS {
+  style.stroke: "#1a73e8"
+  style.stroke-width: 3
+  style.font-color: "#1a1a1a"
+}
+internet.gh-webhook -> funnel.route-wh: HTTPS {
+  style.stroke: "#7c4dff"
+  style.stroke-width: 3
+  style.font-color: "#1a1a1a"
+}
+
+funnel.route-api -> server.docker.proxy {
+  style.stroke: "#1a73e8"
+  style.stroke-width: 2
+}
+funnel.route-wh -> server.docker.webhook {
+  style.stroke: "#7c4dff"
+  style.stroke-width: 2
+}
+
+server.docker.proxy -> server.upstream: forward {
+  style.stroke: "#1e8e3e"
+  style.stroke-width: 2
+  style.font-color: "#1a1a1a"
+}
+
+server.docker.webhook -> server.events: write event {
+  style.stroke: "#d93025"
+  style.font-color: "#1a1a1a"
+}
+server.events -> server.luna: heartbeat reads {
+  style.stroke: "#f9ab00"
+  style.font-color: "#1a1a1a"
+  style.stroke-dash: 5
+}
+
+github.ghcr -> server.docker: docker pull {
+  style.stroke: "#7c4dff"
+  style.stroke-width: 3
+  style.stroke-dash: 5
+  style.font-color: "#1a1a1a"
+}

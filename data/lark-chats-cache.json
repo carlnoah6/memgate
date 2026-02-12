@@ -1,0 +1,185 @@
+{
+  "ts": 1770820594.66549,
+  "chats": [
+    {
+      "chat_id": "oc_a2a70c6b4a29c2f2eb6c2500ea42a500",
+      "name": "Luna 卢娜 - 数字员工",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_7f3ebd31a5cf2fec9170952b29eb2700",
+      "name": "Luna日程",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_680d9c843e6a0ad501de9299a97f3a7e",
+      "name": "Luna机器人主对话",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_4fe2e6e2dbfd0e6fc35c9dab672ab820",
+      "name": "Luan测试群聊",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_630995d9b870d2ff6ab3fa34a4e7315a",
+      "name": "📋 Luna任务板",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_0900e63860f8b6d1b08285262701817f",
+      "name": "Luna任务",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_00f2dc85400550ff2c5d072a1097b7d0",
+      "name": "🤖 t140 文档双向同步：统一 wiki-sync.json + 自动同",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_9d590cf63fb704b1436ef942585b7393",
+      "name": "🤖 t150 API Proxy 代码重构 + GitHub 托管 + C",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_df27dc92c5a87c6bc4f94705d3ab44c1",
+      "name": "🤖 t155 调查重启后未自动汇报的原因",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_2b0600aec492316fd1d596d158df9a5f",
+      "name": "🤖 tid-158 测试任务：1分钟执行+群内进度汇报",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_d493026d91afcfd99dea309ba723a03a",
+      "name": "🤖 tid-159 定期检查（邮件+日历+TODO）",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_4a92824a97312312abf48efd60df7100",
+      "name": "🤖 tid-160 测试任务v2：1分钟执行+群内进度汇报",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_2fabf794d9c34b49115bd82bc910b3aa",
+      "name": "🤖 tid-162 Phase 1 开发：任务优先级系统（4级+Aging）+",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_30d55299f5f899d8b18e94d27597249a",
+      "name": "🤖 tid-163 串台修复验证：30秒测试",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_af61c9dfd3393fb0d3c6b4e9ce9d978b",
+      "name": "🤖 tid-164 Phase 1 开发：任务优先级系统（4级+Aging）+",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_efbe204e293b8db608c899f3015c9383",
+      "name": "🤖 tid-165 定期检查（邮件+日历+TODO）",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_612deb7a476a7d8ed8f212ce32132238",
+      "name": "🤖 tid-168 补全 API Proxy CI/CD：装 runner +",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_7db7acb4fb3f243e736181958e465d12",
+      "name": "🤖 tid-169 定期检查（邮件+日历+TODO）",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_535e246a04e61d80444025a0f3f2a965",
+      "name": "🤖 tid-170 定期检查（邮件+日历+TODO）",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_be99aab1f4bf60be573560d7fdafe1bb",
+      "name": "🤖 tid-171 补全 API Proxy CI/CD（严格走 PR 流程，禁",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_db1ca2d8e805a9275e5ac453ec005909",
+      "name": "🤖 tid-174 接上看板刷新按钮回调：点击即更新卡片",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_2175dd0f023bfe5d496c9d07420b8d08",
+      "name": "🤖 tid-176 接上看板刷新按钮回调[重试]",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_3847933ac89f1225b7f80166210ddeb8",
+      "name": "🤖 tid-177 API Proxy: 代码审计 + 英文化 + CodeRa",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_0d567f3b1f86936854cb96d8946f58ce",
+      "name": "🤖 tid-178 API Proxy: 代码审计+英文化+CodeRabbit",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_2168ce917edc756031de6abcd694bf42",
+      "name": "🤖 tid-179 API Proxy 代码质量提升：英文化+CodeRabbi",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_a89ff2517bfc1128013c6928f7564981",
+      "name": "🤖 tid-180 API Proxy 代码质量提升 v3",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_5e9b0d8f077c24bdd9e77ec6550b0350",
+      "name": "🤖 tid-185 测试任务：1分钟执行+每15秒进度报告",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_4d1a4c9976469c7f97c77c4c88b98d0c",
+      "name": "🤖 tid-193 测试任务：高优先级 1分钟+每15秒进度报告",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_256231e938c8de0cfe27b065787ca552",
+      "name": "🤖 tid-208 CI/CD fallback 测试：Mock Upstrea",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_59e2daee4083348c42c04266e2ed45f8",
+      "name": "🤖 tid-210 CI/CD fallback 测试：Mock Upstrea",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_6d2b91b34d91d64b8045ca3c93dd5a7d",
+      "name": "🤖 tid-0211-2 GitHub Webhook → CI 通知：api-pro",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_28b75ef8eeb9cec20b49b37a7edb9f83",
+      "name": "🤖 tid-0211-10 实现 Devin 式任务规划器：per-chat plann",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_e4fa2fadb20b2216572724de68a8c157",
+      "name": "🤖 tid-0211-11 Debug: Lark 消息中 @mention 信息丢失，",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_1b02ebb620b9fdb9667d18e398089e72",
+      "name": "🤖 tid-0211-12 实现 Devin 式任务规划器：per-chat plann",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_1cce6dfc4d6328dad44d4ec1c67bbad2",
+      "name": "🤖 tid-0211-13 修复 task-manager start 不存 sessi",
+      "user_count": "?"
+    },
+    {
+      "chat_id": "oc_a11f3f91c5f334e15f00f80fa61467ce",
+      "name": "🤖 tid-0211-15 规划器集成：心跳自动推进 + HEARTBEAT.md 更新",
+      "user_count": "?"
+    }
+  ]
+}

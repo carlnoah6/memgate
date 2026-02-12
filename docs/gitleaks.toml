@@ -1,0 +1,72 @@
+# Gitleaks config — custom rules for our repos
+# Extends the default ruleset with org-specific patterns.
+# Place this file at the repo root as .gitleaks.toml
+
+title = "Custom gitleaks config"
+
+[extend]
+useDefault = true
+
+# ── Lark / Feishu secrets ──
+
+[[rules]]
+id = "lark-app-secret"
+description = "Lark/Feishu App Secret"
+regex = '''(?i)(app.?secret|lark.?secret|feishu.?secret)\s*[:=]\s*["']?([A-Za-z0-9]{20,})["']?'''
+tags = ["lark", "secret"]
+
+[[rules]]
+id = "lark-access-token"
+description = "Lark/Feishu Access Token"
+regex = '''(?i)(tenant_access_token|user_access_token)\s*[:=]\s*["']?(t-[A-Za-z0-9._-]{20,})["']?'''
+tags = ["lark", "token"]
+
+# ── Generic API keys ──
+
+[[rules]]
+id = "generic-api-key-assignment"
+description = "Hardcoded API key assignment"
+regex = '''(?i)(api[_-]?key|apikey|secret[_-]?key)\s*[:=]\s*["']([A-Za-z0-9_\-]{16,})["']'''
+tags = ["api", "key"]
+
+# ── Personal information ──
+
+[[rules]]
+id = "email-address"
+description = "Email address (potential PII leak)"
+regex = '''[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'''
+tags = ["pii", "email"]
+[rules.allowlist]
+paths = [
+  '''\.md$''',
+  '''LICENSE''',
+  '''requirements\.txt$''',
+  '''package\.json$''',
+  '''pyproject\.toml$''',
+  '''\.gitignore$''',
+]
+
+[[rules]]
+id = "phone-number"
+description = "Phone number (potential PII leak)"
+regex = '''\+?\d{1,3}[-.\s]?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}'''
+tags = ["pii", "phone"]
+[rules.allowlist]
+paths = ['''\.md$''', '''LICENSE''']
+
+# ── Cloud provider keys ──
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["aws", "key"]
+
+# ── Global allowlist ──
+
+[allowlist]
+paths = [
+  '''\.gitleaks\.toml$''',
+  '''gitleaks\.toml$''',
+  '''tests/.*''',
+]

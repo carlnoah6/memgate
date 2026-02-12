@@ -61,8 +61,128 @@
 - 修改系统文件或代码前和 Carl 确认
 - 内部探索（读文件、查日志）可以自主
 
+### API Proxy 绝对不碰本地代码（2026-02-12 血的教训）
+- **绝对禁止直接修改 `/home/ubuntu/api-proxy/` 下的任何文件**，包括 debug log
+- **唯一流程**：GitHub branch → PR → CI → merge → 本地 `git pull` → `systemctl restart`
+- **教训**：2/12 为加 debug log 直接改本地 → 撤回时 server.py 丢失 + admin.py 被覆盖 → API Proxy 完全 DOWN
+- 排查时只能看日志（journalctl）和 curl 测试，**不碰源码**
+
 ### 批量行动，减少中断
 - 攒一批改动一起做，不要改一个就重启一次
+
+### OpenClaw Session 管理（系统事实，不可想当然）
+- **Session 状态由 `sessions.json` 驱动**，OpenClaw 从文件加载状态，不是纯内存缓存
+- **清 session 两步走，无需重启**：
+  1. 清空 `agents/main/sessions/<uuid>.jsonl`（transcript）
+  2. 重置 `sessions.json` 中对应 session 的 `systemSent=false`、`totalTokens=0`
+- **立即生效**——下次收到该 session 的消息时，OpenClaw 会重新初始化
+- **绝不要因为"清了 session"就重启 gateway**，这是多余操作
+- Lock 文件（`.jsonl.lock`）可能残留，手动 `rm` 即可
+- 子任务 `totalTokens=0` = 从未启动，直接标记 failed
+
+### ⚠️ 固化 = 代码，不是 prompt（2026-02-12 反复犯错的总结）
+
+**核心原则**：凡是能用代码/脚本保证的流程，绝不依赖 LLM 自觉遵守。
+
+**今天犯的所有错误都有同一个根因**——默认用"LLM 记住"而不是"代码强制"：
+
+| 错误 | 我做了什么 | 应该怎么做 |
+|------|-----------|-----------|
+| 忘了用规划器 | 手动列步骤 | 查 planner.py，用代码流程 |
+| 手编图标 | 凭记忆写 📍⏳ | 图标在 format_plan() 里写死，不该自编 |
+| 主 session 做重活 | 自己 npm pack + 读源码 | replan 出去，代码调度保证 |
+| 新需求没进规划器 | 直接讨论方案 | 先 replan，代码跟踪保证不丢 |
+| watcher 重启放 HEARTBEAT.md | 写在 prompt 里靠自觉 | 写在 check-restart.sh 里代码执行 |
+
+**检查清单（每次"固化"前自问）**：
+1. 这个流程能不能用脚本/代码保证？→ 能就写代码
+2. 如果 LLM 忘了这条规则，会出什么问题？→ 会出问题就不能靠 prompt
+3. 有没有现成的代码流程可以复用？→ 有就用，不要自己发明
+
+### 📋 规划器（planner.py）— 编排层（2026-02-12 review 后固化）
+
+**定位**：建在 `task-manager.py` 之上的编排层，每个群聊最多一个活跃 planner，步骤和任务面板 1:1 映射。
+**数据存储**：`data/planner/<chat_id后8位>.json`
+
+**图标体系（代码写死在 `format_plan()` 中，禁止自编）**：
+
+| 图标 | 含义 | 上下文 |
+|------|------|--------|
+| `📋` | Plan 标题 | `📋 Plan — <goal>` |
+| `✅` | done | 已完成步骤（附 result summary，≤60 字符） |
+| `🔄` | running | 执行中步骤（附耗时分钟数） |
+| `❌` | failed | 失败步骤（附 error，≤60 字符） |
+| `⬜` | pending | 待执行步骤 |
+| (隐藏) | cancelled | cancelled 步骤不显示 |
+| `🟢` / `✅` / `🚫` | list 命令 | active / completed / cancelled |
+
+**10 个命令**：
+
+| 命令 | 说明 |
+|------|------|
+| `init <chat_id> <goal> <steps_json>` | 创建计划，自动建第一步任务并标记 running |
+| `show <chat_id>` | 显示计划状态（format_plan 格式） |
+| `step-done <chat_id> <step_id> "结果"` | 标记完成 → 自动推进下一步 → 发 Lark 消息 |
+| `step-fail <chat_id> <step_id> "错误"` | 标记失败，**不自动推进**（等人工介入） |
+| `replan <chat_id> <new_steps_json>` | 替换 pending/failed 步骤，保留 done/running |
+| `cancel <chat_id>` | 取消整个计划（running 任务也取消） |
+| `advance <chat_id>` | 心跳推进：无 running 且有 pending → 启动下一步 |
+| `check-advances` | 扫描所有活跃 planner，报告需要推进的（心跳用） |
+| `list` | 列出所有 planner（active 优先） |
+| `find-by-task <task_id>` | 反查某个 task 属于哪个 plan |
+
+**steps_json 格式（init 和 replan 统一）**：
+```json
+[{"title": "步骤描述", "prompt": "子任务详细指令"}]
+```
+- 也支持内部 key：`{"desc": "...", "detail": "..."}`
+- 优先级：`title` > `desc` > `"Step N"`（描述）；`prompt` > `detail` > `""`（详情）
+- 代码通过 `normalize_step()` 统一映射，init 和 replan 行为完全一致
+- ⚠️ 2/12 修复前 init 不支持 title/prompt，导致 desc 全部 fallback 到 "Step N"
+
+**关键机制**：
+- **自动推进**：`step-done` → 创建下一步任务 → tm_add+tm_start → 发 Lark 状态 → schedule_advance
+- **失败不推进**：`step-fail` 停在原地，需人工 replan 或 advance
+- **Spawn prompt**：`build_spawn_prompt()` 自动附加 Planner Callback footer（step-done/step-fail 回调）
+- **Lark 通知**：step-done / step-fail / replan / cancel / advance 都自动发 `format_plan()` 到群聊
+- **Cron + Pending fallback**：schedule_advance 先试 `openclaw cron add`，失败则写 `data/planner-pending/<hash>.json`，由 check-advances（心跳调用）拾取
+- **check-advances 安全**：只有无 running 步骤且有 pending 步骤时才报 advances_needed（2/12 修复了 pending 文件路径的误判 bug）
+
+**与任务面板集成**：
+- `init` → tm_add + tm_start（第一步）
+- `step-done` → tm_complete → tm_add + tm_start（下一步）
+- `step-fail` → tm_fail
+- `cancel` → tm_cancel（running 任务）
+- 每个步骤的 task_id 存在 step JSON 中
+
+**使用原则**：
+- 任何多步项目都用规划器，不要手动管理状态或图标
+- 项目进行中 Carl 提新需求 → **立刻 replan**，不在主 session 做重活
+- replan 保留 done/running，只替换 pending/failed/cancelled
+- 绝不在主 session 做调查/分析（违反 OS 模式 <10 秒原则）
+
+**历史教训**：
+- 2/12：init 不支持 title/prompt → desc 全部是 "Step N"（已修复：normalize_step）
+- 2/12：check-advances pending 文件路径不检查 has_running → 误报（已修复）
+- 2/12：step-done 后 auto-advance 创建任务但不 spawn（cron 不可用 + pending 要等心跳）
+- 2/12：子任务搞混 task_id（t008 vs t009），因为 desc 都是 "Step N" 无法区分
+
+### 📢 知识同步总线（2026-02-12 上线）
+- **定位**：文件变更自动广播到所有活跃 session，保持多 session 认知同步
+- **核心脚本**：`scripts/knowledge-sync.py`
+- **命令**：
+  - `check` — 检测文件变更，输出 JSON
+  - `broadcast [--dry-run]` — 检测变更 → 生成带 diff 的通知 → `openclaw agent --session-id` 直接注入
+  - `watch` — 启动 inotifywait 文件监听守护进程（写入即触发）
+  - `notify <file> <summary>` — 手动通知
+  - `status` / `diff <file>` / `init` — 辅助命令
+- **启动/停止**：`bash scripts/start-knowledge-watcher.sh` / `bash scripts/stop-knowledge-watcher.sh`
+- **日志**：`data/knowledge-watcher.log`
+- **状态文件**：`data/knowledge-sync-state.json`（md5 + 内容快照）
+- **监控文件**：SOUL.md（🔴高）、MEMORY.md（🟡中）、TOOLS.md / HEARTBEAT.md（🟢低）
+- **机制**：inotifywait 检测变更 → 生成带实际 diff 内容的通知 → `openclaw agent --session-id` 直接注入目标 session（绕过 LLM，秒级）
+- **隐私**：MEMORY.md 变更不发到多人群聊
+- **重启后需重新启动 watcher**：加入重启检查流程
 
 ## 🗣️ 语言规则
 - **默认中文** — 中文问→中文答，不夹英文段落
@@ -101,6 +221,12 @@
   - `oc_7f3ebd31a5cf2fec9170952b29eb2700` → ✅ 私聊（Carl + Bot）
   - `oc_a2a70c6b4a29c2f2eb6c2500ea42a500` → ❌ 多人群（Carl + QJunyi + zxc）
   - `oc_4fe2e6e2dbfd0e6fc35c9dab672ab820` → ❌ 多人群（Carl + Luna真人用户）
+
+## 📝 Carl 的交互偏好
+
+### 规划器显示
+- **「显示规划器」**= 只显示**当前对话关联的**规划器，附带任务进展和下一步预期
+- **「显示所有规划器」**= 显示全部规划器，每个标注所属**群聊名称**
 
 ## 📝 沟通规则
 
@@ -191,6 +317,32 @@
 - **重启来源追踪完成**: mark/check/restart 三脚本支持 source_session 参数
 - **Privacy Guard 集成完成**: CLI 脚本 + 知识库初始化 + 29/29 测试
 - **API Fallback 已完成**（Carl 确认）
+
+### 2026-02-12
+- **仪表盘（Dashboard）功能完成** — 可刷新的持续性 Lark 交互卡片
+  - Carl 说「仪表盘」= 发送/刷新 `lark-task-dashboard.py`
+  - **刷新按钮 5 个坑全踩完**，详见 `memory/reference/lark-card-update.md`：
+    1. `PATCH /im/v1/messages` 更新 interactive card → 服务端成功但**客户端不刷新**
+    2. 回调直接返回卡片 JSON → Lark 报 `200341`
+    3. 回调返回 `{}` → Lark 报 `200341`
+    4. `/interactive/v1/card/update` 不带 Auth → `99991661`
+    5. `open_ids` 放顶层 → `300090`
+  - **正确方式**：`POST /interactive/v1/card/update` + `Bearer token` + `open_ids` 在 card 内部 + 回调返回 toast
+  - **教训**：不要重复造轮子（已有 `lark-card-builder.py`，我还新建了 `dashboard-card.py`）；不要瞎猜 API 参数，查文档
+- **Session 爆满修复经验** — 任务板群 context 188k/200k 导致 API 拒绝
+  - **修复两步走**：①清磁盘（truncate .jsonl）②清状态（sessions.json reset systemSent/totalTokens）
+  - **不需要重启 gateway**！清完直接生效，OpenClaw 从 sessions.json 重新加载
+  - Lock 文件可能残留导致 `session file locked` 超时
+  - 子任务 totalTokens=0 = 从未启动，立即标记 failed
+  - 文件位置：transcript `agents/main/sessions/<uuid>.jsonl`，状态 `agents/main/sessions/sessions.json`
+- **📢 知识同步总线上线并测试通过** — 文件变更自动广播到所有活跃 session
+  - 端到端验证：写入假知识 → 广播 → 其他群 session 成功回答
+  - 修复 3 个 bug：inotifywait 监听目标（单文件→目录）、lark-send 参数错位（$2 被误判为 MODE → 无限 cat stdin）、broadcast 阻塞主循环（sync→async）
+  - **关键发现**：`openclaw agent --session-id` 直接注入 session 上下文（不经过 LLM 中转）
+  - **注入 ≠ 可见消息**：注入只更新 LLM 上下文，不会在聊天界面显示
+  - **通知必须带 diff 内容**：session 无法自行重新读文件，必须把变更文本直接写入通知
+  - **lark-send-message.sh 修复**：urlopen 必须加 timeout + 参数位置 fallback 处理
+  - 重启自动恢复 watcher：写在 check-restart.sh（代码保证），不写在 HEARTBEAT.md（prompt 依赖）
 
 ### 2026-02-11
 - **🖥️ OS 模式架构上线** — Luna 从"问答机器人"转型为"异步操作系统"

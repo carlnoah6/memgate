@@ -1,0 +1,71 @@
+# =============================================================================
+# Cloud Training Test Run Configuration
+# =============================================================================
+
+# --- Model (Small for test run) ---
+model:
+  dim: 512
+  n_layers: 4
+  n_heads: 8
+  n_kv_heads: 4
+  vocab_size: 100256
+  multiple_of: 64
+  ffn_dim_multiplier: null
+  norm_eps: 0.00001
+  max_seq_len: 256
+  rope_theta: 10000.0
+  use_bias: false
+
+# --- Training (Short duration) ---
+training:
+  # Optimization
+  lr: 0.0003
+  min_lr: 0.00003
+  weight_decay: 0.1
+  beta1: 0.9
+  beta2: 0.95
+  grad_clip_max_norm: 1.0
+
+  # Batch sizing
+  micro_batch_size: 4
+  gradient_accumulation_steps: 1
+
+  # Schedule
+  max_steps: 50
+  warmup_steps: 5
+
+  # Mixed precision
+  dtype: fp32
+
+  # Checkpointing
+  checkpoint_dir: checkpoints/cloud_test
+  checkpoint_interval: 10
+  resume_from: null
+
+  # Evaluation
+  eval_interval: 10
+  eval_steps: 1
+
+  # Logging
+  log_interval: 1
+  wandb_project: null
+
+  # Reproducibility
+  seed: 42
+
+# --- Data ---
+data:
+  train_path: "cloud_volume/data/tokenized"
+  val_path: "cloud_volume/data/tokenized"
+  seq_len: 256
+  num_workers: 0
+
+# --- Distributed ---
+distributed:
+  backend: gloo
+  fsdp:
+    enabled: false
+    sharding_strategy: FULL_SHARD
+    mixed_precision: false
+    activation_checkpointing: false
+    cpu_offload: false

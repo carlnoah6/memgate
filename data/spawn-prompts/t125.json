@@ -1,0 +1,11 @@
+{
+  "task_id": "t125",
+  "task": "# 子任务: 测试no-chat\n\n项目: 独立任务\n\n## Wiki\n不需要上传 Wiki，仅存本地。\n\n## 进度汇报\n无专用群聊，完成后直接发结果到源 chat。\n\n## 消息发送（强制规则）\n- **禁止用 `message` 工具**（子任务没有 Feishu 配置，会报错）\n- 必须用脚本: `/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"<chat_id>\" \"<消息内容>\"`\n\n## 完成后（必须执行，用 spawn-task.py 保证群聊自动解散）\n成功时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/spawn-task.py complete t125 \"结果摘要（一句话）\"\n```\n\n失败时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/spawn-task.py fail t125 \"失败原因\"\n```\n\n⚠️ 必须用 `spawn-task.py complete/fail`，不要直接用 `task-manager.py`！\n   spawn-task.py 会自动: 更新任务面板 + 发消息到源 chat + 解散任务群聊\n",
+  "label": "t125",
+  "runTimeoutSeconds": 1800,
+  "source_chat": "oc_630995d9b870d2ff6ab3fa34a4e7315a",
+  "task_chat_id": null,
+  "project": null,
+  "wiki_space": null,
+  "wiki_parent": null
+}

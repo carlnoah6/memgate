@@ -1,0 +1,11 @@
+{
+  "task_id": "t133",
+  "task": "# 子任务: Research: backlog 下一个任务\n\n项目: 后台研究\n\n## Wiki\n不需要上传 Wiki，仅存本地。\n\n## 进度汇报\n无专用群聊，完成后直接发结果到源 chat。\n\n## Git 工作流（强制规则，适用于所有代码修改）\n如果本任务涉及修改 git 仓库中的任何文件，**必须遵守以下流程**：\n1. `git checkout -b <分支名>` — 创建 feature 分支（命名: `feat/xxx`, `fix/xxx`, `docs/xxx`）\n2. 在分支上完成所有修改和 commit\n3. `git push -u origin <分支名>` — 推送分支（**绝不推送 main/master**）\n4. `gh pr create --title \"...\" --body \"...\"` — 创建 Pull Request\n5. 在完成消息中附上 PR 链接\n\n**⚠️ 直接 push 到 main/master 是被 Branch Protection 禁止的，push 会被拒绝。**\n\n## 代码质量（强制规则，适用于所有代码修改）\n- **输入校验**: 所有来自外部的输入（用户参数、文件内容、API 响应）在使用前必须验证格式和范围\n- **错误处理**: 解析外部数据（JSON、日期、文件）必须用 try/except，不能假设格式正确\n- **路径安全**: 拼接文件路径时必须验证输入不含 `..` 等遍历字符\n- **裸 except 禁用**: 使用 `except Exception:` 而非 `except:`\n\n## 消息发送（强制规则）\n- **禁止用 `message` 工具**（子任务没有 Feishu 配置，会报错）\n- 必须用脚本: `/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"<chat_id>\" \"<消息内容>\"`\n\n## 完成后（必须执行，用 spawn-task.py 保证群聊自动解散）\n成功时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/spawn-task.py complete t133 \"结果摘要（一句话）\"\n```\n\n失败时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/spawn-task.py fail t133 \"失败原因\"\n```\n\n⚠️ 必须用 `spawn-task.py complete/fail`，不要直接用 `task-manager.py`！\n   spawn-task.py 会自动: 更新任务面板 + 发消息到源 chat + 解散任务群聊\n",
+  "label": "t133",
+  "runTimeoutSeconds": 1800,
+  "source_chat": "oc_453c88ec52dd029845c46249837e3ba0",
+  "task_chat_id": null,
+  "project": "后台研究",
+  "wiki_space": null,
+  "wiki_parent": null
+}

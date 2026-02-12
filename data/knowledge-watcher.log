@@ -1,0 +1,148 @@
+2026-02-11 22:49:59 [INFO] 🚀 Knowledge sync watcher started (PID: 68698)
+2026-02-11 22:49:59 [INFO] 🚀 Knowledge sync watcher started (PID: 68698)
+2026-02-11 22:49:59 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 22:49:59 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 22:50:09 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 22:50:09 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 22:52:41 [INFO] 🚀 Knowledge sync watcher started (PID: 69051)
+2026-02-11 22:52:41 [INFO] 🚀 Knowledge sync watcher started (PID: 69051)
+2026-02-11 22:52:41 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 22:52:41 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 22:59:19 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 22:59:19 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 22:59:25 [INFO] 🚀 Knowledge sync watcher started (PID: 69571)
+2026-02-11 22:59:25 [INFO] 🚀 Knowledge sync watcher started (PID: 69571)
+2026-02-11 22:59:25 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 22:59:25 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 22:59:34 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 22:59:34 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:01:24 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 23:01:24 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 23:01:30 [INFO] 🚀 Knowledge sync watcher started (PID: 69781)
+2026-02-11 23:01:30 [INFO] 🚀 Knowledge sync watcher started (PID: 69781)
+2026-02-11 23:01:30 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 23:01:30 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 23:01:33 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:01:33 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:04:05 [INFO] ✅ Broadcast for TOOLS.md completed
+2026-02-11 23:04:05 [INFO] ✅ Broadcast for TOOLS.md completed
+2026-02-11 23:04:05 [INFO] Output: {
+  "broadcast": true,
+  "sent": 4,
+  "skipped": 0,
+  "failed": 1,
+  "details": [
+    {
+      "session_key": "agent:main:feishu:group:oc_630995d9b870d2ff6ab3fa34a4e7315a",
+      "file": "TOOLS.md",
+      "success": true,
+      "is_group": true,
+      "privacy_filtered": false
+    },
+    {
+      "ses
+2026-02-11 23:04:05 [INFO] Output: {
+  "broadcast": true,
+  "sent": 4,
+  "skipped": 0,
+  "failed": 1,
+  "details": [
+    {
+      "session_key": "agent:main:feishu:group:oc_630995d9b870d2ff6ab3fa34a4e7315a",
+      "file": "TOOLS.md",
+      "success": true,
+      "is_group": true,
+      "privacy_filtered": false
+    },
+    {
+      "ses
+2026-02-11 23:06:07 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 23:06:07 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 23:06:13 [INFO] 🚀 Knowledge sync watcher started (PID: 70274)
+2026-02-11 23:06:13 [INFO] 🚀 Knowledge sync watcher started (PID: 70274)
+2026-02-11 23:06:13 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 23:06:13 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 23:06:16 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:06:16 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:07:44 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 23:07:44 [INFO] 📛 Received signal 15, shutting down watcher...
+2026-02-11 23:07:50 [INFO] 🚀 Knowledge sync watcher started (PID: 70410)
+2026-02-11 23:07:50 [INFO] 🚀 Knowledge sync watcher started (PID: 70410)
+2026-02-11 23:07:50 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 23:07:50 [INFO] 👁️ Watching 7 files: SOUL.md, MEMORY.md, AGENTS.md, TOOLS.md, HEARTBEAT.md, USER.md, IDENTITY.md
+2026-02-11 23:07:53 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:07:53 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:07:54 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:07:54 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:08:38 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:08:38 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:08:38 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:08:38 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:10:58 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:10:58 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:10:58 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:10:58 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:13:11 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:13:11 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:13:12 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:13:12 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:17:59 [INFO] 📝 Change detected: MEMORY.md
+2026-02-11 23:17:59 [INFO] 📝 Change detected: MEMORY.md
+2026-02-11 23:18:00 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-11 23:18:00 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-11 23:18:30 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:18:30 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:18:30 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:18:30 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:18:40 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:18:40 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:18:41 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:18:41 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:19:58 [INFO] 📝 Change detected: MEMORY.md
+2026-02-11 23:19:58 [INFO] 📝 Change detected: MEMORY.md
+2026-02-11 23:19:58 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-11 23:19:58 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-11 23:23:09 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:23:09 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:23:10 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:23:10 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:28:29 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:28:29 [INFO] 📝 Change detected: TOOLS.md
+2026-02-11 23:28:29 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:28:29 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-11 23:29:37 [INFO] 📝 Change detected: HEARTBEAT.md
+2026-02-11 23:29:37 [INFO] 📝 Change detected: HEARTBEAT.md
+2026-02-11 23:29:37 [INFO] 🚀 Broadcast spawned for HEARTBEAT.md
+2026-02-11 23:29:37 [INFO] 🚀 Broadcast spawned for HEARTBEAT.md
+2026-02-11 23:38:29 [INFO] 📝 Change detected: MEMORY.md
+2026-02-11 23:38:29 [INFO] 📝 Change detected: MEMORY.md
+2026-02-11 23:38:30 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-11 23:38:30 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-12 00:28:43 [INFO] 📝 Change detected: HEARTBEAT.md
+2026-02-12 00:28:43 [INFO] 📝 Change detected: HEARTBEAT.md
+2026-02-12 00:28:43 [INFO] 🚀 Broadcast spawned for HEARTBEAT.md
+2026-02-12 00:28:43 [INFO] 🚀 Broadcast spawned for HEARTBEAT.md
+2026-02-12 00:28:46 [INFO] 📝 Change detected: HEARTBEAT.md
+2026-02-12 00:28:46 [INFO] 📝 Change detected: HEARTBEAT.md
+2026-02-12 00:28:46 [INFO] 🚀 Broadcast spawned for HEARTBEAT.md
+2026-02-12 00:28:46 [INFO] 🚀 Broadcast spawned for HEARTBEAT.md
+2026-02-12 00:35:24 [INFO] 📝 Change detected: MEMORY.md
+2026-02-12 00:35:24 [INFO] 📝 Change detected: MEMORY.md
+2026-02-12 00:35:24 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-12 00:35:24 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-12 00:39:16 [INFO] 📝 Change detected: MEMORY.md
+2026-02-12 00:39:16 [INFO] 📝 Change detected: MEMORY.md
+2026-02-12 00:39:17 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-12 00:39:17 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-12 00:40:31 [INFO] 📝 Change detected: MEMORY.md
+2026-02-12 00:40:31 [INFO] 📝 Change detected: MEMORY.md
+2026-02-12 00:40:32 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-12 00:40:32 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-12 00:43:12 [INFO] 📝 Change detected: TOOLS.md
+2026-02-12 00:43:12 [INFO] 📝 Change detected: TOOLS.md
+2026-02-12 00:43:12 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-12 00:43:12 [INFO] 🚀 Broadcast spawned for TOOLS.md
+2026-02-12 00:43:36 [INFO] 📝 Change detected: MEMORY.md
+2026-02-12 00:43:36 [INFO] 📝 Change detected: MEMORY.md
+2026-02-12 00:43:36 [INFO] 🚀 Broadcast spawned for MEMORY.md
+2026-02-12 00:43:36 [INFO] 🚀 Broadcast spawned for MEMORY.md

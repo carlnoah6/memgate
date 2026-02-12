@@ -1,0 +1,79 @@
+{
+  "chat_id": "oc_0900e63860f8b6d1b08285262701817f",
+  "goal": "OpenClaw 安全升级 (2.3-1 → 2.9)",
+  "status": "active",
+  "created_at": "2026-02-12T06:00:54.655512+08:00",
+  "updated_at": "2026-02-12T07:36:03.775079+08:00",
+  "steps": [
+    {
+      "id": 1,
+      "desc": "Step 1",
+      "detail": "",
+      "status": "done",
+      "task_id": "t008",
+      "started_at": "2026-02-12T06:00:54.683903+08:00",
+      "result": "升级兼容性报告完成: 8个patch可移除, 3个需重写(wildcard/mention/lane), Feishu插件在2.9中完全重写为独立TS扩展",
+      "completed_at": "2026-02-12T06:08:12.923393+08:00"
+    },
+    {
+      "id": 2,
+      "desc": "Step 2",
+      "detail": "",
+      "status": "done",
+      "task_id": "t009",
+      "started_at": "2026-02-12T06:08:12.983120+08:00",
+      "result": "Docker 隔离测试完成（子任务已执行但回调错误，手动标记）",
+      "completed_at": "2026-02-12T06:47:15.774691+08:00"
+    },
+    {
+      "id": 3,
+      "desc": "Step 3",
+      "detail": "",
+      "status": "done",
+      "task_id": "t012",
+      "started_at": "2026-02-12T06:47:15.830880+08:00",
+      "result": "Patch 12 (fix-feishu-command-authorized.py) 分析完成：🟢 已被官方修复，可移除。新版 bot.ts 硬编码 CommandAuthorized: true。报告已更新，总计 12 patch: 9可移除/3需重写/1需验证",
+      "completed_at": "2026-02-12T06:50:32.738494+08:00"
+    },
+    {
+      "id": 4,
+      "desc": "Step 4",
+      "detail": "",
+      "status": "done",
+      "task_id": "t014",
+      "started_at": "2026-02-12T06:50:32.793390+08:00",
+      "result": "流式卡片调查完成。所有中间版本(2.6-1~2.9)都没有流式卡片。推荐方案A：升级2.9+在TypeScript扩展中重新实现(可行性高)。详细报告写入 data/upgrade-streaming-plan.md",
+      "completed_at": "2026-02-12T06:56:48.369383+08:00"
+    },
+    {
+      "id": 5,
+      "desc": "搭建预发布环境",
+      "detail": "",
+      "status": "done",
+      "task_id": "t015",
+      "started_at": "2026-02-12T06:56:48.430681+08:00",
+      "result": "预发布环境搭建完成。2.9 已安装在 ~/.openclaw-staging/npm/，扩展已修改（streaming.ts 新增、reply-dispatcher.ts/policy.ts/bot.ts 修改、lane concurrency patched）。systemd service 已创建但未自动启动。文档在 data/staging-setup.md。注意：同一 bot 不能同时运行两个 gateway（WebSocket 限制），需要停生产再启预发布。",
+      "completed_at": "2026-02-12T07:36:03.685554+08:00"
+    },
+    {
+      "id": 6,
+      "desc": "Carl 验收预发布环境",
+      "detail": "",
+      "status": "running",
+      "task_id": "t021",
+      "started_at": "2026-02-12T07:36:03.745752+08:00"
+    },
+    {
+      "id": 7,
+      "desc": "正式切换生产环境",
+      "detail": "",
+      "status": "pending"
+    },
+    {
+      "id": 8,
+      "desc": "固化自动升级流程",
+      "detail": "",
+      "status": "pending"
+    }
+  ]
+}

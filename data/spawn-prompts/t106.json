@@ -1,0 +1,11 @@
+{
+  "task_id": "t106",
+  "task": "# 子任务: Pre-training Dry Run (Integration Test)\n\n项目: From Zero Training Model\n\n## Wiki\n不需要上传 Wiki，仅存本地。\n\n## 进度汇报\n无专用群聊，完成后直接发结果到源 chat。\n\n## 消息发送（强制规则）\n- **禁止用 `message` 工具**（子任务没有 Feishu 配置，会报错）\n- 必须用脚本: `/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"<chat_id>\" \"<消息内容>\"`\n\n## 完成后（必须执行）\n成功时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/task-manager.py complete t106 \"结果摘要（一句话）\"\n/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"oc_453c88ec52dd029845c46249837e3ba0\" \"✅ t106 完成: <结果摘要>\"\n```\n\n失败时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/task-manager.py fail t106 \"失败原因\"\n/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"oc_453c88ec52dd029845c46249837e3ba0\" \"❌ t106 失败: <原因>\"\n```\n",
+  "label": "t106",
+  "runTimeoutSeconds": 1800,
+  "source_chat": "oc_453c88ec52dd029845c46249837e3ba0",
+  "task_chat_id": null,
+  "project": "From Zero Training Model",
+  "wiki_space": null,
+  "wiki_parent": null
+}

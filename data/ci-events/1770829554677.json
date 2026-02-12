@@ -1,0 +1,9 @@
+{
+  "message": "\u274c CI Failure\nRepo: carlnoah6/api-proxy\nWorkflow: CI\nBranch: main\nCommit: docs: update README with Docker deployment guide and architecture overview\nLink: https://github.com/carlnoah6/api-proxy/actions/runs/21914843008",
+  "repo": "carlnoah6/api-proxy",
+  "workflow": "CI",
+  "conclusion": "failure",
+  "run_url": "https://github.com/carlnoah6/api-proxy/actions/runs/21914843008",
+  "branch": "main",
+  "timestamp": 1770829554.6774185
+}

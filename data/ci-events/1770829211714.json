@@ -1,0 +1,9 @@
+{
+  "message": "\u274c CI Failure\nRepo: carlnoah6/api-proxy\nWorkflow: CI\nBranch: chore/cleanup-legacy-files\nCommit: chore: remove legacy server.py and backup files\n\nPR: #12\nLink: https://github.com/carlnoah6/api-proxy/actions/runs/21914646243",
+  "repo": "carlnoah6/api-proxy",
+  "workflow": "CI",
+  "conclusion": "failure",
+  "run_url": "https://github.com/carlnoah6/api-proxy/actions/runs/21914646243",
+  "branch": "chore/cleanup-legacy-files",
+  "timestamp": 1770829211.7142298
+}

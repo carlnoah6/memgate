@@ -1,0 +1,9 @@
+{
+  "message": "\ud83d\ude80 Deploy Succeeded\nRepo: carlnoah6/api-proxy\nWorkflow: Deploy\nBranch: main\nCommit: fix(ci): use --force-recreate to ensure fresh container on deploy\nLink: https://github.com/carlnoah6/api-proxy/actions/runs/21914889493",
+  "repo": "carlnoah6/api-proxy",
+  "workflow": "Deploy",
+  "conclusion": "success",
+  "run_url": "https://github.com/carlnoah6/api-proxy/actions/runs/21914889493",
+  "branch": "main",
+  "timestamp": 1770829621.2709384
+}

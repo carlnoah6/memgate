@@ -1,0 +1,6 @@
+fasttext-wheel
+nltk
+presidio-analyzer
+presidio-anonymizer
+faker
+numpy

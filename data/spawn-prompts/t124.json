@@ -1,0 +1,11 @@
+{
+  "task_id": "t124",
+  "task": "# 子任务: E2E测试v2\n\n项目: 内部参考文档\n\n## Wiki\n不需要上传 Wiki，仅存本地。\n\n## 进度汇报\n- 任务群 chat_id: `oc_798f47a33b0d6defd795243199441f32`\n- 在关键节点发进度更新（不要每步都发）:\n  ```bash\n  /home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"oc_798f47a33b0d6defd795243199441f32\" \"🔄 进度: ...\"\n  ```\n\n## 消息发送（强制规则）\n- **禁止用 `message` 工具**（子任务没有 Feishu 配置，会报错）\n- 必须用脚本: `/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"<chat_id>\" \"<消息内容>\"`\n\n## 完成后（必须执行，用 spawn-task.py 保证群聊自动解散）\n成功时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/spawn-task.py complete t124 \"结果摘要（一句话）\"\n```\n\n失败时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/spawn-task.py fail t124 \"失败原因\"\n```\n\n⚠️ 必须用 `spawn-task.py complete/fail`，不要直接用 `task-manager.py`！\n   spawn-task.py 会自动: 更新任务面板 + 发消息到源 chat + 解散任务群聊\n",
+  "label": "t124",
+  "runTimeoutSeconds": 1800,
+  "source_chat": "oc_630995d9b870d2ff6ab3fa34a4e7315a",
+  "task_chat_id": "oc_798f47a33b0d6defd795243199441f32",
+  "project": "内部参考文档",
+  "wiki_space": "—",
+  "wiki_parent": "—"
+}

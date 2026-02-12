@@ -1,0 +1,214 @@
+[
+  {
+    "title": "Review: 文档评论系统 — 冗余清理",
+    "files": [
+      "scripts/check-comments.py",
+      "scripts/check-comments-batch.py",
+      "scripts/check-new-comments.py",
+      "scripts/check_comments_batch.py",
+      "scripts/check_comments_temp.py",
+      "scripts/fetch_new_comments.py",
+      "scripts/list-pending-comments.py",
+      "scripts/scan-comments.py",
+      "scripts/scan-new-comments.py",
+      "scripts/scan_comments.py",
+      "scripts/scan_new_comments.py",
+      "scripts/temp-check-comments.py",
+      "scripts/check-doc-comments.sh",
+      "scripts/process-comment-done.sh"
+    ],
+    "estimated_lines": 1354,
+    "priority": "high",
+    "notes": "严重冗余，15个脚本做类似的事。需要合并为1-2个统一脚本，清理临时文件"
+  },
+  {
+    "title": "Review: 任务管理系统",
+    "files": [
+      "scripts/task-manager.py",
+      "scripts/task_engine.py",
+      "scripts/planner.py",
+      "scripts/spawn-task.py",
+      "scripts/task-health-check.py",
+      "scripts/task-recovery.py",
+      "scripts/task-chat.py",
+      "scripts/cleanup-task-chats.py",
+      "scripts/task-board-notify.py",
+      "scripts/task-dashboard.py",
+      "scripts/archive-backlog.py"
+    ],
+    "estimated_lines": 4219,
+    "priority": "high",
+    "notes": "planner.py(1034行)和task_engine.py(938行)是大文件；task-manager.py vs task_engine.py 功能重叠需要理清"
+  },
+  {
+    "title": "Review: Lark/飞书集成模块",
+    "files": [
+      "scripts/lark-send-message.sh",
+      "scripts/lark-token-refresh.py",
+      "scripts/oauth-callback.py",
+      "scripts/lark-calendar-today.py",
+      "scripts/lark-calendar-create.py",
+      "scripts/lark-calendar-fix-colors.py",
+      "scripts/skip-recurring-dates.py",
+      "scripts/lark-card-builder.py",
+      "scripts/lark-task-card.py",
+      "scripts/lark-task-dashboard.py",
+      "scripts/lark-lookup-chat.py",
+      "scripts/send-confirm-card.sh",
+      "scripts/send-diagram.sh",
+      "scripts/md-to-lark-post.py",
+      "scripts/md-to-lark-wiki.py",
+      "scripts/md-to-email-text.py",
+      "scripts/rewrite-lark-doc.py",
+      "scripts/rewrite-wiki-1b-token.py",
+      "scripts/sync-md-to-wiki.py",
+      "scripts/sync-tracked-docs.py",
+      "scripts/get-source-chat.py",
+      "scripts/debug-group-members.py",
+      "scripts/check-group-privacy.py"
+    ],
+    "estimated_lines": 4186,
+    "priority": "high",
+    "notes": "核心集成模块，多个sync脚本有重复逻辑可抽象"
+  },
+  {
+    "title": "Review: 知识同步系统",
+    "files": [
+      "scripts/knowledge-sync.py",
+      "scripts/auto-wiki-sync.py",
+      "scripts/init-carl-knowledge.py",
+      "scripts/start-knowledge-watcher.sh",
+      "scripts/stop-knowledge-watcher.sh",
+      "scripts/sync_memgate_wiki.py",
+      "scripts/sync_model_arch_wiki.py",
+      "scripts/sync_tokenizer_wiki.py",
+      "scripts/sync_wiki_release.py",
+      "scripts/upload_wiki_content.py",
+      "scripts/write_wiki_content.py",
+      "scripts/write-continuation.py",
+      "scripts/check-continuation.py"
+    ],
+    "estimated_lines": 3902,
+    "priority": "medium",
+    "notes": "knowledge-sync.py(963行)很大；sync_*_wiki.py 系列高度相似需抽象"
+  },
+  {
+    "title": "Review: 日报与统计引擎",
+    "files": [
+      "scripts/daily-report-engine.py",
+      "scripts/deliver-daily-report.sh",
+      "scripts/token-hourly-stats.py",
+      "scripts/log-quota.sh"
+    ],
+    "estimated_lines": 2186,
+    "priority": "medium",
+    "notes": "daily-report-engine.py(1126行)是最大单文件，强烈建议拆分"
+  },
+  {
+    "title": "Review: 系统运维与看门狗",
+    "files": [
+      "scripts/independent-watchdog.py",
+      "scripts/watchdog-log.py",
+      "scripts/patch-openclaw.sh",
+      "scripts/restart-gateway.sh",
+      "scripts/check-restart.sh",
+      "scripts/mark-restart.sh",
+      "scripts/heartbeat-scheduler.py",
+      "scripts/session-overview.py",
+      "scripts/inspect_session.py",
+      "scripts/cleanup-session-locks.sh",
+      "scripts/check-ci-events.py"
+    ],
+    "estimated_lines": 1929,
+    "priority": "medium",
+    "notes": "patch-openclaw.sh(596行)应拆分；independent-watchdog.py(479行)较大"
+  },
+  {
+    "title": "Review: Patch 系统",
+    "files": [
+      "patches/apply-feishu-streaming-fix.py",
+      "patches/disable-queue-notification.py",
+      "patches/fix-announce-cross-session.py",
+      "patches/fix-feishu-command-authorized.py",
+      "patches/fix-feishu-group-session-key.py",
+      "patches/fix-feishu-group-wildcard.py",
+      "patches/fix-feishu-mention-stripped.py",
+      "patches/fix-lane-concurrency.py",
+      "patches/fix-streaming-card-ux.py",
+      "patches/fix-streaming-cross-session.py",
+      "patches/fix-streaming-race-condition.py",
+      "patches/fix-streaming-silent-reply.py"
+    ],
+    "estimated_lines": 1216,
+    "priority": "medium",
+    "notes": "检查哪些patch已过时可清理"
+  },
+  {
+    "title": "Review: 隐私与安全框架",
+    "files": [
+      "privacy/privacy_context.py",
+      "privacy/privacy_review.py",
+      "privacy/knowledge_store.py",
+      "privacy/config.json",
+      "privacy/tests/test_integration.py",
+      "privacy/tests/test_isolation.py",
+      "privacy/tests/test_check_group_privacy.py",
+      "scripts/privacy-check.py",
+      "scripts/privacy-hook.sh"
+    ],
+    "estimated_lines": 1265,
+    "priority": "low",
+    "notes": "质量较好，有完整测试覆盖"
+  },
+  {
+    "title": "Review: API Proxy 项目",
+    "files": [
+      "~/api-proxy/src/app.py",
+      "~/api-proxy/src/proxy.py",
+      "~/api-proxy/src/fallback.py",
+      "~/api-proxy/src/admin.py",
+      "~/api-proxy/src/auth.py",
+      "~/api-proxy/src/usage.py",
+      "~/api-proxy/src/config.py",
+      "~/api-proxy/src/health.py",
+      "~/api-proxy/tests/test_server.py",
+      "~/api-proxy/tests/test_fallback.py",
+      "~/api-proxy/tests/test_integration.py",
+      "~/api-proxy/tests/mock_upstream.py"
+    ],
+    "estimated_lines": 3387,
+    "priority": "low",
+    "notes": "质量好，测试充分（测试>源码行数），有CI/CD"
+  },
+  {
+    "title": "Review: Webhook Gateway 项目",
+    "files": [
+      "~/webhook-gateway/src/main.py",
+      "~/webhook-gateway/src/config.py",
+      "~/webhook-gateway/src/webhook/github.py",
+      "~/webhook-gateway/src/webhook/lark.py",
+      "~/webhook-gateway/tests/test_main.py"
+    ],
+    "estimated_lines": 404,
+    "priority": "low",
+    "notes": "小项目，结构清晰"
+  },
+  {
+    "title": "Review: ML/AI 训练代码",
+    "files": [
+      "scripts/prepare_corpus.py",
+      "scripts/tokenize_corpus.py",
+      "scripts/train_tokenizer.py",
+      "scripts/test_tokenizer.py",
+      "scripts/train.py",
+      "scripts/generate_scaffold_report.py",
+      "data/pipeline.py",
+      "data/prepare_data.py",
+      "data/dataloader.py",
+      "data/dataset.py"
+    ],
+    "estimated_lines": 1098,
+    "priority": "medium",
+    "notes": "实验性代码，缺少文档和错误处理"
+  }
+]

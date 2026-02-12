@@ -1,0 +1,11 @@
+{
+  "task_id": "t091",
+  "task": "# 子任务: 测试任务: spawn-task.py 验证\n\n项目: 从零训练模型\n\n## Wiki 同步（必须完成）\n\n1. 获取 user_access_token:\n   ```bash\n   TOKEN=$(python3 -c \"import json; print(json.load(open('/home/ubuntu/.openclaw/workspace/data/lark-user-token.json'))['access_token'])\")\n   ```\n\n2. 在 Wiki 创建文档节点:\n   ```bash\n   curl -s -X POST \"https://open.larksuite.com/open-apis/wiki/v2/spaces/7604150806383693538/nodes\" \\\n     -H \"Authorization: Bearer $TOKEN\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\"obj_type\":\"docx\",\"node_type\":\"origin\",\"parent_node_token\":\"OZmqwn4yviwsY2k1JBblkgTYg5c\",\"title\":\"文档标题\"}'\n   ```\n\n3. 将研究内容写入文档（分段写入，每段 <4500 字符）:\n   ```bash\n   curl -s -X POST \"https://open.larksuite.com/open-apis/docx/v1/documents/$OBJ_TOKEN/blocks/$OBJ_TOKEN/children\" \\\n     -H \"Authorization: Bearer $TOKEN\" \\\n     -H \"Content-Type: application/json\" \\\n     -d '{\"children\":[{\"block_type\":2,\"text\":{\"elements\":[{\"text_run\":{\"content\":\"内容\"}}]}}],\"index\":0}'\n   ```\n\n### Lark Block Types 速查（代码强制，禁止凭记忆）\n- Text=2, Heading1=3, Heading2=4, Heading3=5\n- Bullet=12, Ordered=13, Code=14\n- Divider=22\n- ⚠️ 15=Quote, 16=Equation (不是列表！)\n\n\n## 进度汇报\n无专用群聊，完成后直接发结果到源 chat。\n\n## 消息发送（强制规则）\n- **禁止用 `message` 工具**（子任务没有 Feishu 配置，会报错）\n- 必须用脚本: `/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"<chat_id>\" \"<消息内容>\"`\n\n## 完成后（必须执行）\n成功时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/task-manager.py complete t091 \"结果摘要（一句话）\"\n/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"oc_a2a70c6b4a29c2f2eb6c2500ea42a500\" \"✅ t091 完成: <结果摘要>\"\n```\n\n失败时:\n```bash\npython3 /home/ubuntu/.openclaw/workspace/scripts/task-manager.py fail t091 \"失败原因\"\n/home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh \"oc_a2a70c6b4a29c2f2eb6c2500ea42a500\" \"❌ t091 失败: <原因>\"\n```\n",
+  "label": "t091",
+  "runTimeoutSeconds": 1800,
+  "source_chat": "oc_a2a70c6b4a29c2f2eb6c2500ea42a500",
+  "task_chat_id": null,
+  "project": "从零训练模型",
+  "wiki_space": "7604150806383693538",
+  "wiki_parent": "OZmqwn4yviwsY2k1JBblkgTYg5c"
+}

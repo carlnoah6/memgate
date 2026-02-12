@@ -20,6 +20,7 @@ OpenClaw cron 有 bug（`every` 类型 job 永远不执行），在修复前不�
         - 运行 `bash scripts/lark-send-message.sh "<chat_id>" "✅ 重启完成..."` 发送汇报。
         - 在当前会话（main）记录日志：「Gateway restarted (reported to source: <source_session>).」
    - 汇报内容：「✅ 重启完成（pid XXX）。[说明重启原因]。[检查有无未完成任务并恢复]」
+   - **重启后启动知识同步 watcher**：运行 `bash scripts/start-knowledge-watcher.sh`（如果没在跑的话）
    - 汇报后继续执行下面的正常流程
    - 如果输出 `running_normally` → 跳过此步，继续正常流程
    - **重要**：每次重启前必须执行完整的重启流程（见下方「重启操作流程」）
@@ -99,6 +100,9 @@ python3 patches/fix-lane-concurrency.py
 # 修复群组通配符 "*" 不生效（新群聊必须 mention 才能收到消息）
 python3 patches/fix-feishu-group-wildcard.py
 
+# 子任务 NO_REPLY 时不触发 announce（防止串台）
+python3 patches/fix-announce-no-reply.py
+
 # 输出 "✅ Patch already applied." → 无需操作
 # 输出 "🔧 Patch needed/applied" → 需要重启
 ```
@@ -109,6 +113,9 @@ python3 patches/fix-feishu-group-wildcard.py
 2. 运行看门狗：`python3 scripts/watchdog-log.py`
 3. 运行任务面板健康检查：`python3 scripts/task-health-check.py`
 4. 运行任务板推送：`python3 scripts/task-board-notify.py`（仅当状态变化时推送到「Luna 任务板」群）
+5. 运行规划器推进检查：`python3 scripts/planner.py check-advances`
+   - `advances_needed` 非空 → 有步骤完成后下一步没被 spawn，需要手动 spawn
+   - 同时检查 `data/planner-pending/` 目录中的待处理文件
    - `stale` 非空 → 有卡死任务被自动标记失败，通知 Carl
    - `active` → 当前运行中的异步任务（仅供参考）
    - `cleaned` > 0 → 自动清理了旧任务
@@ -197,6 +204,12 @@ spawn 后台研究时，**必须先读取 `scripts/research-spawn-checklist.md`*
 - 不需要上 Wiki 的任务明确说"不需要创建 Wiki 节点"
 
 **⚠️ 映射表缺失时的处理**：如果 backlog 映射表里没有该项目的 parent_node_token，必须**先创建 Wiki 父节点、更新映射表，再 spawn 子任务**。绝不能跳过。
+
+### 群聊识别（禁止靠猜，用脚本查）
+- **查群名**: `python3 scripts/lark-chat-names.py` — 列出所有群 + context 使用率
+- **通过名字找 chat_id**: `python3 scripts/lark-chat-names.py --resolve "群名关键词"`
+- **缓存**: `data/chat-names.json`（1 小时自动刷新）
+- Carl 说群名时，用 `--resolve` 反查 chat_id，不要猜
 
 ### 常用目标
 - Carl 私聊: `oc_453c88ec52dd029845c46249837e3ba0`

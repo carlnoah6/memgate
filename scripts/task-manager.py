@@ -264,6 +264,18 @@ def status():
     print(json.dumps(result, ensure_ascii=False))
 
 
+def set_session_key(task_id, session_key):
+    board = load_board()
+    for t in board["tasks"]:
+        if t["id"] == task_id:
+            t["session_key"] = session_key
+            save_board(board)
+            print(json.dumps({"id": task_id, "session_key": session_key}, ensure_ascii=False))
+            return
+    print(f"Task {task_id} not found", file=sys.stderr)
+    sys.exit(1)
+
+
 def cleanup(days=7):
     """Remove completed/failed/cancelled tasks older than N days"""
     board = load_board()
@@ -323,6 +335,11 @@ if __name__ == "__main__":
         active_tasks()
     elif cmd == "status":
         status()
+    elif cmd == "set-session":
+        if len(sys.argv) < 4:
+            print("Usage: task-manager.py set-session <id> <session_key>", file=sys.stderr)
+            sys.exit(1)
+        set_session_key(sys.argv[2], sys.argv[3])
     elif cmd == "cleanup":
         d = int(sys.argv[2]) if len(sys.argv) > 2 else 7
         cleanup(d)

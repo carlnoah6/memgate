@@ -16,6 +16,8 @@ if [ -f "$MARKER" ]; then
     echo "重启原因: $(cat $MARKER)"
     rm -f "$MARKER"
     echo "$CURRENT_PID" > "$PID_FILE"
+    # 重启后自动启动知识同步 watcher
+    bash "$(dirname "$0")/start-knowledge-watcher.sh" 2>/dev/null &
     echo "just_restarted"
     exit 0
 fi
@@ -26,6 +28,8 @@ if [ -f "$PID_FILE" ]; then
     if [ "$CURRENT_PID" != "$LAST_PID" ]; then
         echo "$CURRENT_PID" > "$PID_FILE"
         echo "重启原因: 未知（PID 从 $LAST_PID 变为 $CURRENT_PID）"
+        # 重启后自动启动知识同步 watcher
+        bash "$(dirname "$0")/start-knowledge-watcher.sh" 2>/dev/null &
         echo "just_restarted"
         exit 0
     fi

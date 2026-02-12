@@ -16,6 +16,7 @@ import json
 import sys
 import os
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 SGT = timezone(timedelta(hours=8))
 TASK_BOARD = "/home/ubuntu/.openclaw/workspace/data/task-board.json"
@@ -101,6 +102,13 @@ def check_health():
 
     if result["stale"] or result["cleaned"] > 0:
         save_board(board)
+
+    # Check planner pending advances
+    pending_dir = Path("/home/ubuntu/.openclaw/workspace/data/planner-pending")
+    if pending_dir.exists():
+        pending_files = list(pending_dir.glob("*.json"))
+        if pending_files:
+            result["planner_pending"] = [f.stem for f in pending_files]
 
     print(json.dumps(result, ensure_ascii=False))
 
