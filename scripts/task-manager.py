@@ -5,7 +5,8 @@
 支持依赖关系和自动并行调度。
 
 Usage:
-  task-manager.py add "描述" [source_chat_id]           → 创建任务，返回 task ID
+  task-manager.py add "描述" [source_chat_id]           → 创建任务 + 自动建群
+  task-manager.py add "描述" [chat_id] --no-chat        → 创建任务，不建群（定期检查用）
   task-manager.py add "描述" [chat_id] --after t001     → 创建任务，依赖 t001 完成后才能运行
   task-manager.py add "描述" [chat_id] --after t001,t002 → 依赖多个任务
   task-manager.py start <id> [session_key]              → 标记为运行中
@@ -45,7 +46,7 @@ def now_iso():
     return datetime.now(SGT).isoformat()
 
 
-def add_task(description, source_chat=None, depends_on=None):
+def add_task(description, source_chat=None, depends_on=None, create_chat=True):
     board = load_board()
     task_id = f"t{board['next_id']:03d}"
     board["next_id"] += 1
@@ -60,12 +61,38 @@ def add_task(description, source_chat=None, depends_on=None):
         "depends_on": depends_on or [],
         "result": None,
         "completed": None,
+        "task_chat_id": None,
     }
     board["tasks"].append(task)
     save_board(board)
+    
     out = {"id": task_id, "status": "queued"}
     if depends_on:
         out["depends_on"] = depends_on
+
+    # Auto-create Lark group chat (unless --no-chat)
+    if create_chat:
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["python3", os.path.join(os.path.dirname(__file__), "task-chat.py"),
+                 "create", task_id, description],
+                capture_output=True, text=True, timeout=15
+            )
+            if result.returncode == 0:
+                chat_data = json.loads(result.stdout)
+                chat_id = chat_data.get("chat_id", "")
+                if chat_id:
+                    # task-chat.py already updates task board with chat_id
+                    out["task_chat_id"] = chat_id
+            else:
+                # Chat creation failed, task still created
+                out["chat_warning"] = "群聊创建失败，任务已创建"
+                print(f"Warning: chat creation failed: {result.stderr[:100]}", file=sys.stderr)
+        except Exception as e:
+            out["chat_warning"] = f"群聊创建异常: {str(e)[:50]}"
+            print(f"Warning: chat creation error: {e}", file=sys.stderr)
+
     print(json.dumps(out, ensure_ascii=False))
 
 
@@ -303,21 +330,25 @@ if __name__ == "__main__":
     cmd = sys.argv[1]
 
     if cmd == "add":
-        # Parse --after flag for dependencies
+        # Parse --after and --no-chat flags
         args = sys.argv[2:]
         depends_on = None
+        create_chat = True
         filtered = []
         i = 0
         while i < len(args):
             if args[i] == "--after" and i + 1 < len(args):
                 depends_on = [x.strip() for x in args[i + 1].split(",")]
                 i += 2
+            elif args[i] == "--no-chat":
+                create_chat = False
+                i += 1
             else:
                 filtered.append(args[i])
                 i += 1
         desc = filtered[0] if len(filtered) > 0 else ""
         source = filtered[1] if len(filtered) > 1 else None
-        add_task(desc, source, depends_on)
+        add_task(desc, source, depends_on, create_chat)
     elif cmd == "start":
         start_task(sys.argv[2], sys.argv[3] if len(sys.argv) > 3 else "")
     elif cmd == "complete":

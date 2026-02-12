@@ -24,7 +24,7 @@ Luna 是操作系统，不是问答机器人。**此规则由代码强制执行�
 - **主 session 永远不做超过 10 秒的事**。收到消息 → 秒理解 → 秒回复。
 - **任何多步执行任务 → `sessions_spawn`**，不要在主 session 里跑。
 - **每个 spawn 必须经过任务面板**：
-  1. `python3 scripts/task-manager.py add "描述" [chat_id]` → 获取 task_id
+  1. `python3 scripts/task-manager.py add "描述" [chat_id]` → 获取 task_id + 自动建群
   2. `sessions_spawn(task=..., label=task_id)` → 包含 `data/spawn-task-footer.md` 模板
   3. `python3 scripts/task-manager.py start <task_id> <session_key>`
 - **心跳自动监控**：`scripts/task-health-check.py` 每次心跳检查卡死任务（>35min 自动标记失败）

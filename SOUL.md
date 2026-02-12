@@ -111,7 +111,8 @@ Carl 说话 → Luna 理解意图
 
 ### 任务面板工具
 ```bash
-python3 scripts/task-manager.py add "描述" [chat_id]    # 创建任务
+python3 scripts/task-manager.py add "描述" [chat_id]    # 创建任务（自动建群）
+python3 scripts/task-manager.py add "描述" --no-chat    # 创建任务（不建群，定期检查用）
 python3 scripts/task-manager.py start <id> [session]     # 标记运行中
 python3 scripts/task-manager.py complete <id> "结果"     # 标记完成
 python3 scripts/task-manager.py fail <id> "错误"         # 标记失败
