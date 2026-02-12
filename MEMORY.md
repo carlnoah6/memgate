@@ -338,6 +338,12 @@
     5. `open_ids` 放顶层 → `300090`
   - **正确方式**：`POST /interactive/v1/card/update` + `Bearer token` + `open_ids` 在 card 内部 + 回调返回 toast
   - **教训**：不要重复造轮子（已有 `lark-card-builder.py`，我还新建了 `dashboard-card.py`）；不要瞎猜 API 参数，查文档
+- **任务群聊全流程代码强制**（之前靠 prompt，经常忘）
+  - **`add` 自动建群**：`task-manager.py add` 默认调用 `task-chat.py create`，定期检查用 `--no-chat` 跳过
+  - **`complete/fail` 自动发结果**：发到任务群 + 源 chat，**但不解散群**（Carl 要看）
+  - **24h 后自动清理**：`task-health-check.py` 只解散完成超过 24h 的老群
+  - **spawn prompt 自动包含 `task_chat_id`**：子任务用 `lark-send-message.sh` 发进度
+  - **教训**：「固化 = 代码，不是 prompt」——建群/解散/发结果全部由 `task-manager.py` 代码保证，LLM 忘不了
 - **Session 爆满修复经验** — 任务板群 context 188k/200k 导致 API 拒绝
   - **修复两步走**：①清磁盘（truncate .jsonl）②清状态（sessions.json reset systemSent/totalTokens）
   - **不需要重启 gateway**！清完直接生效，OpenClaw 从 sessions.json 重新加载
