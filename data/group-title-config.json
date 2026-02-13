@@ -7,14 +7,70 @@
     "max_title_length": 15
   },
   "topic_keywords": {
-    "openclaw": ["openclaw", "gateway", "重启", "升级", "部署", "ci", "patch"],
-    "api_proxy": ["api proxy", "api-proxy", "token", "多租户", "统计", "fallback"],
-    "lark": ["lark", "飞书", "群标题", "表格", "wiki", "日历", "多维表格"],
-    "planning": ["规划器", "planner", "任务面板", "task-manager", "编排"],
-    "research": ["调研", "research", "claude", "kimi", "模型", "训练"],
-    "family": ["元宝", "朵朵", "生日", "学校", "聚会", "演出"],
-    "coding": ["代码", "coding", "github", "pr", "review", "重构"],
-    "sync": ["同步", "sync", "知识同步", "watcher", "内存"]
+    "openclaw": [
+      "openclaw",
+      "gateway",
+      "重启",
+      "升级",
+      "部署",
+      "ci",
+      "patch"
+    ],
+    "api_proxy": [
+      "api proxy",
+      "api-proxy",
+      "token",
+      "多租户",
+      "统计",
+      "fallback"
+    ],
+    "lark": [
+      "lark",
+      "飞书",
+      "群标题",
+      "表格",
+      "wiki",
+      "日历",
+      "多维表格"
+    ],
+    "planning": [
+      "规划器",
+      "planner",
+      "任务面板",
+      "task-manager",
+      "编排"
+    ],
+    "research": [
+      "调研",
+      "research",
+      "claude",
+      "kimi",
+      "模型",
+      "训练"
+    ],
+    "family": [
+      "元宝",
+      "朵朵",
+      "生日",
+      "学校",
+      "聚会",
+      "演出"
+    ],
+    "coding": [
+      "代码",
+      "coding",
+      "github",
+      "pr",
+      "review",
+      "重构"
+    ],
+    "sync": [
+      "同步",
+      "sync",
+      "知识同步",
+      "watcher",
+      "内存"
+    ]
   },
   "topic_display_names": {
     "openclaw": "OpenClaw",
@@ -27,7 +83,13 @@
     "sync": "同步",
     "general": "聊天"
   },
-  "planner_keywords": ["规划器", "planner", "step", "步骤", "plan"],
+  "planner_keywords": [
+    "规划器",
+    "planner",
+    "step",
+    "步骤",
+    "plan"
+  ],
   "verbs": {
     "planner": "规划器",
     "chatting": "聊",
@@ -37,5 +99,10 @@
     "planner": "🤖",
     "chatting": "💬",
     "idle": "🌙"
+  },
+  "avatar_image_keys": {
+    "planner": "v3_00us_ace5131f-d112-4eac-b802-916d680063hu",
+    "chatting": "v3_00us_ebd72682-97c6-4c85-bfc1-5ecadd8acahu",
+    "idle": "v3_00us_b235a7a1-4502-4601-87d1-18d5dcc03dhu"
   }
 }

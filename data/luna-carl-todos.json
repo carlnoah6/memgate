@@ -42,6 +42,28 @@
       "status": "waiting",
       "tasklist_guid": "a32b386c-b963-4938-9076-bd01a19ed8a2",
       "created": "2026-02-13T00:35:00.000000"
+    },
+    {
+      "id": "8da9c6f4-45cf-435b-b32a-284e2f345054",
+      "lark_task_guid": "8da9c6f4-45cf-435b-b32a-284e2f345054",
+      "task_id": "t102607",
+      "summary": "💻 登录 Moonshot 平台授权",
+      "url": "https://applink.larksuite.com/client/todo/detail?guid=8da9c6f4-45cf-435b-b32a-284e2f345054&suite_entity_num=t102607",
+      "status": "waiting",
+      "planner_id": "672ab820",
+      "step_id": 1,
+      "created": "2026-02-13T00:40:00.000000"
+    },
+    {
+      "id": "e0c1a39f-ee1a-49b9-99cb-f15c9dcbec01",
+      "lark_task_guid": "e0c1a39f-ee1a-49b9-99cb-f15c9dcbec01",
+      "task_id": "t102608",
+      "summary": "💻 登录 Moonshot 平台授权",
+      "url": "https://applink.larksuite.com/client/todo/detail?guid=e0c1a39f-ee1a-49b9-99cb-f15c9dcbec01&suite_entity_num=t102608",
+      "status": "waiting",
+      "planner_id": "672ab820",
+      "step_id": 1,
+      "created": "2026-02-13T00:40:00.000000"
     }
   ]
 }
