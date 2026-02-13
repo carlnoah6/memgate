@@ -2,6 +2,7 @@
   "todos": [
     {
       "id": "48ea90e3-1b80-486e-a676-a3fef923baa0",
+      "lark_task_guid": "48ea90e3-1b80-486e-a676-a3fef923baa0",
       "task_id": "t102596",
       "summary": "💻 Browser Use 登录 Kimi 后台",
       "url": "https://applink.larksuite.com/client/todo/detail?guid=48ea90e3-1b80-486e-a676-a3fef923baa0&suite_entity_num=t102596",
@@ -9,6 +10,38 @@
       "created": "2026-02-12T15:40:35.278123",
       "planner_id": "672ab820",
       "step_id": 1
+    },
+    {
+      "id": "427f54eb-9989-482b-9d6b-0f2b3420a8d3",
+      "lark_task_guid": "427f54eb-9989-482b-9d6b-0f2b3420a8d3",
+      "task_id": "t102598",
+      "summary": "🧪 测试任务 — 打勾试试",
+      "url": "https://applink.larksuite.com/client/todo/detail?guid=427f54eb-9989-482b-9d6b-0f2b3420a8d3&suite_entity_num=t102598",
+      "status": "waiting",
+      "created": "2026-02-13T00:10:00.000000",
+      "planner_id": null,
+      "step_id": null,
+      "note": "webhook 测试任务"
+    },
+    {
+      "id": "1e22a408-ad99-45a0-8d91-7282bdb724ba",
+      "lark_task_guid": "1e22a408-ad99-45a0-8d91-7282bdb724ba",
+      "task_id": "t102599",
+      "summary": "🧪 Webhook 测试 #2",
+      "url": "https://applink.larksuite.com/client/todo/detail?guid=1e22a408-ad99-45a0-8d91-7282bdb724ba&suite_entity_num=t102599",
+      "status": "waiting",
+      "created": "2026-02-13T00:30:00.000000",
+      "note": "webhook 测试任务 #2"
+    },
+    {
+      "id": "e7f9a42b-aeb9-4199-957a-3798d4957649",
+      "lark_task_guid": "e7f9a42b-aeb9-4199-957a-3798d4957649",
+      "task_id": "t102600",
+      "summary": "🧪 Webhook 最终测试",
+      "url": "https://applink.larksuite.com/client/todo/detail?guid=e7f9a42b-aeb9-4199-957a-3798d4957649&suite_entity_num=t102600",
+      "status": "waiting",
+      "tasklist_guid": "a32b386c-b963-4938-9076-bd01a19ed8a2",
+      "created": "2026-02-13T00:35:00.000000"
     }
   ]
 }

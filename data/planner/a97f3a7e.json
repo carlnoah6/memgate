@@ -3,7 +3,7 @@
   "goal": "OpenClaw 升级重新评估 (2.3-1 → 2.9)",
   "status": "active",
   "created_at": "2026-02-12T22:34:43.629806+08:00",
-  "updated_at": "2026-02-12T23:28:09.769992+08:00",
+  "updated_at": "2026-02-13T08:16:21.159832+08:00",
   "steps": [
     {
       "id": 1,
@@ -57,18 +57,36 @@
     },
     {
       "id": 6,
-      "desc": "等待 Carl 验收预发布环境",
+      "desc": "Carl 验收预发布环境",
       "detail": "此步骤为人工检查点：\n等待 Carl 登录预发布环境进行验证\n验证内容包括：\n- Feishu 私聊/群聊消息收发\n- 流式卡片显示正常\n- 工具调用和子任务\n- Planner 回调功能\n- Heartbeat 触发\nCarl 确认无误后，标记此步骤完成\n如果发现问题，记录并修复后再继续",
-      "status": "pending"
+      "status": "done",
+      "task_id": "tid-0212-38",
+      "started_at": "2026-02-12T23:06:24.910580+08:00",
+      "result": "Carl 已验收预发布环境：OAuth 授权成功，预发布环境功能正常",
+      "completed_at": "2026-02-13T08:15:00.000000+08:00"
     },
     {
       "id": 7,
+      "desc": "任务卡片功能测试",
+      "detail": "测试 Lark 任务卡片（待办卡片）功能：\n1. 研究 Lark 任务 API 文档（创建任务、分配、截止日期等）\n2. 编写测试脚本创建示例任务卡片\n3. 测试任务状态更新和回调\n4. 验证任务与 OpenClaw 的集成\n5. 记录测试结果和注意事项\n输出：任务卡片测试报告，包含可用功能、限制、集成方案",
+      "status": "running",
+      "task_id": "tid-0213-2",
+      "started_at": "2026-02-13T08:16:20.558828+08:00"
+    },
+    {
+      "id": 8,
+      "desc": "整理 Lark 配置文档",
+      "detail": "整理完整的 Lark 配置文档：\n1. App 配置（app_id, app_secret, 权限列表）\n2. OAuth 授权流程（redirect_uri, token 获取/刷新）\n3. Webhook 配置（事件订阅 URL、加密密钥）\n4. API 调用方式（tenant_token vs user_token, 常用 API 端点）\n5. 回调处理（challenge 验证、card action、OAuth callback）\n6. 网络架构（Tailscale Funnel、反向代理、端口映射）\n7. 故障排查（常见错误码、日志位置）\n输出：完整的 Lark 配置手册文档",
+      "status": "pending"
+    },
+    {
+      "id": 9,
       "desc": "Carl 在线时执行正式升级",
       "detail": "Carl 在电脑前时执行：\n1. 停止生产环境 Gateway\n2. 再次备份（升级前最终备份）\n3. 执行 npm update -g openclaw（升级到 2.9）\n4. 按顺序应用 13 个 patches\n5. 启动 Gateway\n6. 执行验证 checklist\n7. 发送升级完成通知\n输出：升级完成报告和验证结果",
       "status": "pending"
     },
     {
-      "id": 8,
+      "id": 10,
       "desc": "升级后观察和固化",
       "detail": "升级后 24 小时内：\n1. 监控 Gateway 日志\n2. 观察消息收发是否正常\n3. 检查是否有异常错误\n4. 确认稳定后，更新文档和配置\n5. 清理临时文件和旧备份\n输出：观察报告和最终状态确认",
       "status": "pending"

@@ -242,16 +242,19 @@ def format_group_description(task: Optional[dict]) -> str:
     return "\n".join(lines)
 
 
-def update_chat_info(chat_id: str, title: str, description: str, dry_run: bool = False) -> bool:
-    """更新群标题和描述。"""
+def update_chat_info(chat_id: str, title: str, description: str, icon: str = "", dry_run: bool = False) -> bool:
+    """更新群标题、描述和头像。"""
     if dry_run:
         logger.info(f"[DRY-RUN] Title: {title}")
         logger.info(f"[DRY-RUN] Desc: {description[:80]}...")
+        logger.info(f"[DRY-RUN] Icon: {icon}")
         return True
     
     try:
         token = get_tenant_token()
         body = {"name": title}
+        if icon:
+            body["avatar"] = icon
         if description:
             body["description"] = description
         
@@ -377,22 +380,25 @@ def get_chat_topic(chat_id: str, config: dict) -> Optional[str]:
     return display_name
 
 
-def generate_title(chat_id: str, config: dict) -> Tuple[str, str]:
+def generate_title(chat_id: str, config: dict) -> Tuple[str, str, str]:
     """
-    生成群标题和描述。
+    生成群标题、描述和图标。
     
     优先级：
-    1. 有规划器任务 → "Luna 🔄 <规划器goal>"
+    1. 有规划器任务 → "Luna 🤖 <规划器goal>"
     2. 有活跃对话话题 → "Luna 💬 聊xxxxx"
     3. 空闲 → "Luna 🌙 空闲"
+    
+    Returns:
+        (title, description, icon)
     """
     # 1. 检查活跃规划器的 goal
     planner_goal = get_active_planner_goal(chat_id)
     if planner_goal:
-        icon = config.get("icons", {}).get("planner", "🔄")
+        icon = config.get("icons", {}).get("planner", "🤖")
         title = f"Luna {icon} {planner_goal}"
         desc = f"当前规划器: {planner_goal}"
-        return title, desc
+        return title, desc, icon
     
     # 2. 检查对话话题
     topic = get_chat_topic(chat_id, config)
@@ -401,14 +407,14 @@ def generate_title(chat_id: str, config: dict) -> Tuple[str, str]:
         verb = config.get("verbs", {}).get("chatting", "聊")
         title = f"Luna {icon} {verb}{topic}"
         desc = f"当前话题: {topic}"
-        return title, desc
+        return title, desc, icon
     
     # 3. 空闲
     icon = config.get("icons", {}).get("idle", "🌙")
     verb = config.get("verbs", {}).get("idle", "空闲")
     title = f"Luna {icon} {verb}"
     desc = "当前无活跃任务或对话"
-    return title, desc
+    return title, desc, icon
 
 
 def main():
@@ -430,23 +436,25 @@ def main():
         return 0
     
     config = load_config()
-    title, description = generate_title(args.chat_id, config)
+    title, description, icon = generate_title(args.chat_id, config)
     
     if args.analyze:
         print(json.dumps({
             "chat_id": args.chat_id,
             "generated_title": title,
             "description": description,
+            "icon": icon,
         }, ensure_ascii=False, indent=2))
         return 0
     
-    success = update_chat_info(args.chat_id, title, description, args.dry_run)
+    success = update_chat_info(args.chat_id, title, description, icon, args.dry_run)
     
     if success:
         print(json.dumps({
             "success": True,
             "title": title,
             "description": description,
+            "icon": icon,
         }, ensure_ascii=False))
         return 0
     else:

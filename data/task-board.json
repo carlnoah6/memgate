@@ -465,9 +465,41 @@
       "priority_value": 2,
       "queued_heartbeats": 0,
       "priority_boosted": false
+    },
+    {
+      "id": "tid-0213-1",
+      "status": "cancelled",
+      "description": "[Plan] OpenClaw 升级重新评估 (2.3-1 → 2.9) — Step 6: 盘点当前状态",
+      "created": "2026-02-13T08:14:49.493521+08:00",
+      "started": "2026-02-13T08:14:49.562765+08:00",
+      "session_key": "agent:main:cron:a3d6a1a9-c95c-47c2-bfc4-66371bbef5cb",
+      "source_chat": "oc_680d9c843e6a0ad501de9299a97f3a7e",
+      "depends_on": [],
+      "result": null,
+      "completed": "2026-02-13T08:15:10.726299+08:00",
+      "priority": "normal",
+      "priority_value": 2,
+      "queued_heartbeats": 0,
+      "priority_boosted": false
+    },
+    {
+      "id": "tid-0213-2",
+      "status": "running",
+      "description": "[Plan] OpenClaw 升级重新评估 (2.3-1 → 2.9) — Step 7: 任务卡片功能测试",
+      "created": "2026-02-13T08:16:20.546277+08:00",
+      "started": "2026-02-13T08:16:20.612987+08:00",
+      "session_key": "agent:main:cron:ec573314-2005-4911-ba7c-8187b5b2c544",
+      "source_chat": "oc_680d9c843e6a0ad501de9299a97f3a7e",
+      "depends_on": [],
+      "result": null,
+      "completed": null,
+      "priority": "normal",
+      "priority_value": 2,
+      "queued_heartbeats": 0,
+      "priority_boosted": false
     }
   ],
   "next_id": 58,
-  "daily_date": "0212",
-  "daily_seq": 39
+  "daily_date": "0213",
+  "daily_seq": 2
 }

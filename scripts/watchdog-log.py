@@ -4,6 +4,7 @@ import time
 import re
 import subprocess
 import sys
+import json
 from datetime import datetime
 
 # Configuration
@@ -97,16 +98,33 @@ def check_log_for_hang(log_file):
         return False
 
     # Check last line timestamp
+    # OpenClaw logs are JSON format with "time":"2026-02-12T02:45:43.752Z"
     last_line = lines[-1]
-    # Match: 2026-02-10T04:18:13.123Z
-    ts_match = re.search(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})', last_line)
-    if not ts_match:
-        return False
-        
+    
+    # Try JSON format first (new format)
     try:
-        last_log_time = datetime.strptime(ts_match.group(1), "%Y-%m-%dT%H:%M:%S").timestamp()
-    except ValueError:
-        return False
+        json_data = json.loads(last_line)
+        time_str = json_data.get("time") or json_data.get("_meta", {}).get("date")
+        if time_str:
+            # Parse ISO timestamp (handle both with and without Z)
+            time_str = time_str.replace("Z", "+00:00")
+            if "+" in time_str or "-" in time_str[10:]:
+                # Has timezone info
+                last_log_time = datetime.fromisoformat(time_str).timestamp()
+            else:
+                # No timezone, assume UTC
+                last_log_time = datetime.strptime(time_str[:19], "%Y-%m-%dT%H:%M:%S").timestamp()
+        else:
+            return False
+    except (json.JSONDecodeError, ValueError, KeyError):
+        # Fallback: try old format regex
+        ts_match = re.search(r'^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})', last_line)
+        if not ts_match:
+            return False
+        try:
+            last_log_time = datetime.strptime(ts_match.group(1), "%Y-%m-%dT%H:%M:%S").timestamp()
+        except ValueError:
+            return False
         
     current_time = time.time()
     silence_duration = current_time - last_log_time

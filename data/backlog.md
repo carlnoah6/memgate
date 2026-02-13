@@ -29,7 +29,7 @@
 - [x] 3. 需求挖掘 ✅ 2026-02-09 → 同上
 - [x] 4. 成本优化 ✅ 2026-02-09 → 同上
 - [x] 5. 实施路线图 ✅ 2026-02-09 → 同上
-  - Wiki: `V2hNwrjTtipsdLk0fVKlBjGQgcz` (doc: `GtIudQ8sPoCtBVxc47olz1dPgMb`) — 格式修复中
+- [x] 6. Wiki 格式修复 ✅ 2026-02-13 → 已重新格式化并同步到 Wiki（194 blocks, 10 tables）
 
 #### 🧠 从零训练 LLM + 视觉模型（大项目）
 - [x] 1. LLM 架构综述：Transformer 变体、Mamba/SSM、MoE，当前 SOTA 选型建议 ✅ 2026-02-08 → `memory/research/llm-architecture-survey-2026-02-08.md`
