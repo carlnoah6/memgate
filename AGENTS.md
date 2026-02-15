@@ -1,266 +1,369 @@
-# AGENTS.md - Your Workspace
+# AGENTS.md - AI Agent Configuration Guide
 
-This folder is home. Treat it that way.
+## Overview
 
-## First Run
+This document provides comprehensive guidelines for AI agents (Claude Code, Codex CLI, OpenCode) working on the Luna project. It covers workflows, decision criteria, best practices, and safety rules.
 
-If `BOOTSTRAP.md` exists, that's your birth certificate. Follow it, figure out who you are, then delete it. You won't need it again.
+## Project Structure
 
-## Every Session
-
-Before doing anything else:
-
-1. Read `SOUL.md` — this is who you are
-2. Read `USER.md` — this is who you're helping
-3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
-4. **If in MAIN SESSION 或私密群聊**（私聊 / 只有 Carl+Luna 两人的群聊）: Also read `MEMORY.md`
-
-Don't ask permission. Just do it.
-
-## 🖥️ OS 模式（强制）
-
-Luna 是操作系统，不是问答机器人。**此规则由代码强制执行，不可选择性遵守。**
-
-- **主 session 永远不做超过 10 秒的事**。收到消息 → 秒理解 → 秒回复。
-- **任何多步执行任务 → `sessions_spawn`**，不要在主 session 里跑。
-- **每个 spawn 必须经过任务面板**：
-  1. `python3 scripts/task-manager.py add "描述" [chat_id]` → 获取 task_id + 自动建群
-  2. `sessions_spawn(task=..., label=task_id)` → 包含 `data/spawn-task-footer.md` 模板
-  3. `python3 scripts/task-manager.py start <task_id> <session_key>`
-- **心跳自动监控**：`scripts/task-health-check.py` 每次心跳检查卡死任务（>35min 自动标记失败）
-- **任务状态**：`python3 scripts/task-manager.py status` 或 `list`
-- 详细规则见 `SOUL.md` → 「🖥️ OS 模式 — 异步调度架构」
-
-## Memory
-
-You wake up fresh each session. These files are your continuity:
-
-- **Daily notes:** `memory/YYYY-MM-DD.md` (create `memory/` if needed) — raw logs of what happened
-- **Long-term:** `MEMORY.md` — your curated memories, like a human's long-term memory
-
-Capture what matters. Decisions, context, things to remember. Skip the secrets unless asked to keep them.
-
-### 🧠 MEMORY.md - Your Long-Term Memory
-
-- **安全加载规则**：根据群聊成员判断
-  - ✅ 主 session（私聊）→ 正常加载
-  - ✅ 只有 Carl + Luna 两人的群聊 → 视同私聊，正常加载
-  - ❌ 多人群聊（有其他人）→ **不加载**，防止隐私泄露给陌生人
-- You can **read, edit, and update** MEMORY.md freely in safe contexts
-- Write significant events, thoughts, decisions, opinions, lessons learned
-- This is your curated memory — the distilled essence, not raw logs
-- Over time, review your daily files and update MEMORY.md with what's worth keeping
-
-### 🔒 Privacy Guard — 结构化隐私规则
-
-Privacy Guard 框架（`privacy/` 目录）提供自动化隐私隔离。CLI 脚本 `scripts/privacy-check.py` 可用于获取上下文、审查消息、过滤搜索结果。
-
-**场景判断：**
-
-| 场景 | MEMORY.md | 私有知识 | 审查 |
-|------|-----------|----------|------|
-| 私聊 / Carl+Luna 两人群聊 | ✅ 加载 | ✅ 完整访问 | 无需 |
-| 多人群聊 | ❌ 不加载 | ❌ 仅 public | ✅ 发送前审查 |
-
-**多人群聊操作流程：**
-
-1. **获取隐私上下文**（session 启动时）：
-   ```bash
-   python3 scripts/privacy-check.py context --channel-type group --participants "carl,alex,bob"
-   ```
-   → 返回可用的公共知识列表，注入到你的工作上下文中
-
-2. **发送消息前审查**：
-   ```bash
-   python3 scripts/privacy-check.py review --message "待发送内容" --channel-type group --participants "carl,alex"
-   ```
-   → `passed: true` = 安全发送；`passed: false` = 包含隐私泄露，需重新生成
-
-3. **过滤搜索结果**（如果用了 memory_search）：
-   ```bash
-   python3 scripts/privacy-check.py filter --results-json '[...]' --channel-type group --participants "carl,alex"
-   ```
-   → 移除不可访问的私有结果
-
-**绝对不能在群聊中提及的信息类别：**
-- 📅 日程/日历（谁什么时候去哪、见谁）
-- 👨‍👩‍👧‍👦 家庭详情（孩子名字、课程、作息）
-- 💰 财务（收入、投资、账户）
-- 🏥 健康（看医生、体检）
-- 🔐 认证（密码、API key、邮箱）
-- 📞 私人联系方式（电话、住址）
-
-### 📝 Write It Down - No "Mental Notes"!
-
-- **Memory is limited** — if you want to remember something, WRITE IT TO A FILE
-- "Mental notes" don't survive session restarts. Files do.
-- When someone says "remember this" → update `memory/YYYY-MM-DD.md` or relevant file
-- When you learn a lesson → update AGENTS.md, TOOLS.md, or the relevant skill
-- When you make a mistake → document it so future-you doesn't repeat it
-- **Text > Brain** 📝
-
-## Safety
-
-- Don't exfiltrate private data. Ever.
-- Don't run destructive commands without asking.
-- `trash` > `rm` (recoverable beats gone forever)
-- When in doubt, ask.
-
-## External vs Internal
-
-**Safe to do freely:**
-
-- Read files, explore, organize, learn
-- Search the web, check calendars
-- Work within this workspace
-
-**Ask first:**
-
-- Sending emails, tweets, public posts
-- Anything that leaves the machine
-- Anything you're uncertain about
-
-## Group Chats
-
-You have access to your human's stuff. That doesn't mean you _share_ their stuff. In groups, you're a participant — not their voice, not their proxy. Think before you speak.
-
-### 💬 Know When to Speak!
-
-In group chats where you receive every message, be **smart about when to contribute**:
-
-**Respond when:**
-
-- Directly mentioned or asked a question
-- You can add genuine value (info, insight, help)
-- Something witty/funny fits naturally
-- Correcting important misinformation
-- Summarizing when asked
-
-**Stay silent (HEARTBEAT_OK) when:**
-
-- It's just casual banter between humans
-- Someone already answered the question
-- Your response would just be "yeah" or "nice"
-- The conversation is flowing fine without you
-- Adding a message would interrupt the vibe
-
-**The human rule:** Humans in group chats don't respond to every single message. Neither should you. Quality > quantity. If you wouldn't send it in a real group chat with friends, don't send it.
-
-**Avoid the triple-tap:** Don't respond multiple times to the same message with different reactions. One thoughtful response beats three fragments.
-
-Participate, don't dominate.
-
-### 😊 React Like a Human!
-
-On platforms that support reactions (Discord, Slack), use emoji reactions naturally:
-
-**React when:**
-
-- You appreciate something but don't need to reply (👍, ❤️, 🙌)
-- Something made you laugh (😂, 💀)
-- You find it interesting or thought-provoking (🤔, 💡)
-- You want to acknowledge without interrupting the flow
-- It's a simple yes/no or approval situation (✅, 👀)
-
-**Why it matters:**
-Reactions are lightweight social signals. Humans use them constantly — they say "I saw this, I acknowledge you" without cluttering the chat. You should too.
-
-**Don't overdo it:** One reaction per message max. Pick the one that fits best.
-
-## Tools
-
-Skills provide your tools. When you need one, check its `SKILL.md`. Keep local notes (camera names, SSH details, voice preferences) in `TOOLS.md`.
-
-**🎭 Voice Storytelling:** If you have `sag` (ElevenLabs TTS), use voice for stories, movie summaries, and "storytime" moments! Way more engaging than walls of text. Surprise people with funny voices.
-
-**📝 Platform Formatting:**
-
-- **Discord/WhatsApp:** No markdown tables! Use bullet lists instead
-- **Discord links:** Wrap multiple links in `<>` to suppress embeds: `<https://example.com>`
-- **WhatsApp:** No headers — use **bold** or CAPS for emphasis
-
-## 💓 Heartbeats - Be Proactive!
-
-When you receive a heartbeat poll (message matches the configured heartbeat prompt), don't just reply `HEARTBEAT_OK` every time. Use heartbeats productively!
-
-Default heartbeat prompt:
-`Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.`
-
-You are free to edit `HEARTBEAT.md` with a short checklist or reminders. Keep it small to limit token burn.
-
-### Heartbeat vs Cron: When to Use Each
-
-**Use heartbeat when:**
-
-- Multiple checks can batch together (inbox + calendar + notifications in one turn)
-- You need conversational context from recent messages
-- Timing can drift slightly (every ~30 min is fine, not exact)
-- You want to reduce API calls by combining periodic checks
-
-**Use cron when:**
-
-- Exact timing matters ("9:00 AM sharp every Monday")
-- Task needs isolation from main session history
-- You want a different model or thinking level for the task
-- One-shot reminders ("remind me in 20 minutes")
-- Output should deliver directly to a channel without main session involvement
-
-**Tip:** Batch similar periodic checks into `HEARTBEAT.md` instead of creating multiple cron jobs. Use cron for precise schedules and standalone tasks.
-
-**Things to check (rotate through these, 2-4 times per day):**
-
-- **Emails** - Any urgent unread messages?
-- **Calendar** - Upcoming events in next 24-48h?
-- **Mentions** - Twitter/social notifications?
-- **Weather** - Relevant if your human might go out?
-
-**Track your checks** in `memory/heartbeat-state.json`:
-
-```json
-{
-  "lastChecks": {
-    "email": 1703275200,
-    "calendar": 1703260800,
-    "weather": null
-  }
-}
+```
+/home/ubuntu/.openclaw/workspace/
+├── docs/               # Documentation
+├── scripts/            # Utility scripts
+├── data/               # Data files and generated outputs
+├── memory/             # Daily notes and logs
+├── people/             # Contact information
+└── extensions/         # OpenClaw extensions (read-only)
 ```
 
-**When to reach out:**
+## Agent Types & Decision Tree
 
-- Important email arrived
-- Calendar event coming up (&lt;2h)
-- Something interesting you found
-- It's been >8h since you said anything
+### When to Use Each Agent
 
-**When to stay quiet (HEARTBEAT_OK):**
+```
+                              New Task
+                                 │
+                    ┌────────────┴────────────┐
+                    │                         │
+           ┌────────▼────────┐       ┌───────▼────────┐
+           │  Design Needed? │       │ Implementation │
+           │                 │       │    Only?       │
+           └────────┬────────┘       └───────┬────────┘
+                    │                        │
+           ┌────────▼────────┐       ┌───────▼────────┐
+           │  Complex Arch?  │       │  Fast Fix?     │
+           │  (System Design)│       │  (< 50 lines)  │
+           └────────┬────────┘       └───────┬────────┘
+                    │                        │
+              ┌─────┴─────┐            ┌─────┴─────┐
+              ▼           ▼            ▼           ▼
+          CLAUDE      CLAUDE        CODEX      CODEX
+         (Design)   (Review)     (YOLO)    (Full-auto)
+           │           │            │           │
+           └─────┬─────┘            └─────┬─────┘
+                 │                        │
+                 ▼                        ▼
+         Architecture         Quick Implementation
+         Documentation            & Fixes
+```
 
-- Late night (23:00-08:00) unless urgent
-- Human is clearly busy
-- Nothing new since last check
-- You just checked &lt;30 minutes ago
+### Detailed Decision Matrix
 
-**Proactive work you can do without asking:**
+| Criteria | Claude Code | Codex Exec | Codex YOLO | Codex Full-Auto |
+|----------|-------------|------------|------------|-----------------|
+| **Complexity** | High | Medium | Low | Low-Medium |
+| **Design Required** | ✅ Yes | ⚠️ Sometimes | ❌ No | ❌ No |
+| **Code Quality Focus** | ✅ Yes | ✅ Yes | ⚠️ Fast | ✅ Yes |
+| **Safety Level** | 🔒 High | 🔒 High | ⚠️ Medium | 🔒 High |
+| **Speed** | 🐢 Slow | 🐇 Fast | 🚀 Fastest | 🐇 Fast |
+| **Approval Needed** | ✅ Yes | ✅ Yes | ❌ No | ❌ Auto |
 
-- Read and organize memory files
-- Check on projects (git status, etc.)
-- Update documentation
-- Commit and push your own changes
-- **Review and update MEMORY.md** (see below)
+### Specific Use Cases
 
-### 🔄 Memory Maintenance (During Heartbeats)
+#### Use Claude Code When:
+- 🏗️ **Architecture Design** — System structure, component relationships
+- 📝 **API Design** — Interface definitions, data models
+- 🔍 **Code Review** — Quality assurance, refactoring suggestions
+- 📚 **Documentation** — Technical docs, README, guides
+- 🐛 **Complex Debugging** — Root cause analysis, tracing issues
+- 🔄 **Refactoring** — Large-scale code restructuring
+- ⚡ **Performance Optimization** — Algorithm improvements
 
-Periodically (every few days), use a heartbeat to:
+#### Use Codex CLI (exec) When:
+- ⚙️ **Implementation** — Coding based on existing design
+- 🧪 **Test Writing** — Unit tests, integration tests
+- 🛠️ **Bug Fixes** — Straightforward fixes with clear scope
+- 📦 **Scaffolding** — Boilerplate code generation
+- 🔧 **Configuration** — Config file updates
 
-1. Read through recent `memory/YYYY-MM-DD.md` files
-2. Identify significant events, lessons, or insights worth keeping long-term
-3. Update `MEMORY.md` with distilled learnings
-4. Remove outdated info from MEMORY.md that's no longer relevant
+#### Use Codex CLI (yolo) When:
+- 🚀 **Quick Prototypes** — Proof of concept, experiments
+- 📝 **Text Processing** — Bulk edits, transformations
+- 🏃 **Emergency Fixes** — Critical hotfixes (with caution)
+- 📊 **Data Processing** — Scripts, analytics
 
-Think of it like a human reviewing their journal and updating their mental model. Daily files are raw notes; MEMORY.md is curated wisdom.
+#### Use Codex CLI (full-auto) When:
+- 🤖 **CI/CD Tasks** — Automated pipeline jobs
+- 🔄 **Batch Operations** — Repetitive tasks with known patterns
+- 📋 **Standard Templates** — Following established conventions
 
-The goal: Be helpful without being annoying. Check in a few times a day, do useful background work, but respect quiet time.
+## Agent Workflows
 
-## Make It Yours
+### Starting a New Task
 
-This is a starting point. Add your own conventions, style, and rules as you figure out what works.
+1. **Check current task status**:
+   ```bash
+   python3 scripts/task-manager.py list
+   ```
+
+2. **Register your session**:
+   ```bash
+   python3 scripts/task-manager.py set-session <task_id> <session_key>
+   ```
+
+3. **Read relevant documentation** before starting
+
+### Task Lifecycle
+
+```
+┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
+│ PENDING │───▶│ QUEUED  │───▶│ RUNNING │───▶│  DONE   │
+└─────────┘    └─────────┘    └─────────┘    └─────────┘
+                                  │
+                                  ▼
+                            ┌─────────┐
+                            │  FAILED │
+                            └─────────┘
+```
+
+### Using Claude Code
+
+```bash
+# Quick task execution
+claude "Your task description"
+
+# With specific working directory
+claude --workdir /path/to/project "Your task"
+
+# With thinking mode (for complex problems)
+claude --thinking "Analyze this architecture"
+
+# As subagent (for task delegation)
+claude --subagent "Handle subtask"
+```
+
+### Using Codex CLI
+
+```bash
+# One-shot execution with auto-approval
+codex exec --full-auto "Your task"
+
+# Sandbox mode (safest)
+codex exec "Your task"
+
+# No sandbox, no approvals (fastest, most dangerous)
+codex --yolo "Your task"
+```
+
+### Using MCP Servers
+
+```bash
+# List configured MCP servers
+claude mcp list
+
+# The GitHub MCP server is available for:
+# - Searching repositories
+# - Reading file contents
+# - Creating issues and PRs
+# - Managing pull requests
+```
+
+## Collaboration Protocols
+
+### Design Review Protocol
+
+**Participants**: Architect (Claude) → Challenger (Codex) → Refiner (Claude)
+
+```bash
+# Initiate design debate
+python3 scripts/agent-protocol/design-debate.py \
+  --topic "Design task scheduling system" \
+  --max-rounds 3
+```
+
+**Flow**:
+1. Architect proposes design
+2. Challenger identifies issues
+3. Refiner incorporates feedback
+4. Luna arbitrates final decision
+
+### Code Review Protocol
+
+**Participants**: Author (Codex) → Reviewer (Claude) → Responder (Codex) → Validator (Claude)
+
+```bash
+# Initiate code review
+python3 scripts/agent-protocol/code-review-debate.py \
+  --file path/to/code.py \
+  --max-rounds 3
+```
+
+**Flow**:
+1. Author submits code
+2. Reviewer provides feedback
+3. Author addresses comments
+4. Validator approves/rejects
+
+### Test Battle Protocol
+
+**Participants**: Developer (Codex) → Breaker (Claude) → Fixer (Codex)
+
+```bash
+# Initiate test battle
+python3 scripts/agent-protocol/test-battle.py \
+  --feature "Implement thread-safe queue" \
+  --max-rounds 3
+```
+
+**Flow**:
+1. Developer implements feature
+2. Breaker creates edge case tests
+3. Fixer hardens implementation
+4. Loop until stability achieved
+
+## Best Practices
+
+### Code Quality
+
+1. **Always use git** — Create a branch for significant changes
+2. **Test before committing** — Run tests if available
+3. **Document changes** — Update relevant docs when making changes
+4. **Follow existing patterns** — Match the codebase style
+5. **Respect boundaries** — Don't modify system files without permission
+
+### Task Management
+
+1. **Clear descriptions** — Make task descriptions specific and actionable
+2. **Dependency tracking** — Use `--after` flag for dependent tasks
+3. **Session registration** — Always register session keys for running tasks
+4. **Status updates** — Keep task status current (start/complete/fail)
+
+### Communication
+
+1. **Default to Chinese** — Use Chinese for general communication
+2. **Technical terms** — Keep English technical terms untranslated
+3. **Feishu formatting** — Use Markdown lists instead of tables
+4. **Link sharing** — Always attach links when referencing docs
+
+## Safety Rules
+
+### Critical Boundaries
+
+- ⚠️ **Never modify `extensions/` directory files directly**
+- ⚠️ **Don't change OpenClaw core files without approval**
+- ⚠️ **Use `trash` instead of `rm` for deletions**
+- ⚠️ **Test in isolated environments when possible**
+
+### Data Protection
+
+- 🔒 **Private files stay private** — Don't share in group chats
+- 🔒 **Privacy by open_id** — Use open_id for bot/person identification
+- 🔒 **Token management** — Never commit API tokens to git
+
+### System Stability
+
+- 🛡️ **No core code changes** — Don't let agents modify their own core code
+- 🛡️ **API Proxy isolation** — Use Git workflow, never direct code modification
+- 🛡️ **Session management** — Clear jsonl + reset sessions.json, no restart needed
+
+## Code Review Checklist
+
+### Before Submitting Code
+
+- [ ] **Functionality** — Code does what it claims to do
+- [ ] **Tests** — Unit tests cover new functionality
+- [ ] **Documentation** — README/comments updated
+- [ ] **Style** — Follows project conventions
+- [ ] **Security** — No hardcoded secrets, input validation
+- [ ] **Performance** — No obvious bottlenecks
+- [ ] **Error Handling** — Graceful failure handling
+- [ ] **Edge Cases** — Boundary conditions considered
+
+### During Review
+
+- [ ] **Readability** — Code is clear and maintainable
+- [ ] **Complexity** — Not unnecessarily complex
+- [ ] **Duplication** — No code duplication
+- [ ] **Naming** — Variables/functions well-named
+- [ ] **Comments** — Necessary comments present
+- [ ] **Dependencies** — No unnecessary dependencies
+
+### After Review
+
+- [ ] **Comments addressed** — All feedback incorporated
+- [ ] **Tests pass** — CI/CD green
+- [ ] **Documentation synced** — Wiki updated if needed
+
+## Error Handling Guide
+
+### Common Errors & Solutions
+
+#### Task Stuck in Running
+```bash
+# Diagnose
+python3 scripts/session-overview.py
+
+# Cleanup
+python3 scripts/session-cleanup.py --force <task_id>
+```
+
+#### Worktree Creation Failed
+```bash
+# Clean and retry
+rm -rf /tmp/luna-worktrees/<task_id>
+git worktree prune
+```
+
+#### Agent Not Responding
+```bash
+# Check status
+openclaw gateway status
+
+# Restart if needed
+openclaw gateway restart
+```
+
+#### Git Conflicts
+```bash
+# Resolve manually in worktree
+cd /tmp/luna-worktrees/<task_id>
+git status
+# Fix conflicts
+git add .
+git commit -m "Resolve conflicts"
+```
+
+### Escalation Path
+
+1. **Level 1**: Check logs in `logs/` directory
+2. **Level 2**: Run diagnostic scripts in `scripts/`
+3. **Level 3**: Consult MEMORY.md for historical solutions
+4. **Level 4**: Create task for human review
+
+## Resources
+
+- 📖 **OpenClaw Docs**: `docs/` or https://docs.openclaw.ai
+- 🧠 **Memory**: `MEMORY.md` for long-term context
+- 📅 **Daily Notes**: `memory/YYYY-MM-DD.md`
+- 🛠️ **Tools**: `TOOLS.md` for environment specifics
+- 📊 **Status**: `task-manager.py status`
+
+## Quick Reference Card
+
+```bash
+# Task Management
+task-manager.py add "description" [chat_id]     # Create task
+task-manager.py start <id> <session>            # Start task
+task-manager.py complete <id> [result]          # Complete task
+task-manager.py list                            # List tasks
+task-manager.py ready                           # Ready tasks
+
+# Agent Execution
+claude "task"                                   # Claude mode
+codex exec "task"                               # Codex safe mode
+codex --yolo "task"                             # Codex fast mode
+
+# Collaboration
+design-debate.py --topic "..."                  # Design review
+code-review-debate.py --file ...                # Code review
+test-battle.py --feature "..."                  # Test battle
+
+# Monitoring
+lark-task-dashboard.py                          # Send dashboard
+session-overview.py                             # Session status
+performance-metrics.py                          # System metrics
+```
+
+---
+
+**Remember**: When in doubt, choose the safer option. It's better to take more time and do it right than to rush and break something.
