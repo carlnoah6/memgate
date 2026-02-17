@@ -14,6 +14,7 @@ class LLMAnalyzer:
         "你是 Luna 的代码审查和分析引擎。请用简洁中文回答。"
         "使用 • 列表格式，数字大于 1000 用 K/M 缩写。"
         "不要使用 markdown 表格（目标平台不支持）。"
+        "严禁编造数据：只能使用明确提供的数据进行分析，不得推断或虚构任何事件、数字或事实。"
     )
 
     def __init__(self, data: DataCollector, max_review_files: int = MAX_REVIEW_FILES):
@@ -29,15 +30,120 @@ class LLMAnalyzer:
     def analyze_all(self):
         """执行所有 LLM 分析步骤"""
         log("🤖 阶段 2: LLM 分析开始")
-        self._review_files()
+        # 代码审查已禁用（kimi-k2.5 审查速度太慢，会超时）
+        log("  ⏭️ 代码审查已跳过")
+        self.file_reviews = {}
+        self._skipped_files = []
+        # self._review_files()  # 已禁用
         self._cross_module_analysis()
         self._time_allocation()
         self._reflection()
         self._memory_leak_check()
         log("🤖 LLM 分析完成")
 
+    def _review_file_chunks(self, path: str, content: str) -> str:
+        """分块审查大文件，每块最多 5000 字符"""
+        CHUNK_SIZE = 5000
+        OVERLAP = 200  # 块间重叠，避免边界遗漏
+
+        if len(content) <= CHUNK_SIZE:
+            # 小文件直接审查
+            return self._call_review_llm(path, content, is_chunk=False)
+
+        # 超大文件跳过详细审查（只返回统计）
+        if len(content) > 50000:
+            log(f"    📄 文件过大 ({len(content)} 字符)，跳过详细审查")
+            return f"[文件过大，仅统计: {len(content)} 字符，{content.count(chr(10))} 行]"
+
+        # 大文件分块审查
+        chunks = []
+        start = 0
+        chunk_idx = 0
+
+        while start < len(content):
+            end = min(start + CHUNK_SIZE, len(content))
+            # 尝试在换行处截断
+            if end < len(content):
+                next_newline = content.find('\n', end - 30, end + 30)
+                if next_newline != -1:
+                    end = next_newline + 1
+
+            chunk = content[start:end]
+            chunks.append((chunk_idx, chunk))
+            chunk_idx += 1
+            start = end - OVERLAP if end < len(content) else end
+
+        log(f"    📄 文件较大 ({len(content)} 字符)，分成 {len(chunks)} 块审查")
+
+        # 分别审查每块（带超时保护）
+        chunk_reviews = []
+        for idx, chunk in chunks:
+            log(f"    📄   块 {idx+1}/{len(chunks)}...")
+            review = self._call_review_llm(
+                path, chunk, is_chunk=True,
+                chunk_idx=idx, total_chunks=len(chunks)
+            )
+            if review.startswith("[LLM"):
+                # 超时或失败，跳过这块
+                log(f"    ⚠️   块 {idx+1} 审查失败，跳过")
+                continue
+            chunk_reviews.append(f"## 第 {idx+1} 块\n{review}")
+
+        # 如果没有成功审查的块，返回提示
+        if not chunk_reviews:
+            return "[代码审查超时，未获取结果]"
+
+        # 合并审查结果
+        if len(chunk_reviews) == 1:
+            return chunk_reviews[0]
+
+        merge_prompt = f"""以下是文件 `{path}` 的分块审查结果，请合并为一份完整的审查报告。
+
+{chr(10).join(chunk_reviews)}
+
+请合并以上分块审查结果，去除重复问题，生成一份完整的审查报告：
+1. **缺陷/Bug**: 列出所有发现的问题（去重）
+2. **安全风险**: 安全问题汇总
+3. **代码质量**: 质量问题汇总
+4. **可改进处**: 重构建议（最重要的 3 条）
+5. **总结**: 缺陷 X 个，安全问题 X 个
+
+格式要求：
+- 每个问题用 • 开头
+- 标注严重程度 [🔴高/🟡中/🟢低]"""
+
+        return call_llm(merge_prompt, max_tokens=2000, system=self.SYSTEM_PROMPT, timeout=60)
+
+    def _call_review_llm(self, path: str, content: str, is_chunk: bool = False,
+                         chunk_idx: int = 0, total_chunks: int = 1) -> str:
+        """调用 LLM 审查代码块（使用 kimi-k2.5）"""
+        chunk_info = f" (第 {chunk_idx+1}/{total_chunks} 块)" if is_chunk else ""
+
+        prompt = f"""请对以下代码文件{chunk_info}进行审查。
+
+文件路径: {path}
+代码内容:
+```
+{content}
+```
+
+请从以下维度审查（只报告发现的问题，没问题的维度跳过）：
+
+1. **缺陷/Bug**: 逻辑错误、边界条件、异常处理缺失
+2. **安全风险**: 硬编码密钥、路径遍历、注入风险、权限问题
+3. **代码质量**: 冗余代码、命名不清晰、硬编码魔法值
+4. **可改进处**: 具体的重构建议（简短）
+
+格式要求：
+- 每个问题用 • 开头
+- 标注严重程度 [🔴高/🟡中/🟢低]
+- 如果代码没有明显问题，回复"无明显问题"即可"""
+
+        # 使用默认模型 kimi-k2.5 进行代码审查
+        return call_llm(prompt, max_tokens=1500, system=self.SYSTEM_PROMPT, timeout=60)
+
     def _review_files(self):
-        """逐文件 Code Review"""
+        """逐文件 Code Review（大文件自动分块）"""
         code_files = {p: c for p, c in self.data.modified_files.items()
                       if os.path.splitext(p)[1] in REVIEWABLE_EXTS}
 
@@ -60,35 +166,10 @@ class LLMAnalyzer:
         log(f"  📝 开始逐文件 Code Review ({len(sorted_files)} 个文件)...")
 
         for i, (path, content) in enumerate(sorted_files):
-            log(f"  📝 [{i+1}/{len(sorted_files)}] 审查 {path}...")
+            log(f"  📝 [{i+1}/{len(sorted_files)}] 审查 {path} ({len(content)} 字符)...")
 
-            # 截断过大文件的内容给 LLM
-            review_content = content[:15000]
-            if len(content) > 15000:
-                review_content += "\n[... 内容已截断]"
-
-            prompt = f"""请对以下代码文件进行审查。
-
-文件路径: {path}
-文件内容:
-```
-{review_content}
-```
-
-请从以下维度审查（只报告发现的问题，没问题的维度跳过）：
-
-1. **缺陷/Bug**: 逻辑错误、边界条件、异常处理缺失
-2. **安全风险**: 硬编码密钥、路径遍历、注入风险、权限问题
-3. **代码质量**: 冗余代码、命名不清晰、硬编码魔法值
-4. **可改进处**: 具体的重构建议（简短，一句话描述）
-
-格式要求：
-- 每个问题用 • 开头
-- 标注严重程度 [🔴高/🟡中/🟢低]
-- 如果代码没有明显问题，简短说明即可（一行）
-- 总结: 缺陷 X 个，安全问题 X 个"""
-
-            review = call_llm(prompt, max_tokens=2000, system=self.SYSTEM_PROMPT)
+            # 使用分块审查
+            review = self._review_file_chunks(path, content)
             self.file_reviews[path] = review
 
     def _cross_module_analysis(self):
@@ -118,44 +199,63 @@ class LLMAnalyzer:
         self.cross_module = call_llm(prompt, max_tokens=2000, system=self.SYSTEM_PROMPT)
 
     def _time_allocation(self):
-        """时间分配分析"""
+        """时间分配分析 — 纯日历数据驱动，禁止编造"""
         log("  ⏰ 时间分配分析...")
 
-        # 准备日历数据
-        cal_text = ""
-        if self.data.calendar_events and not any(
-            e.get("error") for e in self.data.calendar_events
-        ):
-            for evt in self.data.calendar_events:
-                cal_text += (f"• {evt.get('start', '?')}-{evt.get('end', '?')} "
-                             f"{evt.get('summary', '无标题')}\n")
-        else:
-            cal_text = "⚠️ 日历 API 不可用（token 过期）"
+        # 检查日历数据是否可用
+        has_error = any(e.get("error") for e in self.data.calendar_events)
+        has_events = self.data.calendar_events and not has_error
 
-        # 准备 memory 中的活动记录
-        memory_excerpt = self.data.memory_content[:5000] if self.data.memory_content else "无 memory 文件"
+        if not has_events:
+            # 日历为空或 API 失败 → 直接输出，不调 LLM
+            auth_url = ""
+            error_msg = ""
+            for e in self.data.calendar_events:
+                if e.get("error"):
+                    error_msg = e["error"]
+                    if e.get("auth_url"):
+                        auth_url = e["auth_url"]
+                    break
+            if auth_url:
+                self.time_analysis = f"⚠️ 无日历数据（{error_msg}）\n授权链接: {auth_url}"
+            elif error_msg:
+                self.time_analysis = f"⚠️ 无日历数据（{error_msg}）"
+            else:
+                self.time_analysis = "⚠️ 无日历数据（当天无日历事件）"
+            log(f"  ⏰ {self.time_analysis}")
+            return
+
+        # 有日历事件 → 构建事件文本
+        cal_text = ""
+        for evt in self.data.calendar_events:
+            cal_text += (f"• {evt.get('start', '?')}-{evt.get('end', '?')} "
+                         f"{evt.get('summary', '无标题')}\n")
 
         # 加载分类定义
         categories = read_file(f"{WORKSPACE}/data/calendar-categories.md", max_lines=30)
 
-        prompt = f"""分析 {self.data.date_str}（{self.data.day_name}）的时间分配。
+        # 日期和星期由代码传入，LLM 不需要自己计算
+        prompt = f"""分析以下日历事件的时间分配。
 
-日历事件：
+日期: {self.data.date_str}（{self.data.day_name}）— 此日期由系统提供，请直接使用，不要自行计算。
+
+日历事件（共 {len(self.data.calendar_events)} 个）：
 {cal_text}
 
-当日 memory 记录（前 5000 字）：
-{memory_excerpt}
-
-分类参考（来自日历分类体系）：
+分类参考：
 {categories[:1500]}
 
-请：
-1. 按分类统计时间（用 emoji + 分类名 + 估算时长）
-2. 列出主要活动
-3. 如果日历数据不可用，基于 memory 内容推断主要活动（标注"基于记录推断"）
-4. 一句话总结今天的时间分配特点"""
+⚠️ 严格规则：
+- 只能分析上面列出的日历事件，禁止编造、推断或添加任何未列出的事件
+- 如果某个时段没有日历事件，不要猜测该时段的活动
+- 时长计算必须基于事件的开始和结束时间
 
-        self.time_analysis = call_llm(prompt, max_tokens=2000, system=self.SYSTEM_PROMPT)
+请：
+1. 按分类统计时间（用 emoji + 分类名 + 时长）
+2. 列出主要活动
+3. 一句话总结时间分配特点"""
+
+        self.time_analysis = call_llm(prompt, max_tokens=2000, system=self.SYSTEM_PROMPT, timeout=30)
 
     def _reflection(self):
         """七维度反思"""
