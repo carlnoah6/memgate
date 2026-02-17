@@ -146,13 +146,20 @@ class ReportAssembler:
         
         balance = self.data.kimi_balance.get("balance_cny")
         usage = self.data.kimi_usage
+        source = self.data.kimi_balance.get("source", "unknown")
+        source_label = "API 实时" if source == "api" else "本地文件" if source == "file" else "未知"
         
         if balance is None:
-            parts.append("⚠️ 无法获取余额数据（余额文件不存在或读取失败）")
-            parts.append(f"• 平台: {self.data.kimi_balance.get('platform', 'Moonshot (Kimi)')}")
+            error = self.data.kimi_balance.get("error", "未知错误")
+            parts.append(f"⚠️ 无法获取余额数据（{error}）")
             parts.append(f"• 今日消耗: {usage['tokens']:,} tokens / 约 {usage['cost_cny']:.2f} 元")
         else:
-            parts.append(f"• **当前余额**: {balance:.2f} 元")
+            parts.append(f"• **当前余额**: {balance:.2f} 元 ({source_label})")
+            # 显示现金/代金券明细（仅 API 来源有）
+            cash = self.data.kimi_balance.get("cash_balance")
+            voucher = self.data.kimi_balance.get("voucher_balance")
+            if cash is not None and voucher is not None:
+                parts.append(f"  - 现金: {cash:.2f} 元 / 代金券: {voucher:.2f} 元")
             parts.append(f"• **今日消耗**: {usage['tokens']:,} tokens / 约 {usage['cost_cny']:.2f} 元")
             
             # 预估剩余可用天数
@@ -350,8 +357,7 @@ class ReportAssembler:
             ("配额数据从快照文件获取", bool(self.data.quota_snapshot), ""),
             ("日历数据", not any(e.get("error") for e in self.data.calendar_events)
              if self.data.calendar_events else False,
-             "⚠️ API token 过期" if any(e.get("error") for e in self.data.calendar_events)
-             else "✅"),
+             self._get_calendar_status_note()),
             ("Code Review 有文件级分析", bool(self.analysis.file_reviews)
              or not any(os.path.splitext(p)[1] in {".py", ".sh", ".js", ".ts"}
                         for p in self.data.modified_files), ""),
@@ -369,6 +375,18 @@ class ReportAssembler:
             parts.append(f"- [{('x' if passed else ' ')}] {name} {icon}{suffix}")
 
         return "\n".join(parts)
+
+    def _get_calendar_status_note(self) -> str:
+        """获取日历状态注释，包含授权链接（如果需要）"""
+        if not self.data.calendar_events:
+            return "✅"
+        for e in self.data.calendar_events:
+            if e.get("error"):
+                auth_url = e.get("auth_url", "")
+                if auth_url:
+                    return f"⚠️ API token 过期 — [点击授权]({auth_url})"
+                return "⚠️ API token 过期"
+        return "✅"
 
     @staticmethod
     def _format_number(n: int) -> str:

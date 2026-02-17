@@ -144,7 +144,9 @@ class DataCollector:
         except urllib.error.HTTPError as e:
             err_body = e.read().decode()[:200] if e.fp else ""
             log(f"  ⚠️ 日历 API 失败 ({e.code}): {err_body}")
-            self.calendar_events = [{"error": f"API 返回 {e.code}，token 可能已过期"}]
+            from .config import get_lark_auth_url
+            auth_url = get_lark_auth_url()
+            self.calendar_events = [{"error": f"API 返回 {e.code}，token 可能已过期", "auth_url": auth_url}]
         except Exception as e:
             log(f"  ⚠️ 日历 API 异常: {e}")
             self.calendar_events = [{"error": str(e)}]
@@ -287,19 +289,47 @@ class DataCollector:
         """采集 Kimi 余额和今日用量"""
         log("  💰 采集 Kimi 账户数据...")
         
-        # 1. 读取余额文件
-        balance_file = f"{WORKSPACE}/data/kimi-balance.json"
         self.kimi_balance = {}
-        try:
-            with open(balance_file, "r") as f:
-                self.kimi_balance = json.load(f)
-            log(f"  💰 Kimi 余额已加载: {self.kimi_balance.get('balance_cny', '?')} 元")
-        except FileNotFoundError:
-            log(f"  ⚠️ Kimi 余额文件不存在: {balance_file}")
-            self.kimi_balance = {"balance_cny": None, "error": "余额文件未找到"}
-        except Exception as e:
-            log(f"  ⚠️ Kimi 余额读取失败: {e}")
-            self.kimi_balance = {"balance_cny": None, "error": str(e)}
+        
+        # 1. 尝试从 Moonshot API 实时获取余额
+        api_key = self._get_moonshot_api_key()
+        if api_key:
+            try:
+                req = urllib.request.Request(
+                    "https://api.moonshot.cn/v1/users/me/balance",
+                    headers={"Authorization": f"Bearer {api_key}"},
+                )
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    result = json.loads(resp.read().decode())
+                if result.get("status") and result.get("data"):
+                    d = result["data"]
+                    self.kimi_balance = {
+                        "balance_cny": d.get("available_balance"),
+                        "cash_balance": d.get("cash_balance"),
+                        "voucher_balance": d.get("voucher_balance"),
+                        "source": "api",
+                        "platform": "Moonshot (Kimi)",
+                    }
+                    log(f"  💰 Kimi 余额 (API): {self.kimi_balance['balance_cny']:.2f} 元")
+                else:
+                    log(f"  ⚠️ Moonshot API 返回异常: {result}")
+            except Exception as e:
+                log(f"  ⚠️ Moonshot API 调用失败: {e}")
+        
+        # 2. Fallback: 读取本地余额文件
+        if not self.kimi_balance.get("balance_cny"):
+            balance_file = f"{WORKSPACE}/data/kimi-balance.json"
+            try:
+                with open(balance_file, "r") as f:
+                    file_data = json.load(f)
+                self.kimi_balance = {**file_data, "source": "file"}
+                log(f"  💰 Kimi 余额 (文件 fallback): {self.kimi_balance.get('balance_cny', '?')} 元")
+            except FileNotFoundError:
+                log(f"  ⚠️ Kimi 余额文件不存在: {balance_file}")
+                self.kimi_balance = {"balance_cny": None, "error": "API 和文件均不可用"}
+            except Exception as e:
+                log(f"  ⚠️ Kimi 余额读取失败: {e}")
+                self.kimi_balance = {"balance_cny": None, "error": str(e)}
         
         # 2. 从 token_usage 中提取 Kimi 今日用量
         self.kimi_usage = {"tokens": 0, "cost_cny": 0}
@@ -313,3 +343,80 @@ class DataCollector:
             rate = self.kimi_balance.get("rate_per_1m_tokens_cny", 12.0)
             self.kimi_usage["cost_cny"] = round(total_tokens / 1_000_000 * rate, 2)
             log(f"  💰 Kimi 今日用量: {total_tokens:,} tokens / 约 {self.kimi_usage['cost_cny']:.2f} 元")
+
+    def _get_moonshot_api_key(self) -> str | None:
+        """从 moonshot-config.json 读取 API key"""
+        config_file = f"{WORKSPACE}/data/moonshot-config.json"
+        try:
+            with open(config_file, "r") as f:
+                config = json.load(f)
+            return config.get("moonshot_api_key")
+        except Exception as e:
+            log(f"  ⚠️ 读取 moonshot-config.json 失败: {e}")
+            return None
+
+    def _collect_cross_session_incidents(self):
+        """采集串台事件统计数据"""
+        log("  🔒 采集串台事件统计...")
+        
+        # 从 session 日志中分析串台相关事件
+        self.cross_session_stats = {
+            'total_incidents': 0,
+            'prevented': 0,
+            'leaked': 0,
+            'by_file': {},
+            'by_type': {}
+        }
+        
+        if not os.path.isdir(SESSION_DIR):
+            log("  ⚠️ Session 目录不存在，跳过串台统计")
+            return
+        
+        # 关键词匹配串台相关事件
+        cross_session_keywords = ['串台', 'cross_session', '泄露', 'leak', 'context bleed']
+        
+        # 时间范围 (UTC)
+        utc_start = self.day_start.astimezone(datetime.timezone.utc).isoformat()
+        utc_end = self.day_end.astimezone(datetime.timezone.utc).isoformat()
+        
+        for fpath in glob.glob(f"{SESSION_DIR}/*.jsonl"):
+            if ".deleted." in fpath:
+                continue
+            try:
+                with open(fpath, "r", encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        
+                        ts = entry.get("timestamp", "")
+                        if not (utc_start <= ts <= utc_end):
+                            continue
+                        
+                        # 检查是否是串台相关事件
+                        text = ""
+                        if entry.get("type") == "message":
+                            msg = entry.get("message", {})
+                            content = msg.get("content", "") if isinstance(msg, dict) else ""
+                            if isinstance(content, str):
+                                text = content
+                            elif isinstance(content, list):
+                                text = " ".join(
+                                    c.get("text", "") for c in content
+                                    if isinstance(c, dict) and c.get("type") == "text"
+                                )
+                        
+                        # 检查是否包含串台关键词
+                        text_lower = text.lower()
+                        for keyword in cross_session_keywords:
+                            if keyword.lower() in text_lower:
+                                self.cross_session_stats['total_incidents'] += 1
+                                break
+            except Exception:
+                continue
+        
+        log(f"  🔒 串台事件: {self.cross_session_stats['total_incidents']} 起")
