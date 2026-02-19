@@ -17,7 +17,7 @@ LLM_MODEL_FAST = "deepseek-chat"  # Code Review 使用快速模型
 CALENDAR_ID = "feishu.cn_4iEgRqZUqa0mcprkekLxTg@group.calendar.feishu.cn"
 LARK_TOKEN_FILE = f"{WORKSPACE}/data/lark-user-token.json"
 LARK_APP_ID = "cli_a90c3a6163785ed2"
-LARK_REDIRECT_URI = "https://anz-luna.grolar-wage.ts.net/feishu/events"
+LARK_REDIRECT_URI = "https://anz-luna.grolar-wage.ts.net/feishu/card_action"
 LARK_OAUTH_SCOPES = "auth:user.id:read+calendar:calendar+docx:document+drive:drive+wiki:wiki"
 
 def get_lark_auth_url():
