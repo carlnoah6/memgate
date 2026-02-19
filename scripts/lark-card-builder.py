@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Luna OS - Lark 看板卡片构建器
 
-Reads task data from PostgreSQL (via TaskStore), generates Lark Interactive Card JSON.
-Output to stdout for lark-task-dashboard.py.
+Builds a Lark Interactive Card for the task dashboard.
+Supports two modes:
+  - Global mode (no --chat-id): shows running/queued tasks + session overview
+  - Plan mode (--chat-id <id>): shows the plan for that specific group chat
 
-Usage: python3 lark-card-builder.py
+Usage:
+  python3 lark-card-builder.py                          # global dashboard
+  python3 lark-card-builder.py --chat-id oc_xxx         # plan for group
 """
 
 import json
@@ -50,92 +54,147 @@ def _col(text, weight=1):
     }
 
 
-def build_session_section():
-    """Build session overview section."""
+STATUS_EMOJI = {
+    "done": "✅",
+    "running": "🔄",
+    "pending": "⏳",
+    "failed": "❌",
+    "cancelled": "🚫",
+    "waiting": "⏸️",
+}
+
+PLAN_STATUS_TEMPLATE = {
+    "active": ("blue", "🟢 进行中"),
+    "completed": ("green", "✅ 已完成"),
+    "cancelled": ("grey", "🚫 已取消"),
+    "draft": ("yellow", "📝 草稿"),
+    "paused": ("orange", "⏸️ 已暂停"),
+}
+
+
+def build_plan_card(chat_id: str) -> dict:
+    """Build a plan-focused card for a specific group chat."""
+    from planner_helpers import get_store as get_plan_store
+    plan_store = get_plan_store()
+
+    # Find the most recent plan for this chat (any status)
+    all_plans = plan_store.list_plans()
+    chat_plans = [p for p in all_plans if p.get("chat_id") == chat_id]
+    # Sort: active/draft/paused first, then by most recent
+    status_priority = {"active": 0, "draft": 1, "paused": 2, "completed": 3, "cancelled": 4}
+    chat_plans.sort(key=lambda p: (status_priority.get(p["status"], 9),))
+
+    now = datetime.now(SGT)
     elements = []
 
-    if not os.path.exists(SESSION_OVERVIEW):
+    if not chat_plans:
         elements.append({
             "tag": "div",
-            "text": {"tag": "lark_md", "content": "📊 **Session 概览** — 暂无数据"}
+            "text": {"tag": "lark_md", "content": "📋 **当前群聊无规划任务**\n\n使用 planner 创建新的规划。"}
         })
-        return elements
+        return _wrap_card("📋 规划仪表盘", "grey", elements, now)
 
-    try:
-        with open(SESSION_OVERVIEW) as f:
-            overview = json.load(f)
-    except Exception:
-        return elements
+    plan = chat_plans[0]
+    steps = plan.get("steps", [])
+    total = len(steps)
+    done_count = sum(1 for s in steps if s.get("status") == "done")
+    running_count = sum(1 for s in steps if s.get("status") == "running")
+    failed_count = sum(1 for s in steps if s.get("status") == "failed")
 
-    sessions = overview.get("sessions", [])
-    if not sessions:
-        return elements
+    template_color, status_text = PLAN_STATUS_TEMPLATE.get(plan["status"], ("grey", plan["status"]))
 
-    # Header
+    # Plan header
     elements.append({
-        "tag": "column_set",
-        "flex_mode": "none",
-        "background_style": "grey",
-        "columns": [
-            _col("**Session**", 3),
-            _col("**状态**", 2),
-            _col("**Tokens**", 2),
-            _col("**时长**", 1),
+        "tag": "div",
+        "text": {"tag": "lark_md", "content": f"**📋 {plan['goal']}**"}
+    })
+    elements.append({
+        "tag": "div",
+        "fields": [
+            {"is_short": True, "text": {"tag": "lark_md", "content": f"**状态** {status_text}"}},
+            {"is_short": True, "text": {"tag": "lark_md", "content": f"**进度** {done_count}/{total}"}},
         ]
     })
 
-    for s in sessions[:8]:
-        name = s.get("name", "?")[:20]
-        # Build name cell: session name + planner goal on second line
-        planner = s.get("planner")
-        if planner and planner.get("goal"):
-            goal = planner["goal"][:30]
-            name_cell = f"{name}\n📋 {goal}"
-        else:
-            name_cell = name
-        # Status: planner status_text or last_activity
-        activity = s.get("last_activity") or "—"
-        if planner and planner.get("status_text"):
-            status = planner["status_text"]
-        else:
-            status = activity
-        # Tokens with usage %
-        tok = s.get("tokens", 0)
-        pct = s.get("usage_pct", 0)
-        tokens_str = f"{fmt_tokens(tok)} ({pct}%)" if tok else "0"
-        # Age
-        age = s.get("relative_time", "?")
+    if running_count > 0 or failed_count > 0:
+        extra_fields = []
+        if running_count:
+            extra_fields.append({"is_short": True, "text": {"tag": "lark_md", "content": f"**🔄 运行中** {running_count}"}})
+        if failed_count:
+            extra_fields.append({"is_short": True, "text": {"tag": "lark_md", "content": f"**❌ 失败** {failed_count}"}})
+        elements.append({"tag": "div", "fields": extra_fields})
+
+    elements.append({"tag": "hr"})
+
+    # Steps list
+    for s in steps:
+        num = s.get("step_num", 0)
+        title = s.get("title", f"Step {num}")
+        status = s.get("status", "pending")
+        emoji = STATUS_EMOJI.get(status, "⬜")
+        tid = s.get("task_id", "")
+
+        line = f"{emoji} **S{num}.** {title}"
+        if tid:
+            line += f"  `{tid}`"
+
+        # Duration for running/done
+        if status == "running" and s.get("started_at"):
+            started = s["started_at"]
+            if isinstance(started, str):
+                started = datetime.fromisoformat(started)
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=SGT)
+            mins = (now - started.astimezone(SGT)).total_seconds() / 60
+            line += f"  ⏱{fmt_duration(mins)}"
+
+        # Result snippet for done steps
+        if status == "done" and s.get("result"):
+            result = s["result"][:60]
+            line += f"\n    _{result}_"
+
+        # Deps
+        deps = s.get("depends_on") or []
+        if deps and status == "pending":
+            line += f"  (等待 S{', S'.join(str(d) for d in deps)})"
+
         elements.append({
-            "tag": "column_set",
-            "flex_mode": "none",
-            "columns": [
-                _col(name_cell, 3),
-                _col(status, 2),
-                _col(tokens_str, 2),
-                _col(age, 1),
-            ]
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": line}
         })
 
-    return elements
+    elements.append({"tag": "hr"})
+
+    # Show other plans for this chat if any
+    other_plans = [p for p in chat_plans[1:] if p["status"] in ("active", "paused", "draft")]
+    if other_plans:
+        other_lines = ["**其他规划**"]
+        for p in other_plans[:3]:
+            _, st = PLAN_STATUS_TEMPLATE.get(p["status"], ("grey", p["status"]))
+            other_lines.append(f"  {st} {p['goal'][:40]}")
+        elements.append({
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": "\n".join(other_lines)}
+        })
+        elements.append({"tag": "hr"})
+
+    return _wrap_card(f"📋 {plan['goal'][:30]}", template_color, elements, now)
 
 
-def build_card() -> dict:
-    """Build task dashboard card from PostgreSQL data."""
-    # Refresh session overview before building card
+def build_global_card() -> dict:
+    """Build the global task dashboard card."""
+    # Refresh session overview
     try:
-        subprocess.run(
-            ["python3", SESSION_SCRIPT],
-            capture_output=True, text=True, timeout=10,
-        )
+        subprocess.run(["python3", SESSION_SCRIPT], capture_output=True, text=True, timeout=10)
     except Exception:
         pass
+
     store = TaskStore()
     tasks = store.list_tasks()
     now = datetime.now(SGT)
-    today = now.strftime("%Y-%m-%d")
 
     running_tasks = [t for t in tasks if t["status"] == "running"]
-    max_concurrent = 8  # matches task_manager.MAX_CONCURRENT
+    max_concurrent = 8
     queued_tasks = [t for t in tasks if t["status"] == "queued"]
 
     elements = []
@@ -202,7 +261,75 @@ def build_card() -> dict:
         elements.extend(session_elements)
         elements.append({"tag": "hr"})
 
-    # Footer
+    return _wrap_card("🖥️ Luna 任务仪表盘", "blue", elements, now)
+
+
+def build_session_section():
+    """Build session overview section."""
+    elements = []
+
+    if not os.path.exists(SESSION_OVERVIEW):
+        elements.append({
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": "📊 **Session 概览** — 暂无数据"}
+        })
+        return elements
+
+    try:
+        with open(SESSION_OVERVIEW) as f:
+            overview = json.load(f)
+    except Exception:
+        return elements
+
+    sessions = overview.get("sessions", [])
+    if not sessions:
+        return elements
+
+    elements.append({
+        "tag": "column_set",
+        "flex_mode": "none",
+        "background_style": "grey",
+        "columns": [
+            _col("**Session**", 3),
+            _col("**状态**", 2),
+            _col("**Tokens**", 2),
+            _col("**时长**", 1),
+        ]
+    })
+
+    for s in sessions[:8]:
+        name = s.get("name", "?")[:20]
+        planner = s.get("planner")
+        if planner and planner.get("goal"):
+            goal = planner["goal"][:30]
+            name_cell = f"{name}\n📋 {goal}"
+        else:
+            name_cell = name
+        activity = s.get("last_activity") or "—"
+        if planner and planner.get("status_text"):
+            status = planner["status_text"]
+        else:
+            status = activity
+        tok = s.get("tokens", 0)
+        pct = s.get("usage_pct", 0)
+        tokens_str = f"{fmt_tokens(tok)} ({pct}%)" if tok else "0"
+        age = s.get("relative_time", "?")
+        elements.append({
+            "tag": "column_set",
+            "flex_mode": "none",
+            "columns": [
+                _col(name_cell, 3),
+                _col(status, 2),
+                _col(tokens_str, 2),
+                _col(age, 1),
+            ]
+        })
+
+    return elements
+
+
+def _wrap_card(title: str, template: str, elements: list, now: datetime) -> dict:
+    """Wrap elements in a card with header, footer, and refresh button."""
     elements.append({
         "tag": "note",
         "elements": [
@@ -222,16 +349,30 @@ def build_card() -> dict:
     return {
         "config": {"wide_screen_mode": True},
         "header": {
-            "title": {"tag": "plain_text", "content": "🖥️ Luna 任务仪表盘"},
-            "template": "blue"
+            "title": {"tag": "plain_text", "content": title},
+            "template": template,
         },
-        "elements": elements
+        "elements": elements,
     }
+
+
+def build_card(chat_id=None) -> dict:
+    """Build the appropriate card based on context."""
+    if chat_id:
+        return build_plan_card(chat_id)
+    return build_global_card()
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h", "help"):
         print(__doc__)
         sys.exit(0)
-    card = build_card()
+
+    chat_id = None
+    for i, arg in enumerate(sys.argv[1:]):
+        if arg == "--chat-id" and i + 1 < len(sys.argv[1:]):
+            chat_id = sys.argv[i + 2]
+            break
+
+    card = build_card(chat_id=chat_id)
     print(json.dumps(card, ensure_ascii=False))

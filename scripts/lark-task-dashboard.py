@@ -55,10 +55,13 @@ def save_state(chat_id, state):
         json.dump(all_state, f, indent=2, ensure_ascii=False)
 
 
-def build_card():
+def build_card(chat_id=None):
     """Call lark-card-builder.py and return the card dict."""
+    cmd = ["python3", CARD_BUILDER]
+    if chat_id:
+        cmd += ["--chat-id", chat_id]
     result = subprocess.run(
-        ["python3", CARD_BUILDER],
+        cmd,
         capture_output=True, text=True, timeout=15
     )
     if result.returncode != 0:
@@ -116,8 +119,8 @@ def update_card(token, message_id, card_json_str):
 def main(chat_id=None):
     chat_id = chat_id or DEFAULT_CHAT_ID
 
-    # 1. Build card
-    card = build_card()
+    # 1. Build card (pass chat_id for plan-specific view)
+    card = build_card(chat_id=chat_id)
     card_json_str = json.dumps(card, ensure_ascii=False)
 
     # Check if content changed (skip unnecessary updates)
