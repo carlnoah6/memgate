@@ -255,7 +255,7 @@ class LLMAnalyzer:
 2. 列出主要活动
 3. 一句话总结时间分配特点"""
 
-        self.time_analysis = call_llm(prompt, max_tokens=2000, system=self.SYSTEM_PROMPT, timeout=30)
+        self.time_analysis = call_llm(prompt, max_tokens=2000, system=self.SYSTEM_PROMPT, timeout=120)
 
     def _reflection(self):
         """七维度反思"""
@@ -317,4 +317,4 @@ Memory 记录：
 
 如果所有重要信息已持久化，说明 "遗漏检测: 0 条"。"""
 
-        self.memory_check = call_llm(prompt, max_tokens=2000, system=self.SYSTEM_PROMPT)
+        self.memory_check = call_llm(prompt, max_tokens=2000, system=self.SYSTEM_PROMPT, timeout=120)
