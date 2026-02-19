@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Luna OS - Lark 看板卡片构建器
 
-读取 task-board.json + session-overview.json，生成 Lark Interactive Card JSON (v1 格式)。
-输出到 stdout，供 lark-task-dashboard.py 调用。
+Reads task data from PostgreSQL (via TaskStore), generates Lark Interactive Card JSON.
+Output to stdout for lark-task-dashboard.py.
 
 Usage: python3 lark-card-builder.py
 """
@@ -13,30 +13,14 @@ import subprocess
 import sys
 from datetime import datetime, timezone, timedelta
 
-SGT = timezone(timedelta(hours=8))
-TASK_BOARD = "/home/ubuntu/.openclaw/workspace/data/task-board.json"
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from task_store import TaskStore, PRIORITY_ICONS, SGT
+
 SESSION_OVERVIEW = "/home/ubuntu/.openclaw/workspace/data/session-overview.json"
 SESSION_SCRIPT = "/home/ubuntu/.openclaw/workspace/scripts/session-overview.py"
 
-PRIORITY_ICONS = {"critical": "🔴", "high": "🟡", "normal": "🟢", "low": "🔵"}
-
-
-def load_board():
-    if os.path.exists(TASK_BOARD):
-        with open(TASK_BOARD) as f:
-            board = json.load(f)
-    else:
-        board = {"tasks": [], "next_id": 1}
-    for t in board.get("tasks", []):
-        t.setdefault("priority", "normal")
-        t.setdefault("priority_value", 2)
-        t.setdefault("priority_boosted", False)
-        t.setdefault("queued_heartbeats", 0)
-    return board
-
 
 def fmt_duration(minutes):
-    """Format minutes into human-readable duration."""
     if minutes < 1:
         return "<1min"
     if minutes < 60:
@@ -49,7 +33,6 @@ def fmt_duration(minutes):
 
 
 def fmt_tokens(tokens):
-    """Format token count into human-readable string."""
     if tokens >= 1000000:
         return f"{tokens / 1000000:.1f}M"
     if tokens >= 1000:
@@ -58,7 +41,6 @@ def fmt_tokens(tokens):
 
 
 def _col(text, weight=1):
-    """Helper: create a column element for column_set."""
     return {
         "tag": "column",
         "width": "weighted",
@@ -69,251 +51,187 @@ def _col(text, weight=1):
 
 
 def build_session_section():
-    """Build session overview section using column_set table layout."""
+    """Build session overview section."""
     elements = []
 
     if not os.path.exists(SESSION_OVERVIEW):
         elements.append({
             "tag": "div",
-            "text": {"tag": "lark_md", "content": "**🧠 Session 概览**\n📡 数据加载中..."}
+            "text": {"tag": "lark_md", "content": "📊 **Session 概览** — 暂无数据"}
         })
         return elements
 
     try:
         with open(SESSION_OVERVIEW) as f:
-            data = json.load(f)
+            overview = json.load(f)
     except Exception:
-        elements.append({
-            "tag": "div",
-            "text": {"tag": "lark_md", "content": "**🧠 Session 概览**\n⚠️ 数据读取失败"}
-        })
         return elements
 
-    sessions = data.get("sessions", [])
-    subagent_count = data.get("subagent_count", 0)
-
+    sessions = overview.get("sessions", [])
     if not sessions:
-        elements.append({
-            "tag": "div",
-            "text": {"tag": "lark_md", "content": "**🧠 Session 概览**\n💤 无活跃 session"}
-        })
         return elements
 
-    # Section title
-    elements.append({
-        "tag": "div",
-        "text": {"tag": "lark_md",
-                 "content": f"**🧠 Session 概览** ({len(sessions)} 聊天 | {subagent_count} 子任务)"}
-    })
-
-    # Table header
+    # Header
     elements.append({
         "tag": "column_set",
         "flex_mode": "none",
         "background_style": "grey",
         "columns": [
-            _col("**群名**", 3),
+            _col("**Session**", 3),
+            _col("**状态**", 2),
             _col("**Tokens**", 2),
-            _col("**活跃 · 摘要**", 3),
-        ],
+            _col("**时长**", 1),
+        ]
     })
 
-    # Data rows
-    for s in sessions:
-        pct = s["usage_pct"]
-        if pct >= 80:
-            dot = "🔴"
-        elif pct >= 50:
-            dot = "🟡"
+    for s in sessions[:8]:
+        name = s.get("name", "?")[:20]
+        # Build name cell: session name + planner goal on second line
+        planner = s.get("planner")
+        if planner and planner.get("goal"):
+            goal = planner["goal"][:30]
+            name_cell = f"{name}\n📋 {goal}"
         else:
-            dot = "🟢"
-
-        name = s["name"]
-        tokens_str = fmt_tokens(s["tokens"])
-        compact_tag = f" 🧹{s['compactions']}" if s.get("compactions", 0) > 0 else ""
-        last_act = s.get("last_activity", "—")
-        rel_time = s["relative_time"]
-
-        # Combine relative time + short activity
-        if last_act and last_act != "—":
-            time_act = f"{rel_time} · {last_act}"
+            name_cell = name
+        # Status: planner status_text or last_activity
+        activity = s.get("last_activity") or "—"
+        if planner and planner.get("status_text"):
+            status = planner["status_text"]
         else:
-            time_act = rel_time
-
+            status = activity
+        # Tokens with usage %
+        tok = s.get("tokens", 0)
+        pct = s.get("usage_pct", 0)
+        tokens_str = f"{fmt_tokens(tok)} ({pct}%)" if tok else "0"
+        # Age
+        age = s.get("relative_time", "?")
         elements.append({
             "tag": "column_set",
             "flex_mode": "none",
-            "background_style": "default",
             "columns": [
-                _col(f"{dot} {name}", 3),
-                _col(f"{tokens_str} ({pct}%){compact_tag}", 2),
-                _col(time_act, 3),
-            ],
+                _col(name_cell, 3),
+                _col(status, 2),
+                _col(tokens_str, 2),
+                _col(age, 1),
+            ]
         })
 
     return elements
 
 
-def build_card():
-    # Refresh session overview data first
+def build_card() -> dict:
+    """Build task dashboard card from PostgreSQL data."""
+    # Refresh session overview before building card
     try:
         subprocess.run(
             ["python3", SESSION_SCRIPT],
-            capture_output=True, text=True, timeout=30
+            capture_output=True, text=True, timeout=10,
         )
     except Exception:
         pass
-
-    board = load_board()
+    store = TaskStore()
+    tasks = store.list_tasks()
     now = datetime.now(SGT)
     today = now.strftime("%Y-%m-%d")
-    tasks = board.get("tasks", [])
 
-    # Categorize
-    running = [t for t in tasks if t["status"] == "running"]
-    queued = [t for t in tasks if t["status"] == "queued"]
-    done_today = [t for t in tasks if t["status"] == "done" and (t.get("completed") or "").startswith(today)]
-    failed_today = [t for t in tasks if t["status"] == "failed" and (t.get("completed") or "").startswith(today)]
-
-    # Sort queued by priority_value DESC, created ASC
-    queued.sort(key=lambda t: (-t.get("priority_value", 2), t.get("created", "")))
-
-    done_ids = {t["id"] for t in tasks if t["status"] == "done"}
+    running_tasks = [t for t in tasks if t["status"] == "running"]
+    max_concurrent = 8  # matches task_manager.MAX_CONCURRENT
+    queued_tasks = [t for t in tasks if t["status"] == "queued"]
 
     elements = []
 
-    # === Running Section ===
-    if running:
-        lines = [f"**🏃 运行中 ({len(running)})**"]
-        for t in running:
-            pri = t.get("priority", "normal")
-            pri_icon = PRIORITY_ICONS.get(pri, "🟢")
-            elapsed = ""
-            if t.get("started"):
-                try:
-                    started = t["started"]
-                    if started.endswith("Z"):
-                        started = started[:-1] + "+00:00"
-                    start_dt = datetime.fromisoformat(started)
-                    if start_dt.tzinfo is None:
-                        start_dt = start_dt.replace(tzinfo=SGT)
-                    mins = (now - start_dt).total_seconds() / 60
-                    elapsed = f" ⏱ {fmt_duration(mins)}"
-                except Exception:
-                    pass
-            desc = t["description"]
-            if len(desc) > 40:
-                desc = desc[:40] + "…"
-            lines.append(f"{pri_icon} `{t['id']}` {desc}{elapsed}")
-        elements.append({
-            "tag": "div",
-            "text": {"tag": "lark_md", "content": "\n".join(lines)}
-        })
-    else:
-        elements.append({
-            "tag": "div",
-            "text": {"tag": "lark_md", "content": "**🏃 运行中 (0)**\n💤 无运行中的任务"}
-        })
-
-    elements.append({"tag": "hr"})
-
-    # === Queued Section ===
-    if queued:
-        lines = [f"**⏳ 排队中 ({len(queued)})**"]
-        for t in queued:
-            pri = t.get("priority", "normal")
-            pri_icon = PRIORITY_ICONS.get(pri, "🟢")
-            wait = ""
-            if t.get("created"):
-                try:
-                    created = t["created"]
-                    if created.endswith("Z"):
-                        created = created[:-1] + "+00:00"
-                    created_dt = datetime.fromisoformat(created)
-                    if created_dt.tzinfo is None:
-                        created_dt = created_dt.replace(tzinfo=SGT)
-                    mins = (now - created_dt).total_seconds() / 60
-                    wait = f" ⏱ 等待{fmt_duration(mins)}"
-                except Exception:
-                    pass
-
-            # Check if blocked
-            deps = t.get("depends_on", [])
-            unmet = [d for d in deps if d not in done_ids]
-            blocked = f" 🔒 等待 {','.join(unmet)}" if unmet else ""
-
-            boosted = " ⬆️" if t.get("priority_boosted") else ""
-
-            desc = t["description"]
-            if len(desc) > 40:
-                desc = desc[:40] + "…"
-            lines.append(f"{pri_icon}{boosted} `{t['id']}` {desc}{wait}{blocked}")
-        elements.append({
-            "tag": "div",
-            "text": {"tag": "lark_md", "content": "\n".join(lines)}
-        })
-    else:
-        elements.append({
-            "tag": "div",
-            "text": {"tag": "lark_md", "content": "**⏳ 排队中 (0)**\n💤 无排队任务"}
-        })
-
-    elements.append({"tag": "hr"})
-
-    # === Session Overview Section ===
-    session_elements = build_session_section()
-    elements.extend(session_elements)
-
-    elements.append({"tag": "hr"})
-
-    # === Stats ===
-    total_active = len(running) + len(queued)
-    stats = (
-        f"📊 **今日统计**  "
-        f"✅ 完成 {len(done_today)}  |  "
-        f"❌ 失败 {len(failed_today)}  |  "
-        f"📋 活跃 {total_active}"
-    )
+    # Stats
     elements.append({
         "tag": "div",
-        "text": {"tag": "lark_md", "content": stats}
+        "fields": [
+            {"is_short": True, "text": {"tag": "lark_md", "content": f"**🏃 运行中** {len(running_tasks)}/{max_concurrent}"}},
+            {"is_short": True, "text": {"tag": "lark_md", "content": f"**⏳ 等待中** {len(queued_tasks)}"}},
+        ]
     })
+    elements.append({"tag": "hr"})
+
+    # Running tasks
+    if running_tasks:
+        running_lines = ["**🏃 运行中任务**"]
+        for t in running_tasks:
+            icon = PRIORITY_ICONS.get(t.get("priority", "normal"), "🟢")
+            elapsed = ""
+            if t.get("started_at"):
+                started = t["started_at"]
+                if isinstance(started, str):
+                    started = datetime.fromisoformat(started)
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=SGT)
+                mins = (now - started.astimezone(SGT)).total_seconds() / 60
+                elapsed = f" ⏱{fmt_duration(mins)}"
+            desc = t["description"][:50]
+            running_lines.append(f"{icon} `{t['id']}` {desc}{elapsed}")
+        elements.append({
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": "\n".join(running_lines)}
+        })
+    else:
+        elements.append({
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": "**🏃 运行中任务** — 无"}
+        })
 
     elements.append({"tag": "hr"})
 
-    # === Footer: last updated + refresh button ===
+    # Queued tasks
+    if queued_tasks:
+        queued_lines = ["**⏳ 等待中任务**"]
+        for t in queued_tasks[:5]:
+            icon = PRIORITY_ICONS.get(t.get("priority", "normal"), "🟢")
+            deps = t.get("depends_on") or []
+            dep_str = f" (等待 {','.join(deps)})" if deps else ""
+            desc = t["description"][:50]
+            queued_lines.append(f"{icon} `{t['id']}` {desc}{dep_str}")
+        if len(queued_tasks) > 5:
+            queued_lines.append(f"... 还有 {len(queued_tasks) - 5} 个")
+        elements.append({
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": "\n".join(queued_lines)}
+        })
+
+    elements.append({"tag": "hr"})
+
+    # Session overview
+    session_elements = build_session_section()
+    if session_elements:
+        elements.extend(session_elements)
+        elements.append({"tag": "hr"})
+
+    # Footer
     elements.append({
         "tag": "note",
         "elements": [
             {"tag": "plain_text", "content": f"🕐 最后更新: {now.strftime('%Y-%m-%d %H:%M:%S')} SGT"}
         ]
     })
-
     elements.append({
         "tag": "action",
-        "actions": [
-            {
-                "tag": "button",
-                "text": {"tag": "plain_text", "content": "🔄 刷新"},
-                "type": "primary",
-                "value": {"action": "refresh_dashboard"}
-            }
-        ]
+        "actions": [{
+            "tag": "button",
+            "text": {"tag": "plain_text", "content": "🔄 刷新"},
+            "type": "primary",
+            "value": {"action": "refresh_dashboard"}
+        }]
     })
 
-    # === Build card ===
-    card = {
+    return {
         "config": {"wide_screen_mode": True},
         "header": {
-            "title": {"tag": "plain_text", "content": "🖥️ Luna 任务面板"},
+            "title": {"tag": "plain_text", "content": "🖥️ Luna 任务仪表盘"},
             "template": "blue"
         },
         "elements": elements
     }
 
-    return card
-
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h", "help"):
+        print(__doc__)
+        sys.exit(0)
     card = build_card()
     print(json.dumps(card, ensure_ascii=False))
