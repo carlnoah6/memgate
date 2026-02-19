@@ -12,6 +12,7 @@ from balatro import Run, Deck, Stake, Blind, State, Voucher
 from ai.encode import encode, SIZE_ENCODED
 # Constants for Param lengths
 from ai.encode import MAX_HAND_CARDS, MAX_JOKERS, MAX_CONSUMABLES, MAX_SHOP_CARDS, MAX_SHOP_VOUCHERS, MAX_SHOP_PACKS, MAX_PACK_ITEMS
+from ai.circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 from enum import Enum
 
 class ActionType(Enum):
@@ -40,10 +41,11 @@ PARAM2_LENGTH = max(MAX_JOKERS, 2, 1)
 class BalatroGymEnv(gym.Env):
     metadata = {"render_modes": ["human", "ansi"]}
 
-    def __init__(self, seed=None, render_mode=None):
+    def __init__(self, seed=None, render_mode=None, cb_config=None):
         super().__init__()
         self.render_mode = render_mode
         self._seed = seed
+        self.cb = CircuitBreaker(cb_config)
         
         # Define Action Space
         # action_type: Discrete
@@ -71,6 +73,7 @@ class BalatroGymEnv(gym.Env):
         # Initialize Game
         # Using default Deck.RED and Stake.WHITE for now, could be parameterized
         self.run = Run(Deck.RED, stake=Stake.WHITE, seed=self._seed)
+        self.cb.reset()
         
         obs = self._get_obs()
         info = self._get_info()
@@ -105,6 +108,7 @@ class BalatroGymEnv(gym.Env):
         
         # Current logic mirrors ai/env.py _step function
         reward = -0.1 # Small penalty for existing/time step
+        had_error = False
         
         # Map indices back to ActionType
         # ActionType is an Enum, action_type_idx is int
@@ -112,7 +116,7 @@ class BalatroGymEnv(gym.Env):
             act_type = ActionType(action_type_idx)
         except ValueError:
              # Invalid action type
-             return self._get_obs(), -10.0, False, False, {"error": "Invalid action type"}
+             return self._get_obs(), -10.0, False, False, {"error": "Invalid action type", "cb": self.cb.stats()}
 
         terminated = False
         truncated = False
@@ -173,20 +177,32 @@ class BalatroGymEnv(gym.Env):
                 pass
             else:
                 reward = -1.0 # Unknown/Unimplemented
+                had_error = True
                 
         except Exception as e:
             # Illegal move
             reward = -5.0
+            had_error = True
             # print(f"Error: {e}") 
+
+        # Circuit breaker
+        action_key = (action_type_idx, tuple(param1), tuple(param2))
+        cb_penalty = self.cb.record_step(action_key, had_error, self.run.round_score)
+        reward += cb_penalty
 
         # Check Done
         if self.run.state == State.GAME_OVER:
             terminated = True
             if self.run.ante >= 8: # Beat the game roughly (Endless mode continues but 8 is 'win')
                  reward += 100.0
+
+        # Circuit breaker trip forces truncation
+        if self.cb.is_tripped and not terminated:
+            truncated = True
         
         obs = self._get_obs()
         info = self._get_info()
+        info["cb"] = self.cb.stats()
         
         return obs, reward, terminated, truncated, info
 
