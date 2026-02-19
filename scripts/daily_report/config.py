@@ -13,7 +13,6 @@ API_KEY = "REDACTED_LUNA_KEY"
 ADMIN_KEY = "sk-admin-luna2026"
 LLM_MODEL = "claude-opus-4-6-thinking"  # 日报使用与 Luna 主模型一致
 LLM_MODEL_HEAVY = "claude-opus-4-6-thinking"  # 重任务
-LLM_MODEL_FAST = "deepseek-chat"  # Code Review 使用快速模型
 CALENDAR_ID = "feishu.cn_4iEgRqZUqa0mcprkekLxTg@group.calendar.feishu.cn"
 LARK_TOKEN_FILE = f"{WORKSPACE}/data/lark-user-token.json"
 LARK_APP_ID = "cli_a90c3a6163785ed2"

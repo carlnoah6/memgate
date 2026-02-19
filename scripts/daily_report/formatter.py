@@ -34,28 +34,22 @@ class ReportAssembler:
         # 章节 1: 每日复盘与自我反思
         sections.append(self._section_reflection())
 
-        # 章节 2: Code Review
-        sections.append(self._section_code_review())
-
-        # 章节 3: 时间分配
+        # 章节 2: 时间分配
         sections.append(self._section_time())
 
-        # 章节 4: Token 用量
+        # 章节 3: Token 用量
         sections.append(self._section_tokens())
 
-        # 章节 5: Kimi 账户
+        # 章节 4: Kimi 账户
         sections.append(self._section_kimi_account())
 
-        # 章节 6: API Key 用量
+        # 章节 5: API Key 用量
         sections.append(self._section_api_keys())
 
-        # 章节 7: 配额变化
-        sections.append(self._section_quota())
-
-        # 章节 8: 安全与系统
+        # 章节 7: 安全与系统
         sections.append(self._section_security())
 
-        # 章节 9: 串台事件统计
+        # 章节 8: 串台事件统计
         sections.append(self._section_cross_session())
 
         # 自验证清单
@@ -244,79 +238,10 @@ class ReportAssembler:
 
         return "\n".join(parts)
 
-    def _section_quota(self) -> str:
-        """章节 7: 配额变化（纯代码生成）"""
-        parts = []
-        parts.append("## 7. 📈 API 配额快照")
-
-        if self.data.quota_snapshot:
-            snapshots = self.data.quota_snapshot
-            if isinstance(snapshots, list):
-                # 提取每日关键时间点 (00, 08, 12, 18, 23)
-                shown_hours = set()
-                for snap in snapshots:
-                    ts_str = snap.get("timestamp", "")
-                    try:
-                        dt = datetime.datetime.fromisoformat(ts_str)
-                        hour = dt.hour
-                        # 只显示特定整点，避免刷屏
-                        if hour in {0, 4, 8, 12, 16, 20} and hour not in shown_hours:
-                            shown_hours.add(hour)
-                            models = snap.get("models", {})
-                            if models:
-                                parts.append(f"\n**{hour:02d}:00**")
-                                for model, info in models.items():
-                                    # 只显示非 100% 的或者是主要模型
-                                    remaining = info.get("remaining", "?")
-                                    if remaining != "100%" or "opus" in model or "sonnet" in model:
-                                        parts.append(f"• {model}: {remaining}")
-                    except ValueError:
-                        continue
-            elif isinstance(snapshots, dict):
-                # 格式: {"00:00": {"timestamp": "...", "modelA": {...}}, ...}
-                # 按时间排序
-                sorted_items = sorted(snapshots.items())
-                shown_hours = set()
-                
-                for time_key, snap_data in sorted_items:
-                    if not isinstance(snap_data, dict):
-                        continue
-                        
-                    # 尝试解析时间
-                    try:
-                        ts_str = snap_data.get("timestamp", "")
-                        if ts_str:
-                            dt = datetime.datetime.fromisoformat(ts_str)
-                            hour = dt.hour
-                        else:
-                            # 尝试从 key 解析 ("00:00")
-                            hour = int(time_key.split(":")[0])
-                    except (ValueError, IndexError):
-                        continue
-
-                    # 只显示特定整点
-                    if hour in {0, 4, 8, 12, 16, 20} and hour not in shown_hours:
-                        shown_hours.add(hour)
-                        parts.append(f"\n**{time_key}**")
-                        
-                        # 遍历 snapshot 中的模型
-                        for k, v in snap_data.items():
-                            if k == "timestamp": 
-                                continue
-                            if isinstance(v, dict):
-                                remaining = v.get("remaining", "?")
-                                # 只显示非 100% 或主要模型
-                                if remaining != "100%" or "opus" in k or "sonnet" in k:
-                                    parts.append(f"• {k}: {remaining}")
-        else:
-            parts.append("• 无配额快照数据")
-
-        return "\n".join(parts)
-
     def _section_security(self) -> str:
-        """章节 8: 安全与系统（纯代码生成）"""
+        """章节 7: 安全与系统（纯代码生成）"""
         parts = []
-        parts.append("## 8. 🛡️ 安全与系统审查")
+        parts.append("## 7. 🛡️ 安全与系统审查")
 
         scan = self.data.security_scan
 
@@ -354,7 +279,6 @@ class ReportAssembler:
         checks = [
             ("日期通过代码计算", True, self.data.date_str),
             ("Token 数据从 API 获取", bool(self.data.token_usage), ""),
-            ("配额数据从快照文件获取", bool(self.data.quota_snapshot), ""),
             ("日历数据", not any(e.get("error") for e in self.data.calendar_events)
              if self.data.calendar_events else False,
              self._get_calendar_status_note()),
@@ -364,7 +288,7 @@ class ReportAssembler:
             ("有缺陷数量统计", bool(self.analysis.file_reviews) or True, ""),
             ("有跨模块重构建议", bool(self.analysis.cross_module), ""),
             ("有时间分配统计", bool(self.analysis.time_analysis), ""),
-            ("9 个章节完整", True, ""),  # 代码保证
+            ("8 个章节完整", True, ""),  # 代码保证
             ("使用 • 列表格式", True, ""),  # 代码保证
             ("记忆遗漏检查完成", bool(self.analysis.memory_check), ""),
         ]
@@ -403,7 +327,7 @@ class ReportAssembler:
 
         required_sections = [
             "每日复盘", "Code Review", "时间分配",
-            "Token", "Kimi", "API Key", "配额", "安全", "串台"
+            "Token", "Kimi", "API Key", "安全", "串台"
         ]
 
         missing = []
@@ -427,12 +351,12 @@ class ReportAssembler:
             log("✅ 所有章节完整")
 
     def _section_cross_session(self) -> str:
-        """章节 9: 串台事件统计"""
+        """章节 8: 串台事件统计"""
         stats = getattr(self.data, 'cross_session_stats', {})
         
         if not stats or stats.get('total_incidents', 0) == 0:
             return (
-                "## 9. 🔒 串台事件统计\n\n"
+                "## 8. 🔒 串台事件统计\n\n"
                 "✅ **今日无串台事件**\n\n"
                 "继续保持 0 泄露！"
             )
@@ -443,7 +367,7 @@ class ReportAssembler:
         by_file = stats.get('by_file', {})
         by_type = stats.get('by_type', {})
         
-        lines = ["## 9. 🔒 串台事件统计\n"]
+        lines = ["## 8. 🔒 串台事件统计\n"]
         lines.append(f"⚠️ **今日串台风险事件: {total} 起**\n")
         
         if leaked > 0:
