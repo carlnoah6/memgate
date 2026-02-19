@@ -290,37 +290,38 @@ def build_session_section():
         "flex_mode": "none",
         "background_style": "grey",
         "columns": [
-            _col("**Session**", 2),
-            _col("**Plan**", 4),
-            _col("**Tokens**", 1),
+            _col("**Session**", 3),
+            _col("**状态**", 2),
+            _col("**Tokens**", 2),
+            _col("**时长**", 1),
         ]
     })
 
     for s in sessions[:8]:
         name = s.get("name", "?")[:20]
         planner = s.get("planner")
-
-        # Plan cell
         if planner and planner.get("goal"):
-            goal = planner["goal"][:40]
-            status_text = planner.get("status_text", "")
-            plan_cell = f"📋 {goal}\n{status_text}"
+            goal = planner["goal"][:30]
+            name_cell = f"{name}\n📋 {goal}"
         else:
-            activity = s.get("last_activity") or "—"
-            plan_cell = f"_{activity}_"
-
-        # Tokens
+            name_cell = name
+        activity = s.get("last_activity") or "—"
+        if planner and planner.get("status_text"):
+            status = planner["status_text"]
+        else:
+            status = activity
         tok = s.get("tokens", 0)
         pct = s.get("usage_pct", 0)
         tokens_str = f"{fmt_tokens(tok)} ({pct}%)" if tok else "0"
-
+        age = s.get("relative_time", "?")
         elements.append({
             "tag": "column_set",
             "flex_mode": "none",
             "columns": [
-                _col(f"**{name}**", 2),
-                _col(plan_cell, 4),
-                _col(tokens_str, 1),
+                _col(name_cell, 3),
+                _col(status, 2),
+                _col(tokens_str, 2),
+                _col(age, 1),
             ]
         })
 
