@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Luna OS — Planner (Orchestration Layer)
+"""Luna OS — Planner (Orchestration Layer) — Neon PostgreSQL Backend
 
-Sits on top of the task board (task-manager.py) and provides ordered
+Sits on top of TaskStore (Neon PostgreSQL) and provides ordered
 multi-step execution with automatic advancement.
 
-Each group chat can have one active planner.  Steps map 1-to-1 to
+Each group chat can have one active planner. Steps map 1-to-1 to
 task-board tasks (tid-xxx).
 
 Usage:
@@ -12,1050 +12,402 @@ Usage:
   planner.py show <chat_id>                               — Display plan status
   planner.py step-done <chat_id> <step_id> "<result>"     — Mark step done & advance
   planner.py step-fail <chat_id> <step_id> "<error>"      — Mark step failed
-  planner.py replan <chat_id> <new_steps_json>            — Replace pending steps
+  planner.py replan <chat_id> <new_steps_json> [--append] — Replace (or append to) pending steps
   planner.py cancel <chat_id>                             — Cancel entire plan
   planner.py advance <chat_id>                            — Check & advance (heartbeat)
   planner.py check-advances                               — Check all active planners
+  planner.py check-contracts                              — Check events & auto-complete
   planner.py list                                         — List active planners
   planner.py find-by-task <task_id>                       — Find plan by task ID
 
 Steps JSON format (both init and replan):
   [{"title": "...", "prompt": "..."}]   — preferred
-  [{"desc": "...", "detail": "..."}]    — also supported (internal keys)
+  [{"desc": "...", "detail": "..."}]    — also supported (mapped internally)
 
 Flags:
-  --dry-run    Skip Lark messaging and task-manager calls
+  --dry-run    Skip Lark messaging and DB writes
 """
 
 import json
 import os
+import os
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from task_store import TaskStore
+from dashboard_updater import update_dashboard as _update_dashboard
+from planner_helpers import (
+    get_store, now_iso, chat_id_short, resolve_chat_id, resolve_full_chat_id,
+    normalize_step, send_lark, _format_duration, _short_desc,
+    _build_plan_summary, format_plan, send_plan_graph,
+    DRY_RUN, BASE, SGT, LARK_SEND,
+)
+from planner_templates import list_templates, load_template, render_template
+from planner_spawn import (
+    build_spawn_prompt, _create_task_chat, _spawn_via_session,
+    _spawn_via_cron, _prepare_and_spawn, schedule_advance,
+    _trigger_group_title_update, _start_ready_steps,
+)
 
-# === Constants ===
-SGT = timezone(timedelta(hours=8))
-BASE = Path("/home/ubuntu/.openclaw/workspace")
-DATA_DIR = BASE / "data" / "planner"
-TASK_MANAGER = BASE / "scripts" / "task-manager.py"
-LARK_SEND = BASE / "scripts" / "lark-send-message.sh"
-
-# Global dry-run flag (set from argv)
-DRY_RUN = False
-
-GET_SOURCE_CHAT = BASE / "scripts" / "get-source-chat.py"
+TASK_CHAT = BASE / 'scripts' / 'task-chat.py'
+GET_SOURCE_CHAT = BASE / 'scripts' / 'get-source-chat.py'
 
 
-def resolve_chat_id(chat_id_or_msgid: str) -> str:
-    """Resolve a chat_id from either a direct chat_id or a Lark message_id.
-
-    If the input starts with 'om_', treat it as a message_id and resolve
-    the chat_id via get-source-chat.py.
-    Otherwise, return it as-is (assumed to be a chat_id).
+def cmd_init(chat_id: str, goal: str, steps_json: str,
+             template_name: str = None, template_vars: dict = None):
+    """Create a new plan (draft mode — use cmd_start to activate).
+    
+    If template_name is provided, goal and steps are loaded from template.
+    template_vars overrides template variables.
     """
-    if chat_id_or_msgid.startswith("om_"):
+    chat_id = resolve_chat_id(chat_id)
+    store = get_store()
+    plan_id = store.next_plan_id()
+
+    # Check for existing active plan — suggest replan instead of blocking
+    existing = store.get_plan_by_chat(chat_id, status_filter='active')
+    if existing:
+        done_steps = [s for s in existing.get("steps", []) if s["status"] == "done"]
+        running_steps = [s for s in existing.get("steps", []) if s["status"] == "running"]
+        pending_steps = [s for s in existing.get("steps", []) if s["status"] == "pending"]
+        print(json.dumps({
+            "error": f"Active plan already exists: {existing['id']}",
+            "existing_goal": existing["goal"],
+            "done": len(done_steps),
+            "running": len(running_steps),
+            "pending": len(pending_steps),
+            "hint": "Use 'planner.py replan' to modify pending steps, or 'planner.py cancel' first if this is a completely different goal."
+        }))
+        sys.exit(1)
+
+    # Template mode
+    if template_name:
+        tmpl = load_template(template_name)
+        if not tmpl:
+            print(json.dumps({"error": f"Template not found: {template_name}"}))
+            sys.exit(1)
         try:
-            result = subprocess.run(
-                ["python3", str(GET_SOURCE_CHAT), chat_id_or_msgid],
-                capture_output=True, text=True, timeout=10,
-            )
-            if result.returncode == 0 and result.stdout.strip().startswith("oc_"):
-                resolved = result.stdout.strip()
-                print(f"[planner] resolved message {chat_id_or_msgid} → chat {resolved}", file=sys.stderr)
-                return resolved
-        except Exception as e:
-            print(f"[planner] resolve_chat_id error: {e}", file=sys.stderr)
-        raise ValueError(f"Cannot resolve chat_id from message_id: {chat_id_or_msgid}")
-    return chat_id_or_msgid
-
-
-# === Helpers ===
-
-def now_iso() -> str:
-    """Return current time in SGT as ISO 8601 string."""
-    return datetime.now(SGT).isoformat()
-
-
-def chat_id_short(chat_id: str) -> str:
-    """Derive a short, filesystem-safe identifier from chat_id.
-
-    Uses the last 8 characters.  For typical Lark chat IDs like
-    ``oc_0900e63860f8b6d1b08285262701817f`` this is unique enough.
-    """
-    return chat_id[-8:]
-
-
-def planner_path(chat_id: str) -> Path:
-    """Return the JSON file path for a planner by chat_id."""
-    return DATA_DIR / f"{chat_id_short(chat_id)}.json"
-
-
-def load_planner(chat_id: str) -> dict | None:
-    """Load a planner from disk by chat_id.  Returns None if not found or corrupt."""
-    p = planner_path(chat_id)
-    if not p.exists():
-        return None
-    try:
-        with open(p) as f:
-            return json.load(f)
-    except (json.JSONDecodeError, ValueError):
-        return None
-
-
-def save_planner(plan: dict):
-    """Save a planner to disk.  Auto-creates data directory."""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    plan["updated_at"] = now_iso()
-    with open(planner_path(plan["chat_id"]), "w") as f:
-        json.dump(plan, f, indent=2, ensure_ascii=False)
-
-
-def find_planner_by_chat(chat_id: str) -> dict | None:
-    """Find planner by full or partial chat_id.
-
-    Tries direct path first (fast), then scans all planners as fallback.
-    """
-    # Try direct path first
-    plan = load_planner(chat_id)
-    if plan:
-        return plan
-    # Fallback: scan all planners for matching chat_id
-    if DATA_DIR.exists():
-        for fp in DATA_DIR.glob("*.json"):
-            try:
-                with open(fp) as f:
-                    p = json.load(f)
-                if p.get("chat_id") == chat_id:
-                    return p
-            except Exception:
-                continue
-    return None
-
-
-def normalize_step(raw: dict, step_id: int) -> dict:
-    """Normalize a raw step dict into internal format.
-
-    Supports both external keys (title/prompt) and internal keys (desc/detail).
-    Priority: title > desc > "Step N" for description.
-    Priority: prompt > detail > "" for detail.
-    Risk: "high" | "medium" | "low" (default: "low").
-      - high: step-done pauses for user confirmation before advancing
-      - low/medium: auto-advance to next step
-    """
-    desc = raw.get("title") or raw.get("desc") or f"Step {step_id}"
-    detail = raw.get("prompt") or raw.get("detail") or ""
-    risk = raw.get("risk", "low")
-    if risk not in ("low", "medium", "high"):
-        risk = "low"
-    step = {
-        "id": step_id,
-        "desc": desc,
-        "detail": detail,
-        "status": "pending",
-    }
-    if risk == "high":
-        step["risk"] = "high"
-    return step
-
-
-# === Task Manager Integration ===
-
-def tm_add(description: str, source_chat: str = None) -> str | None:
-    """Call task-manager.py add, return task_id or None."""
-    if DRY_RUN:
-        import random
-        tid = f"tid-dry-{random.randint(100, 999)}"
-        print(f"[dry-run] task-manager add: {description!r} → {tid}", file=sys.stderr)
-        return tid
-    cmd = ["python3", str(TASK_MANAGER), "add", description, "--no-chat"]
-    if source_chat:
-        cmd.insert(4, source_chat)  # add <desc> <chat_id> --no-chat
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
-        if result.returncode != 0:
-            print(f"[planner] task-manager add failed: {result.stderr.strip()}", file=sys.stderr)
-            return None
-        data = json.loads(result.stdout.strip())
-        return data.get("id")
-    except Exception as e:
-        print(f"[planner] task-manager add error: {e}", file=sys.stderr)
-        return None
-
-
-def tm_complete(task_id: str, result: str = ""):
-    """Call task-manager.py complete."""
-    if DRY_RUN:
-        print(f"[dry-run] task-manager complete: {task_id} {result!r}", file=sys.stderr)
-        return
-    try:
-        subprocess.run(
-            ["python3", str(TASK_MANAGER), "complete", task_id, result],
-            capture_output=True, text=True, timeout=15,
-        )
-    except Exception as e:
-        print(f"[planner] task-manager complete error: {e}", file=sys.stderr)
-
-
-def tm_fail(task_id: str, error: str = ""):
-    """Call task-manager.py fail."""
-    if DRY_RUN:
-        print(f"[dry-run] task-manager fail: {task_id} {error!r}", file=sys.stderr)
-        return
-    try:
-        subprocess.run(
-            ["python3", str(TASK_MANAGER), "fail", task_id, error],
-            capture_output=True, text=True, timeout=15,
-        )
-    except Exception as e:
-        print(f"[planner] task-manager fail error: {e}", file=sys.stderr)
-
-
-def tm_cancel(task_id: str):
-    """Call task-manager.py cancel."""
-    if DRY_RUN:
-        print(f"[dry-run] task-manager cancel: {task_id}", file=sys.stderr)
-        return
-    try:
-        subprocess.run(
-            ["python3", str(TASK_MANAGER), "cancel", task_id],
-            capture_output=True, text=True, timeout=15,
-        )
-    except Exception as e:
-        print(f"[planner] task-manager cancel error: {e}", file=sys.stderr)
-
-
-def tm_start(task_id: str, session_key: str = ""):
-    """Call task-manager.py start."""
-    if DRY_RUN:
-        print(f"[dry-run] task-manager start: {task_id} {session_key!r}", file=sys.stderr)
-        return
-    try:
-        subprocess.run(
-            ["python3", str(TASK_MANAGER), "start", task_id, session_key],
-            capture_output=True, text=True, timeout=15,
-        )
-    except Exception as e:
-        print(f"[planner] task-manager start error: {e}", file=sys.stderr)
-
-
-# === Lark Messaging ===
-
-def send_lark(chat_id: str, message: str):
-    """Send a text message to a Lark chat."""
-    if DRY_RUN:
-        print(f"[dry-run] lark-send: {chat_id} → {message[:80]}...", file=sys.stderr)
-        return
-    try:
-        subprocess.run(
-            ["bash", str(LARK_SEND), chat_id, message],
-            capture_output=True, text=True, timeout=15,
-        )
-    except Exception as e:
-        print(f"[planner] lark-send error: {e}", file=sys.stderr)
-
-
-# === Cron Wake (best-effort) ===
-
-def _spawn_via_cron(step: dict, prompt: str) -> bool:
-    """Spawn the next planner step via openclaw cron (code-guaranteed execution).
-
-    Creates an isolated agentTurn cron job that fires in ~30 seconds.
-    The cron scheduler executes it — no LLM involvement, no heartbeat dependency.
-
-    Falls back to writing a pending file if cron add fails.
-
-    Returns True if spawn was successfully scheduled.
-    """
-    task_id = step.get("task_id", f"step-{step['id']}")
-
-    if DRY_RUN:
-        print(f"[dry-run] spawn via cron: {task_id}", file=sys.stderr)
-        return True
-
-    # Primary: use openclaw cron add to create an isolated agentTurn
-    try:
-        at_time = (datetime.now(timezone.utc) + timedelta(seconds=30)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        cmd = [
-            "openclaw", "cron", "add",
-            "--name", f"planner-spawn-{task_id}",
-            "--at", at_time,
-            "--session", "isolated",
-            "--message", prompt,
-            "--timeout-seconds", "900",
-            "--delete-after-run",
-            "--no-deliver",
-            "--wake", "now",
-            "--json",
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if result.returncode == 0:
-            try:
-                job = json.loads(result.stdout.strip().split('\n')[-1])
-                job_id = job.get("id", "unknown")
-                print(f"[planner] spawned {task_id} via cron job {job_id} (fires at {at_time})", file=sys.stderr)
-                return True
-            except json.JSONDecodeError:
-                # Command succeeded but output wasn't clean JSON — still OK
-                print(f"[planner] spawned {task_id} via cron (non-JSON output, rc=0)", file=sys.stderr)
-                return True
-        else:
-            print(f"[planner] cron add failed (rc={result.returncode}): {result.stderr.strip()}", file=sys.stderr)
-    except subprocess.TimeoutExpired:
-        print(f"[planner] cron add timed out for {task_id}", file=sys.stderr)
-    except Exception as e:
-        print(f"[planner] cron add error for {task_id}: {e}", file=sys.stderr)
-
-    # Fallback: write pending file for heartbeat pickup
-    print(f"[planner] falling back to pending file for {task_id}", file=sys.stderr)
-    pending_dir = BASE / "data" / "planner-pending"
-    pending_dir.mkdir(parents=True, exist_ok=True)
-    spawn_file = pending_dir / f"{task_id}.json"
-    try:
-        with open(spawn_file, "w") as f:
-            json.dump({
-                "task_id": task_id,
-                "prompt": prompt,
-                "created_at": now_iso(),
-                "type": "spawn",
-            }, f, ensure_ascii=False)
-        print(f"[planner] wrote fallback spawn request for {task_id}", file=sys.stderr)
-        return False  # Return False to indicate fallback (not code-guaranteed)
-    except Exception as e:
-        print(f"[planner] fallback spawn file write error: {e}", file=sys.stderr)
-    return False
-
-
-def _spawn_completion_summary(plan: dict):
-    """Spawn an isolated task to aggregate plan results and propose next steps.
-
-    Triggered automatically when all steps complete. The summary task:
-    1. Reads all step results
-    2. Generates an aggregated summary
-    3. Proposes concrete next steps / follow-up plan
-    4. Sends the summary to the plan's chat
-    """
-    chat_id = plan["chat_id"]
-    goal = plan["goal"]
-
-    # Build step results for the summary prompt
-    step_summaries = []
-    for s in plan["steps"]:
-        step_summaries.append(f"Step {s['id']}: {s['desc']}\n  Result: {s.get('result', 'N/A')}")
-
-    steps_text = "\n".join(step_summaries)
-
-    prompt = f"""## 规划器完成汇总任务
-
-「{goal}」的所有步骤已完成。请生成汇总报告并发送到群聊。
-
-### 各步骤结果
-{steps_text}
-
-### 你的任务
-1. 读取所有相关报告文件（如果步骤结果提到了文件路径）
-2. 生成一份精炼的**跨模块汇总**：
-   - 最高优先级问题（必须立即修复的）
-   - 共性问题（多个模块都有的）
-   - 建议的下一步行动计划
-3. 用 `bash /home/ubuntu/.openclaw/workspace/scripts/lark-send-message.sh "{chat_id}" "汇总内容"` 发送到群聊
-4. 询问用户是否要创建清理/修复计划
-
-### 注意
-- 不要用 message 工具
-- 最终回复 NO_REPLY
-"""
-
-    # Write spawn request (same mechanism as step spawning)
-    pending_dir = BASE / "data" / "planner-pending"
-    pending_dir.mkdir(parents=True, exist_ok=True)
-    spawn_file = pending_dir / f"summary-{chat_id[-8:]}.json"
-    try:
-        with open(spawn_file, "w") as f:
-            json.dump({
-                "task_id": f"summary-{chat_id[-8:]}",
-                "prompt": prompt,
-                "created_at": now_iso(),
-                "type": "spawn",
-            }, f, ensure_ascii=False)
-        print(f"[planner] wrote completion summary spawn request", file=sys.stderr)
-    except Exception as e:
-        print(f"[planner] completion summary spawn error: {e}", file=sys.stderr)
-
-
-def schedule_advance(chat_id: str):
-    """Schedule a PLANNER_ADVANCE cron wake.
-
-    Tries openclaw cron first (exact timing).  Falls back to writing a
-    pending file under data/planner-pending/ which is picked up by
-    check-advances during heartbeat.
-    """
-    if DRY_RUN:
-        print(f"[dry-run] schedule advance for {chat_id}", file=sys.stderr)
-        return
-    # Try openclaw cron first
-    try:
-        at_time = (datetime.now(SGT) + timedelta(seconds=10)).strftime("%H:%M")
-        payload = json.dumps({"kind": "systemEvent", "text": f"PLANNER_ADVANCE {chat_id}"})
-        result = subprocess.run(
-            ["openclaw", "cron", "add", "--at", at_time, "--payload", payload, "--session", "main"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0:
-            return
-    except Exception:
-        pass
-    # Fallback: write pending file for heartbeat detection
-    pending_dir = BASE / "data" / "planner-pending"
-    pending_dir.mkdir(parents=True, exist_ok=True)
-    pending_file = pending_dir / f"{chat_id_short(chat_id)}.json"
-    with open(pending_file, "w") as f:
-        json.dump({"chat_id": chat_id, "created_at": now_iso()}, f)
-
-    # Trigger immediate heartbeat to pick up the advance (don't wait 5min)
-    try:
-        subprocess.run(
-            ["openclaw", "cron", "add",
-             "--name", f"planner-advance-{chat_id_short(chat_id)}",
-             "--at", "10s",
-             "--session", "main",
-             "--system-event", f"Read HEARTBEAT.md if it exists (workspace context). Follow it strictly. Do not infer or repeat old tasks from prior chats. If nothing needs attention, reply HEARTBEAT_OK.",
-             "--wake", "now",
-             "--delete-after-run",
-             "--json"],
-            capture_output=True, text=True, timeout=10,
-        )
-    except Exception:
-        pass  # Best effort — heartbeat will still pick it up within 5min
-
-
-# === Display ===
-
-def _format_time(iso_str: str) -> str:
-    """Format ISO timestamp to HH:MM SGT."""
-    try:
-        dt = datetime.fromisoformat(iso_str)
-        return dt.astimezone(SGT).strftime("%H:%M")
-    except Exception:
-        return ""
-
-
-def _short_desc(desc: str, max_len: int = 40) -> str:
-    """Shorten step description: strip 'Review: ' prefix, truncate parenthetical detail."""
-    d = desc
-    # Remove common prefixes
-    for prefix in ["Review: ", "Step: "]:
-        if d.startswith(prefix):
-            d = d[len(prefix):]
-    # Truncate at first '（' or '(' if result is too long
-    for sep in ["（", " ("]:
-        idx = d.find(sep)
-        if idx > 0 and idx < max_len:
-            d = d[:idx]
-            break
-    if len(d) > max_len:
-        d = d[:max_len-1] + "…"
-    return d
-
-
-def _format_duration(started_at: str, completed_at: str) -> str:
-    """Format duration between two ISO timestamps."""
-    try:
-        start = datetime.fromisoformat(started_at)
-        end = datetime.fromisoformat(completed_at)
-        secs = (end - start).total_seconds()
-        if secs < 60:
-            return f"⏱{secs:.0f}s"
-        elif secs < 3600:
-            return f"⏱{secs/60:.0f}m"
-        else:
-            return f"⏱{secs/3600:.1f}h"
-    except Exception:
-        return ""
-
-
-def format_plan(plan: dict) -> str:
-    """Format plan status as readable text.
-
-    Unified format — one consistent style:
-      📋 Plan — <goal>
-      ✅ 1. <short desc> <task_id> <duration> — <result summary>
-      🔄 2. <short desc> <task_id> <elapsed>
-      ❌ 3. <short desc> <task_id> — <error>
-      ⬜ 4. <short desc>
-
-    Rules:
-      - desc truncated to ~40 chars (strip verbose parenthetical)
-      - task_id without backticks
-      - result/error summary ≤60 chars
-      - cancelled steps hidden
-    """
-    lines = [f"📋 Plan — {plan['goal']}"]
-    if plan["status"] == "draft":
-        lines[0] += " [草稿 — 待确认]"
-    elif plan["status"] == "cancelled":
-        lines[0] += " [CANCELLED]"
-    elif plan["status"] == "completed":
-        lines[0] += " [COMPLETED]"
-    lines.append("")
-
-    for step in plan["steps"]:
-        sid = step["id"]
-        desc = _short_desc(step["desc"])
-        status = step["status"]
-        tid = f" {step['task_id']}" if step.get("task_id") else ""
-
-        if status == "done":
-            dur = ""
-            if step.get("started_at") and step.get("completed_at"):
-                d = _format_duration(step["started_at"], step["completed_at"])
-                if d:
-                    dur = f" {d}"
-            result_text = step.get("result", "")
-            summary = f" — {result_text}" if result_text else ""
-            if len(summary) > 63:
-                summary = summary[:60] + "..."
-            lines.append(f"✅ {sid}. {desc}{tid}{dur}{summary}")
-        elif status == "running":
-            time_info = ""
-            if step.get("started_at"):
-                try:
-                    start = datetime.fromisoformat(step["started_at"])
-                    mins = (datetime.now(SGT) - start).total_seconds() / 60
-                    time_info = f" ⏱{mins:.0f}m"
-                except Exception:
-                    pass
-            lines.append(f"🔄 {sid}. {desc}{tid}{time_info}")
-        elif status == "failed":
-            err = step.get("error", "")
-            err_text = f" — {err}" if err else ""
-            if len(err_text) > 63:
-                err_text = err_text[:60] + "..."
-            lines.append(f"❌ {sid}. {desc}{tid}{err_text}")
-        elif status == "cancelled":
-            continue  # Hide cancelled steps
-        else:  # pending
-            risk_tag = " 🔴" if step.get("risk") == "high" else ""
-            lines.append(f"⬜ {sid}. {desc}{risk_tag}")
-
-    return "\n".join(lines)
-
-
-def build_spawn_prompt(plan: dict, step: dict) -> str:
-    """Build the spawn prompt for a step, including planner callback footer.
-
-    Uses step['detail'] if available, falls back to step['desc'].
-    Appends standardized callback instructions for the subagent.
-    """
-    chat_id = plan["chat_id"]
-    step_id = step["id"]
-    planner_py = str(BASE / "scripts" / "planner.py")
-
-    task_manager_py = str(BASE / "scripts" / "task-manager.py")
-    task_id = step.get("task_id", "")
-    register_line = ""
-    if task_id:
-        register_line = (
-            f"- FIRST thing on start: run `python3 {task_manager_py} set-session {task_id}` "
-            f"(registers your session, prevents zombie detection)\n"
-        )
-
-    footer = (
-        f"\n\n## Planner Callback\n"
-        f"{register_line}"
-        f"- On success: python3 {planner_py} step-done {chat_id} {step_id} \"<result summary>\"\n"
-        f"- On failure: python3 {planner_py} step-fail {chat_id} {step_id} \"<error reason>\"\n"
-        f"- Do NOT use the message tool to send messages\n"
-        f"- Final reply MUST be NO_REPLY\n"
-    )
-    return step.get("detail", step["desc"]) + footer
-
-
-# === Subcommands ===
-
-def cmd_init(chat_id: str, goal: str, steps_json: str):
-    """Create a new plan in DRAFT status (does NOT auto-start).
-
-    Args:
-        chat_id: Lark chat ID or message_id (om_xxx) to auto-resolve
-        goal: Human-readable goal description
-        steps_json: JSON array of steps, each with title/prompt or desc/detail
-
-    Behavior:
-        - If chat_id starts with 'om_', auto-resolves to chat_id via get-source-chat.py
-        - Rejects if an active/draft planner already exists for this chat
-        - Creates plan in 'draft' status — NO task creation, NO spawn
-        - User reviews the plan, then runs `planner.py start <chat_id>` to begin execution
-    """
-    # Auto-resolve message_id to chat_id
-    chat_id = resolve_chat_id(chat_id)
-
-    # Check for existing active/draft planner
-    existing = find_planner_by_chat(chat_id)
-    if existing and existing["status"] in ("active", "draft"):
-        print(json.dumps({"error": f"{existing['status'].title()} planner already exists for {chat_id}. Cancel it first or use replan."}))
-        sys.exit(1)
-
-    try:
-        raw_steps = json.loads(steps_json)
-    except json.JSONDecodeError as e:
-        print(json.dumps({"error": f"Invalid steps JSON: {e}"}))
-        sys.exit(1)
-
-    if not isinstance(raw_steps, list) or not raw_steps:
-        print(json.dumps({"error": "steps_json must be a non-empty array"}))
-        sys.exit(1)
-
-    # Build steps — normalize_step handles title/prompt → desc/detail mapping
-    steps = [normalize_step(s, i) for i, s in enumerate(raw_steps, 1)]
-
-    # Create plan in DRAFT status (not active, not started)
-    plan = {
-        "chat_id": chat_id,
-        "goal": goal,
-        "status": "draft",
-        "created_at": now_iso(),
-        "updated_at": now_iso(),
-        "steps": steps,
-    }
-
-    save_planner(plan)
-
-    # Send plan to chat for review
-    draft_text = format_plan(plan)
-    send_lark(chat_id, draft_text)
-
-    # Output result
-    result = {
-        "planner": chat_id_short(chat_id),
-        "goal": goal,
-        "status": "draft",
-        "total_steps": len(steps),
-        "message": "计划已创建（草稿状态）。请确认后运行 `planner.py start` 开始执行。",
-    }
-    print(json.dumps(result, ensure_ascii=False))
-
-
-def cmd_start(chat_id: str):
-    """Start executing a draft plan (activate and spawn step 1).
-
-    Args:
-        chat_id: Lark chat ID or message_id (om_xxx)
-
-    Behavior:
-        - Only works on plans in 'draft' status
-        - Changes status to 'active'
-        - Creates task for step 1 and spawns it
-    """
-    chat_id = resolve_chat_id(chat_id)
-    plan = find_planner_by_chat(chat_id)
-    if not plan:
-        print(json.dumps({"error": f"No planner found for {chat_id}"}))
-        sys.exit(1)
-
-    if plan["status"] != "draft":
-        print(json.dumps({"error": f"Plan is '{plan['status']}', not 'draft'. Can only start draft plans."}))
-        sys.exit(1)
-
-    plan["status"] = "active"
-    plan["started_at"] = now_iso()
-    plan["updated_at"] = now_iso()
-
-    # Create task for the first step
-    first = plan["steps"][0]
-    task_id = tm_add(f"[Plan] {plan['goal']} — Step 1: {first['desc']}", chat_id)
-    if task_id:
-        first["task_id"] = task_id
-        first["status"] = "running"
-        first["started_at"] = now_iso()
-        tm_start(task_id, "cron-pending")
-
-    save_planner(plan)
-
-    # Spawn step 1
-    prompt = build_spawn_prompt(plan, first)
-    _spawn_via_cron(first, prompt)
-
-    send_lark(chat_id, format_plan(plan))
-
-    result = {
-        "planner": chat_id_short(chat_id),
-        "started": True,
-        "first_step": {
-            "id": first["id"],
-            "desc": first["desc"],
-            "task_id": first.get("task_id"),
-        },
-    }
-    print(json.dumps(result, ensure_ascii=False))
-
-
-def cmd_show(chat_id: str):
-    """Display current plan status as formatted text.
-
-    Args:
-        chat_id: Lark chat ID
-
-    Output:
-        Formatted plan status using format_plan() icon system.
-    """
-    plan = find_planner_by_chat(chat_id)
-    if not plan:
-        print(f"No planner found for {chat_id}")
-        sys.exit(1)
-    print(format_plan(plan))
-
-
-def cmd_step_done(chat_id: str, step_id: int, result: str):
-    """Mark a step as done and auto-advance to next pending step.
-
-    Args:
-        chat_id: Lark chat ID
-        step_id: Step number (1-based)
-        result: Summary of what was accomplished
-
-    Behavior:
-        - Guards: step must be 'running' to complete
-        - If a later step is already running, just marks done (no advance)
-        - Completes the corresponding task in task-board
-        - If all steps done → plan status = 'completed'
-        - Otherwise, creates task for next pending step and marks it running
-        - Sends plan status update to Lark
-        - Schedules cron/pending advance for spawning
-    """
-    plan = find_planner_by_chat(chat_id)
-    if not plan:
-        print(json.dumps({"error": f"No planner found for {chat_id}"}))
-        sys.exit(1)
-
-    # Find step
-    step = None
-    for s in plan["steps"]:
-        if s["id"] == step_id:
-            step = s
-            break
-    if not step:
-        print(json.dumps({"error": f"Step {step_id} not found"}))
-        sys.exit(1)
-
-    # Guard: only allow completing a step that is currently running
-    if step["status"] != "running":
-        print(json.dumps({"error": f"Step {step_id} is '{step['status']}', not 'running'. Ignoring."}))
-        sys.exit(1)
-
-    # Guard: don't advance if there's already another step running after this one
-    later_running = any(s["status"] == "running" and s["id"] > step_id for s in plan["steps"])
-    if later_running:
-        # Just mark done, don't auto-advance (another step is already running)
-        step["status"] = "done"
-        step["result"] = result
-        step["completed_at"] = now_iso()
-        if step.get("task_id"):
-            tm_complete(step["task_id"], result)
-        save_planner(plan)
-        print(json.dumps({"advance": False, "reason": "later step already running"}))
-        return
-
-    # Update step
-    step["status"] = "done"
-    step["result"] = result
-    step["completed_at"] = now_iso()
-
-    # Complete task in task board
-    if step.get("task_id"):
-        tm_complete(step["task_id"], result)
-
-    # Check if all steps are done
-    all_done = all(s["status"] == "done" for s in plan["steps"])
-    if all_done:
-        plan["status"] = "completed"
-        plan["completed_at"] = now_iso()
-        save_planner(plan)
-        send_lark(plan["chat_id"], format_plan(plan))
-        _trigger_group_title_update(plan["chat_id"])
-        print(json.dumps({
-            "advance": False,
-            "completed": True,
-            "plan_status": format_plan(plan),
-        }, ensure_ascii=False))
-        return
-
-    # Find next pending step and advance
-    next_step = None
-    for s in plan["steps"]:
-        if s["status"] == "pending":
-            next_step = s
-            break
-
-    # Check if completed step was high-risk → pause for user confirmation
-    if step.get("risk") == "high" and next_step:
-        save_planner(plan)
-        pause_msg = format_plan(plan) + f"\n\n⚠️ 高风险步骤 {step['id']} 已完成，请确认系统正常后回复「继续」推进下一步。"
-        send_lark(plan["chat_id"], pause_msg)
-        _trigger_group_title_update(plan["chat_id"])
-        print(json.dumps({
-            "advance": False,
-            "paused": True,
-            "reason": "high_risk_step_completed",
-            "next_step": {"id": next_step["id"], "desc": next_step["desc"]},
-        }, ensure_ascii=False))
-        return
-
-    if next_step:
-        # Create task for next step
-        task_id = tm_add(
-            f"[Plan] {plan['goal']} — Step {next_step['id']}: {next_step['desc']}",
-            plan["chat_id"],
-        )
-        if task_id:
-            next_step["task_id"] = task_id
-            next_step["status"] = "running"
-            next_step["started_at"] = now_iso()
-            tm_start(task_id, "cron-pending")
-
-        save_planner(plan)
-        send_lark(plan["chat_id"], format_plan(plan))
-        _trigger_group_title_update(plan["chat_id"])
-
-        spawn_prompt = build_spawn_prompt(plan, next_step)
-
-        # Auto-spawn next step via cron agentTurn (isolated session)
-        # This avoids routing through heartbeat LLM which causes 串台
-        spawn_ok = False
-        if not DRY_RUN:
-            spawn_ok = _spawn_via_cron(next_step, spawn_prompt)
-
-        print(json.dumps({
-            "advance": True,
-            "spawned": spawn_ok,
-            "next_step": {
-                "id": next_step["id"],
-                "desc": next_step["desc"],
-                "task_id": next_step.get("task_id"),
-            },
-            "spawn_prompt": spawn_prompt if not spawn_ok else "(spawned via cron)",
-        }, ensure_ascii=False))
+            goal, steps = render_template(tmpl, template_vars or {})
+        except ValueError as e:
+            print(json.dumps({"error": str(e)}))
+            sys.exit(1)
     else:
-        # No pending steps (some may have failed)
-        save_planner(plan)
-        send_lark(plan["chat_id"], format_plan(plan))
-        _trigger_group_title_update(plan["chat_id"])
-        print(json.dumps({"advance": False}, ensure_ascii=False))
+        # Parse steps from JSON
+        raw_steps = json.loads(steps_json) if isinstance(steps_json, str) else steps_json
+        steps = [normalize_step(s) for s in raw_steps]
 
-
-def cmd_step_fail(chat_id: str, step_id: int, error: str):
-    """Mark a step as failed — no auto-advance.
-
-    Args:
-        chat_id: Lark chat ID
-        step_id: Step number (1-based)
-        error: Error description
-
-    Behavior:
-        - Guards: step must be 'running' to fail
-        - Marks step failed and records error
-        - Fails the corresponding task in task-board
-        - Sends plan status update to Lark
-        - Does NOT auto-advance (human intervention needed)
-    """
-    plan = find_planner_by_chat(chat_id)
-    if not plan:
-        print(json.dumps({"error": f"No planner found for {chat_id}"}))
+    if not steps:
+        print(json.dumps({"error": "No steps provided"}))
         sys.exit(1)
 
-    step = None
-    for s in plan["steps"]:
-        if s["id"] == step_id:
-            step = s
-            break
-    if not step:
-        print(json.dumps({"error": f"Step {step_id} not found"}))
-        sys.exit(1)
+    # Create plan in DB
+    plan = store.create_plan(plan_id, chat_id, goal, steps)
+    store.update_plan_status(plan_id, "draft")
 
-    # Guard: only allow failing a step that is currently running
-    if step["status"] != "running":
-        print(json.dumps({"error": f"Step {step_id} is '{step['status']}', not 'running'. Ignoring."}))
-        sys.exit(1)
+    # Send plan with confirmation hint
+    plan_text = format_plan(plan)
+    plan_text += "\n\n⏳ 等待确认。30分钟内未确认将自动取消。"
+    plan_text += "\n回复「确认」开始执行，或「修改」调整步骤。"
+    send_lark(chat_id, plan_text)
 
-    step["status"] = "failed"
-    step["error"] = error
-    step["completed_at"] = now_iso()
-
-    if step.get("task_id"):
-        tm_fail(step["task_id"], error)
-
-    save_planner(plan)
-    send_lark(plan["chat_id"], format_plan(plan))
-    _trigger_group_title_update(plan["chat_id"])
+    # Generate and send timeline graph
+    send_plan_graph(plan, chat_id)
 
     print(json.dumps({
-        "advance": False,
-        "failed_step": {"id": step["id"], "desc": step["desc"], "error": error},
-        "plan_status": format_plan(plan),
+        "plan_id": plan_id,
+        "chat_id": chat_id,
+        "goal": goal,
+        "steps": len(steps),
+        "status": "draft",
+        "message": "Draft created. Awaiting confirmation (30min timeout).",
     }, ensure_ascii=False))
 
 
-def cmd_replan(chat_id: str, new_steps_json: str):
-    """Replace pending/failed steps with new ones.  Keep done and running steps.
 
-    Args:
-        chat_id: Lark chat ID
-        new_steps_json: JSON array of new steps (title/prompt or desc/detail)
+def cmd_start(chat_id: str):
+    """Activate a draft plan and start all ready steps (parallel if no deps)."""
+    chat_id = resolve_chat_id(chat_id)
+    store = get_store()
+    plan = store.get_plan_by_chat(chat_id, status_filter='draft')
 
-    Behavior:
-        - Keeps all 'done' and 'running' steps
-        - Drops all 'pending', 'failed', 'cancelled' steps
-        - Appends new steps with sequential IDs continuing from kept steps
-        - If no step is running, auto-starts first new pending step
-        - Sends plan status update to Lark
-    """
-    plan = find_planner_by_chat(chat_id)
     if not plan:
-        print(json.dumps({"error": f"No planner found for {chat_id}"}))
+        print(json.dumps({"error": f"No plan found for {chat_id}"}))
         sys.exit(1)
 
-    try:
-        new_raw = json.loads(new_steps_json)
-    except json.JSONDecodeError as e:
-        print(json.dumps({"error": f"Invalid steps JSON: {e}"}))
-        sys.exit(1)
+    store.update_plan_status(plan["id"], "active")
 
-    if not isinstance(new_raw, list) or not new_raw:
-        print(json.dumps({"error": "new_steps_json must be a non-empty array"}))
-        sys.exit(1)
+    # Start all ready steps (those with no unmet dependencies)
+    ready = store.ready_steps(plan["id"])
+    results = []
+    if ready:
+        results = _start_ready_steps(store, plan, ready)
 
-    # Keep done + running steps; drop pending/failed/cancelled
-    kept = [s for s in plan["steps"] if s["status"] in ("done", "running")]
-
-    # Build new steps with sequential IDs continuing from kept
-    next_id = max((s["id"] for s in kept), default=0) + 1
-    new_steps = [normalize_step(raw, next_id + i) for i, raw in enumerate(new_raw)]
-
-    plan["steps"] = kept + new_steps
-
-    # If plan was draft, keep it as draft (don't auto-start)
-    if plan["status"] == "draft":
-        save_planner(plan)
+        # Reload plan for display
+        plan = store.get_plan(plan["id"])
         send_lark(plan["chat_id"], format_plan(plan))
-        print(json.dumps({
-            "replanned": True,
-            "kept_steps": len(kept),
-            "new_steps": len(new_steps),
-            "status": "draft",
-            "message": "草稿已更新，等待确认后 start。",
-        }, ensure_ascii=False))
+        send_plan_graph(plan)
+        _trigger_group_title_update(plan["chat_id"])
+
+    print(json.dumps({
+        "started": True,
+        "plan_id": plan["id"],
+        "parallel_steps": [r[0] for r in results],
+        "spawned": [r[1] for r in results],
+    }, ensure_ascii=False))
+
+
+
+def cmd_show(identifier: str, send_graph: bool = False):
+    """Display plan status. Accepts plan ID, chat_id, or chat_id suffix.
+    
+    If send_graph=True, also generates and sends a dependency graph image to the chat.
+    """
+    store = get_store()
+    # Try direct plan ID first (any status)
+    plan = store.get_plan(identifier)
+    if not plan:
+        # Fallback to chat_id lookup
+        plan = store.get_plan_by_chat(identifier)
+    if not plan:
+        print(f"No plan found for {identifier}")
+        sys.exit(1)
+    print(format_plan(plan))
+
+    if send_graph and plan.get("chat_id"):
+        try:
+            send_plan_graph(plan)
+        except Exception as e:
+            print(f"[planner] graph generation failed: {e}", file=sys.stderr)
+
+
+
+def cmd_step_done(chat_id: str, step_num: int, result: str):
+    """Mark a step as done and advance to next."""
+    chat_id = resolve_chat_id(chat_id)
+    store = get_store()
+    plan = store.get_plan_by_chat(chat_id, status_filter='active')
+
+    if not plan:
+        print(json.dumps({"error": f"No plan found for {chat_id}"}))
+        sys.exit(1)
+
+    # Guard: skip if step already done (idempotency)
+    existing = store.get_step(plan["id"], step_num)
+    if existing and existing["status"] == "done":
+        print(json.dumps({"skipped": True, "reason": "step already done", "step": step_num}))
         return
 
-    plan["status"] = "active"
+    # Complete the step
+    store.complete_step(plan["id"], step_num, result)
 
-    # If no running step, auto-start first pending
-    has_running = any(s["status"] == "running" for s in plan["steps"])
-    first_pending = None
-    if not has_running:
-        for s in plan["steps"]:
-            if s["status"] == "pending":
-                first_pending = s
-                break
-        if first_pending:
-            task_id = tm_add(
-                f"[Plan] {plan['goal']} — Step {first_pending['id']}: {first_pending['desc']}",
-                plan["chat_id"],
-            )
-            if task_id:
-                first_pending["task_id"] = task_id
-                first_pending["status"] = "running"
-                first_pending["started_at"] = now_iso()
-                tm_start(task_id, "cron-pending")
+    # Complete the associated task
+    step = store.get_step(plan["id"], step_num)
+    if step and step.get("task_id"):
+        store.complete_task(step["task_id"], result)
+        # NOTE: do NOT emit step.done here — task_manager.complete already emits it.
+        # Emitting here causes chain reaction: check-contracts -> cmd_step_done -> emit -> check-contracts -> ...
+        # Notify the task chat if one exists
+        task = store.get_task(step["task_id"])
+        task_chat_id = task.get("task_chat_id", "") if task else ""
+        if task_chat_id:
+            send_lark(task_chat_id,
+                      f"Step {step_num} completed: {_short_desc(result, 120)}")
 
-    save_planner(plan)
+        # Send step summary to source chat
+        step_title = step.get("title", f"Step {step_num}")
+        send_lark(plan["chat_id"], f"✅ Step {step_num} ({step_title}) 完成\n{_short_desc(result, 300)}")
+
+
+    # Try to advance — start all newly-ready steps (parallel support)
+    ready = store.ready_steps(plan["id"])
+    spawn_results = []
+    plan_completed = False
+
+    if ready:
+        spawn_results = _start_ready_steps(store, plan, ready)
+
+        plan = store.get_plan(plan["id"])
+        send_lark(plan["chat_id"], format_plan(plan))
+        send_plan_graph(plan)
+        _trigger_group_title_update(plan["chat_id"])
+    else:
+        # No ready steps — check if ALL steps are done
+        plan = store.get_plan(plan["id"])
+        all_steps = plan.get("steps", [])
+        still_running = [s for s in all_steps if s["status"] == "running"]
+        if still_running:
+            # Some steps still running — don't mark completed yet, just update display
+            send_lark(plan["chat_id"], format_plan(plan))
+            send_plan_graph(plan)
+        else:
+            # All steps truly done — mark plan completed and send summary
+            store.update_plan_status(plan["id"], "completed")
+            plan = store.get_plan(plan["id"])
+            summary = _build_plan_summary(plan)
+            send_lark(plan["chat_id"], format_plan(plan))
+            send_plan_graph(plan)
+            if summary:
+                send_lark(plan["chat_id"], summary)
+            _trigger_group_title_update(plan["chat_id"])
+            plan_completed = True
+
+    _update_dashboard(trigger="step_done")
+
+    print(json.dumps({
+        "step_done": step_num,
+        "result": result[:100],
+        "next_steps": [r[0] for r in spawn_results],
+        "spawned": [r[1] for r in spawn_results],
+        "plan_completed": plan_completed,
+    }, ensure_ascii=False))
+
+
+
+def cmd_step_fail(chat_id: str, step_num: int, error: str):
+    """Mark a step as failed. Idempotent — skips if already failed."""
+    chat_id = resolve_chat_id(chat_id)
+    store = get_store()
+    plan = store.get_plan_by_chat(chat_id, status_filter='active')
+
+    if not plan:
+        print(json.dumps({"error": f"No plan found for {chat_id}"}))
+        sys.exit(1)
+
+    # Idempotent: skip if step already failed (prevents event storm)
+    existing_step = store.get_step(plan["id"], step_num)
+    if existing_step and existing_step.get("status") == "failed":
+        print(json.dumps({"step_already_failed": step_num}))
+        return
+
+    store.fail_step(plan["id"], step_num, error)
+
+    step = store.get_step(plan["id"], step_num)
+    if step and step.get("task_id"):
+        task = store.get_task(step["task_id"])
+        # Only fail task if not already failed
+        if task and task.get("status") != "failed":
+            store.fail_task(step["task_id"], error)
+            # NOTE: do NOT emit step.failed here — the original trigger
+            # (task_manager, emit_event.py) is responsible for emitting.
+            # Emitting here causes event storm: check-contracts → cmd_step_fail → emit → check-contracts → ...
+        # Notify the task chat if one exists
+        task = store.get_task(step["task_id"])
+        task_chat_id = task.get("task_chat_id", "") if task else ""
+        if task_chat_id:
+            send_lark(task_chat_id,
+                      f"Step {step_num} FAILED: {_short_desc(error, 120)}")
+
+    plan = store.get_plan(plan["id"])
     send_lark(plan["chat_id"], format_plan(plan))
+    send_plan_graph(plan)
+
+    _update_dashboard(trigger="step_fail")
+
+    print(json.dumps({
+        "step_failed": step_num,
+        "error": error[:100],
+    }, ensure_ascii=False))
+
+
+
+def cmd_replan(chat_id: str, new_steps_json: str, append: bool = False):
+    """Replace or append pending steps. Works on active and draft plans.
+    
+    If append=True, keeps existing pending steps and adds new ones after them.
+    If append=False (default), replaces all pending steps with new ones.
+    """
+    chat_id = resolve_chat_id(chat_id)
+    store = get_store()
+    plan = store.get_plan_by_chat(chat_id, status_filter='active')
+    if not plan:
+        plan = store.get_plan_by_chat(chat_id, status_filter='draft')
+
+    if not plan:
+        print(json.dumps({"error": f"No plan found for {chat_id}"}))
+        sys.exit(1)
+
+    raw_steps = json.loads(new_steps_json) if isinstance(new_steps_json, str) else new_steps_json
+    new_steps = [normalize_step(s) for s in raw_steps]
+
+    all_steps = plan.get("steps", [])
+    conn = store.get_conn()
+    cur = conn.cursor()
+    if append:
+        # Keep everything, add new steps after the last step
+        next_num = max((s["step_num"] for s in all_steps), default=0) + 1
+    else:
+        # Keep completed/running steps, replace pending
+        kept = [s for s in all_steps if s["status"] in ("done", "running", "failed")]
+        next_num = max((s["step_num"] for s in kept), default=0) + 1
+        # Delete old pending steps from DB
+        cur.execute("DELETE FROM plan_steps WHERE plan_id = %s AND status = 'pending'", (plan["id"],))
+        conn.commit()
+
+    # Insert new steps
+    for i, ns in enumerate(new_steps):
+        cur.execute("""
+            INSERT INTO plan_steps (plan_id, step_num, title, prompt, status)
+            VALUES (%s, %s, %s, %s, 'pending')
+        """, (plan["id"], next_num + i, ns["title"], ns["prompt"]))
+    conn.commit()
+
+    # Preserve original status: draft stays draft, active stays active
+    original_status = plan.get("status", "draft")
+    if original_status == "active":
+        # Only auto-advance if plan was already active
+        plan = store.get_plan(plan["id"])
+        has_running = any(s["status"] == "running" for s in plan.get("steps", []))
+        if not has_running:
+            first_pending = store.next_pending_step(plan["id"])
+            if first_pending:
+                task_id = store.next_task_id()
+                store.add_task(task_id, f"[Plan] {plan['goal']} — Step {first_pending['step_num']}: {first_pending['title']}",
+                               source_chat=plan["chat_id"])
+                store.start_task(task_id, "cron-pending")
+                store.start_step(plan["id"], first_pending["step_num"], task_id)
+
+    plan = store.get_plan(plan["id"])
+    send_lark(plan["chat_id"], format_plan(plan))
+    send_plan_graph(plan)
     _trigger_group_title_update(plan["chat_id"])
 
-    # Auto-spawn if we auto-started a step
-    spawn_ok = False
-    if first_pending and first_pending.get("task_id") and not DRY_RUN:
-        prompt = build_spawn_prompt(plan, first_pending)
-        spawn_ok = _spawn_via_cron(first_pending, prompt)
+    if first_pending and first_pending.get("task_id"):
+        fp_updated = store.get_step(plan["id"], first_pending["step_num"])
+        spawn_ok = _prepare_and_spawn(plan, fp_updated)
 
-    result = {
+    print(json.dumps({
         "replanned": True,
         "kept_steps": len(kept),
         "new_steps": len(new_steps),
-    }
-    if first_pending and first_pending.get("task_id"):
-        result["auto_started"] = {
-            "id": first_pending["id"],
-            "desc": first_pending["desc"],
-            "task_id": first_pending.get("task_id"),
-            "spawned": spawn_ok,
-        }
-    print(json.dumps(result, ensure_ascii=False))
+        "spawned": spawn_ok,
+    }, ensure_ascii=False))
 
-
-def _trigger_group_title_update(chat_id: str):
-    """触发群聊标题更新（fire-and-forget）。
-    
-    检查配置后，异步调用 update-group-title.py 更新群标题。
-    失败不会阻塞主流程。
-    """
-    import subprocess
-    try:
-        # 检查配置
-        config_path = BASE / "data" / "group-title-config.json"
-        if not config_path.exists():
-            return
-        
-        with open(config_path, "r") as f:
-            config = json.load(f)
-        
-        if not config.get("enabled", True):
-            return
-        
-        # 检查该群聊是否启用
-        group_config = config.get("groups", {}).get(chat_id, {})
-        default_enabled = config.get("default_enabled", False)
-        if not group_config.get("enabled", default_enabled):
-            return
-        
-        # 异步触发更新
-        script_path = BASE / "scripts" / "update-group-title.py"
-        subprocess.Popen(
-            ["python3", str(script_path), "--chat-id", chat_id],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True
-        )
-    except Exception:
-        pass  # 忽略错误，不阻塞主流程
 
 
 def cmd_cancel(chat_id: str):
-    """Cancel entire plan.
+    """Cancel entire plan. Works on active and draft plans."""
+    store = get_store()
+    plan = store.get_plan_by_chat(chat_id, status_filter='active')
+    if not plan:
+        plan = store.get_plan_by_chat(chat_id, status_filter='draft')
 
-    Args:
-        chat_id: Lark chat ID
-
-    Behavior:
-        - Cancels all running tasks in task-board
-        - Marks all running/pending steps as cancelled
-        - Sets plan status to 'cancelled'
-        - Sends plan status update to Lark
-    """
-    plan = find_planner_by_chat(chat_id)
     if not plan:
         print(json.dumps({"error": f"No planner found for {chat_id}"}))
         sys.exit(1)
 
-    for s in plan["steps"]:
+    # Cancel all running/pending steps
+    for s in plan.get("steps", []):
         if s["status"] in ("running", "pending"):
             if s.get("task_id") and s["status"] == "running":
-                tm_cancel(s["task_id"])
-            s["status"] = "cancelled"
-            s["completed_at"] = now_iso()
+                store.cancel_task(s["task_id"])
+            store.update_step(plan["id"], s["step_num"], status="cancelled")
 
-    plan["status"] = "cancelled"
-    save_planner(plan)
+    store.cancel_plan(plan["id"])
+    plan = store.get_plan(plan["id"])
     send_lark(plan["chat_id"], format_plan(plan))
+    send_plan_graph(plan)
     _trigger_group_title_update(plan["chat_id"])
 
     print(json.dumps({
@@ -1064,294 +416,577 @@ def cmd_cancel(chat_id: str):
     }, ensure_ascii=False))
 
 
+
 def cmd_advance(chat_id: str):
-    """Check and advance — called by heartbeat or cron wake.
+    """Check if current step is done and advance."""
+    store = get_store()
+    plan = store.get_plan_by_chat(chat_id, status_filter='active')
 
-    Args:
-        chat_id: Lark chat ID
+    if not plan or plan["status"] != "active":
+        print(json.dumps({"advance": False, "reason": "no active plan"}))
+        return
 
-    Behavior:
-        - No-op if plan is not active or a step is already running
-        - Finds first pending step, creates task, marks running
-        - Sends plan status and returns spawn_prompt
-        - If no pending steps and all done/cancelled → marks plan completed
-    """
-    plan = find_planner_by_chat(chat_id)
+    running = [s for s in plan.get("steps", []) if s["status"] == "running"]
+    if not running:
+        # No running step — try to start ready steps (respects depends_on)
+        ready = store.ready_steps(plan["id"])
+        if ready:
+            spawn_results = _start_ready_steps(store, plan, ready)
+            plan = store.get_plan(plan["id"])
+            send_lark(plan["chat_id"], format_plan(plan))
+            send_plan_graph(plan)
+            started = [s for s, ok in spawn_results if ok]
+            print(json.dumps({"advance": True, "started_steps": started}))
+        else:
+            # No pending steps — check if ALL steps are done
+            plan = store.get_plan(plan["id"])
+            still_running = [s for s in plan.get("steps", []) if s["status"] == "running"]
+            if still_running:
+                send_lark(plan["chat_id"], format_plan(plan))
+                send_plan_graph(plan)
+                print(json.dumps({"advance": False, "still_running": len(still_running)}))
+            else:
+                store.update_plan_status(plan["id"], "completed")
+                plan = store.get_plan(plan["id"])
+                summary = _build_plan_summary(plan)
+                send_lark(plan["chat_id"], format_plan(plan))
+                send_plan_graph(plan)
+                if summary:
+                    send_lark(plan["chat_id"], summary)
+                print(json.dumps({"advance": True, "plan_completed": True}))
+        return
+
+    # Check if running step's task is actually done
+    current = running[0]
+    if current.get("task_id"):
+        task = store.get_task(current["task_id"])
+        if task and task["status"] == "done":
+            result = task.get("result", "")
+            cmd_step_done(chat_id, current["step_num"], result)
+            return
+        elif task and task["status"] == "failed":
+            error = task.get("result", "unknown error")
+            cmd_step_fail(chat_id, current["step_num"], error)
+            return
+
+    print(json.dumps({"advance": False, "reason": "step still running",
+                       "step": current["step_num"]}))
+
+
+
+
+def cmd_pause(chat_id: str):
+    """Pause an active plan."""
+    chat_id = resolve_chat_id(chat_id)
+    store = get_store()
+    plan = store.get_plan_by_chat(chat_id, status_filter='active')
     if not plan:
-        print(json.dumps({"advance": False, "reason": "no planner"}))
+        print(json.dumps({"error": "No active plan found"}))
+        sys.exit(1)
+
+    store.update_plan_status(plan["id"], "paused")
+    send_lark(plan["chat_id"], f"⏸️ 计划已暂停: {plan['goal'][:60]}\n\n回复 `resume` 恢复。")
+    print(json.dumps({"paused": True, "plan_id": plan["id"]}))
+
+
+def cmd_resume(plan_id_or_chat: str):
+    """Resume a paused plan. Accepts plan_id, chat_id, or 'all'."""
+    store = get_store()
+
+    if plan_id_or_chat == "all":
+        paused = store.list_plans(status="paused")
+        resumed = []
+        for p in paused:
+            store.update_plan_status(p["id"], "active")
+            full = store.get_plan(p["id"])
+            if full:
+                send_lark(full["chat_id"], f"▶️ 计划已恢复: {full['goal'][:60]}")
+                # Trigger advancement
+                try:
+                    cmd_advance(full["chat_id"])
+                except Exception:
+                    pass
+            resumed.append(p["id"])
+        print(json.dumps({"resumed": resumed, "count": len(resumed)}))
         return
 
-    if plan["status"] != "active":
-        print(json.dumps({"advance": False, "reason": f"plan is {plan['status']}"}))
-        return
+    # Try as plan_id first
+    plan = store.get_plan(plan_id_or_chat)
+    if not plan:
+        # Try as chat_id
+        plan = store.get_plan_by_chat(resolve_chat_id(plan_id_or_chat), status_filter='paused')
+    if not plan:
+        print(json.dumps({"error": f"No paused plan found for {plan_id_or_chat}"}))
+        sys.exit(1)
 
-    # Don't advance if a step is still running
-    has_running = any(s["status"] == "running" for s in plan["steps"])
-    if has_running:
-        print(json.dumps({"advance": False, "reason": "step still running"}))
-        return
+    if plan["status"] != "paused":
+        print(json.dumps({"error": f"Plan {plan['id']} is {plan['status']}, not paused"}))
+        sys.exit(1)
 
-    # Find first pending step
-    next_step = None
-    for s in plan["steps"]:
-        if s["status"] == "pending":
-            next_step = s
-            break
-
-    if not next_step:
-        # Check if all done
-        all_done = all(s["status"] in ("done", "cancelled") for s in plan["steps"])
-        if all_done:
-            plan["status"] = "completed"
-            save_planner(plan)
-        print(json.dumps({"advance": False, "reason": "no pending steps"}))
-        return
-
-    # Create task and advance
-    task_id = tm_add(
-        f"[Plan] {plan['goal']} — Step {next_step['id']}: {next_step['desc']}",
-        plan["chat_id"],
-    )
-    if task_id:
-        next_step["task_id"] = task_id
-        next_step["status"] = "running"
-        next_step["started_at"] = now_iso()
-        tm_start(task_id, "cron-pending")
-
-    save_planner(plan)
-    send_lark(plan["chat_id"], format_plan(plan))
-    _trigger_group_title_update(plan["chat_id"])
-
-    # Auto-spawn via pending file
-    spawn_prompt = build_spawn_prompt(plan, next_step)
-    spawn_ok = False
-    if not DRY_RUN:
-        spawn_ok = _spawn_via_cron(next_step, spawn_prompt)
-
-    print(json.dumps({
-        "advance": True,
-        "spawned": spawn_ok,
-        "next_step": {
-            "id": next_step["id"],
-            "desc": next_step["desc"],
-            "task_id": next_step.get("task_id"),
-        },
-        "spawn_prompt": spawn_prompt if not spawn_ok else "(spawn request written)",
-    }, ensure_ascii=False))
+    store.update_plan_status(plan["id"], "active")
+    send_lark(plan["chat_id"], f"▶️ 计划已恢复: {plan['goal'][:60]}")
+    # Trigger advancement
+    try:
+        cmd_advance(plan["chat_id"])
+    except Exception:
+        pass
+    print(json.dumps({"resumed": True, "plan_id": plan["id"]}))
 
 
 def cmd_check_advances():
-    """Check all active planners for needed advances.  Used by heartbeat.
+    """Check all active planners for advancement."""
+    store = get_store()
+    plans = store.list_plans(status="active")
+    advanced = 0
+    for p in plans:
+        try:
+            cmd_advance(p["chat_id"])
+            advanced += 1
+        except Exception as e:
+            print(f"[planner] advance error for {p['id']}: {e}", file=sys.stderr)
+    print(json.dumps({"checked": len(plans), "advanced": advanced}))
 
-    Scans all planner JSON files and pending advance files.
-    Reports which planners need advancement (no running step + has pending steps).
-    Cleans up processed pending files.
 
-    Output JSON:
-        {
-            "planners": [{"chat_id", "goal", "progress"}],
-            "advances_needed": [{"chat_id", "goal", "next_step", "spawn_prompt"}]
-        }
+
+def _resolve_plan_for_task(store, task_id):
+    """Find plan_id and step_num for a given task_id."""
+    plans = store.list_plans(status="active")
+    for p in plans:
+        full = store.get_plan(p["id"])
+        for s in full.get("steps", []):
+            if s.get("task_id") == task_id:
+                return p["id"], s["step_num"]
+    return None, None
+
+
+
+
+def _was_circuit_broken(session_id: str) -> bool:
+    """Check if a session was killed by loop detection circuit breaker."""
+    import glob
+    session_dir = Path.home() / ".openclaw" / "agents" / "main" / "sessions"
+    return bool(glob.glob(str(session_dir / f"{session_id}.jsonl.loop-*")))
+
+
+def _is_agent_process_alive(session_id: str) -> bool:
+    """Check if an openclaw-agent session is still active.
+    
+    Uses session file modification time as the primary signal:
+    - If .jsonl was modified in the last 3 minutes → alive
+    - If .jsonl.lock exists and was created recently → alive
+    - If circuit breaker .loop-* file exists → dead
+    
+    Note: pgrep doesn't work because openclaw-agent doesn't expose
+    --session-id in /proc/pid/cmdline (Node.js internal routing).
     """
-    if not DATA_DIR.exists():
-        print(json.dumps({"planners": [], "advances_needed": []}))
+    import os
+    import time
+
+    # Circuit breaker kill leaves a .loop-* file — immediate detection
+    if _was_circuit_broken(session_id):
+        return False
+
+    session_dir = Path.home() / ".openclaw" / "agents" / "main" / "sessions"
+    jsonl_path = session_dir / f"{session_id}.jsonl"
+    lock_path = session_dir / f"{session_id}.jsonl.lock"
+
+    now = time.time()
+
+    # Check session file modification time (agent writes to it continuously)
+    if jsonl_path.exists():
+        mtime = os.path.getmtime(jsonl_path)
+        if now - mtime < 180:  # Modified in last 3 minutes
+            return True
+
+    # Check lock file (created when session starts)
+    if lock_path.exists():
+        mtime = os.path.getmtime(lock_path)
+        if now - mtime < 180:
+            return True
+
+    return False
+
+
+RESTART_COOLDOWN_FILE = "/tmp/openclaw-restart-ts"
+RESTART_COOLDOWN_SECONDS = 300
+RESTART_PAUSED_FLAG = "/tmp/openclaw-restart-paused"
+
+
+def _handle_restart_pause(store):
+    """On gateway restart, pause all active plans and notify user. Runs once."""
+    import time
+
+    if not os.path.exists(RESTART_COOLDOWN_FILE):
+        return False
+
+    mtime = os.path.getmtime(RESTART_COOLDOWN_FILE)
+    age = time.time() - mtime
+    if age > RESTART_COOLDOWN_SECONDS:
+        return False  # Cooldown expired
+
+    # Already handled this restart?
+    if os.path.exists(RESTART_PAUSED_FLAG):
+        flag_mtime = os.path.getmtime(RESTART_PAUSED_FLAG)
+        if flag_mtime >= mtime:
+            return True  # Already paused for this restart, still in cooldown
+
+    # First check-contracts after restart — pause all active plans
+    active_plans = store.list_plans(status="active")
+    if not active_plans:
+        # No active plans, just mark as handled
+        with open(RESTART_PAUSED_FLAG, "w") as f:
+            f.write(str(time.time()))
+        return True
+
+    paused_summaries = []
+    failed_tasks = []
+    for p in active_plans:
+        full = store.get_plan(p["id"])
+        if not full:
+            continue
+        store.update_plan_status(p["id"], "paused")
+        running_steps = [s for s in full.get("steps", []) if s["status"] == "running"]
+        # Fail running tasks whose agent process was killed by restart
+        for rs in running_steps:
+            tid = rs.get("task_id")
+            if tid:
+                try:
+                    store.fail_task(tid, "Gateway restart killed agent process")
+                    failed_tasks.append(tid)
+                except Exception:
+                    pass
+        step_info = f" (Step {running_steps[0]['step_num']} running)" if running_steps else ""
+        paused_summaries.append(f"• {p['id']} {full['goal'][:50]}{step_info}")
+
+        # Notify each plan's chat
+        send_lark(full["chat_id"],
+                  f"⏸️ Gateway 重启，计划已自动暂停。\n等待确认后继续。\n\n回复 `resume` 恢复此计划。")
+
+    # Send summary to first plan's chat (or could be a dedicated admin chat)
+    if paused_summaries:
+        summary = "🔄 Gateway 已重启，以下计划已自动暂停：\n\n" + "\n".join(paused_summaries)
+        summary += "\n\n回复 `resume <plan_id>` 恢复指定计划，或 `resume all` 恢复全部。"
+        # Send to the first plan's chat as a central notification
+        first_plan = store.get_plan(active_plans[0]["id"])
+        if first_plan:
+            send_lark(first_plan["chat_id"], summary)
+        print(f"[planner] Restart detected: paused {len(paused_summaries)} plans")
+
+    with open(RESTART_PAUSED_FLAG, "w") as f:
+        f.write(str(time.time()))
+    return True
+
+
+def cmd_check_contracts():
+    """Poll event queue and process step/contract completions."""
+    store = get_store()
+
+    # Layer 1: Restart cooldown — pause plans and skip processing
+    if _handle_restart_pause(store):
+        print(json.dumps({"skipped": True, "reason": "restart_cooldown"}))
         return
 
-    advances = []
-    active_planners = []
+    events = store.poll_events(limit=20)
 
-    for fp in sorted(DATA_DIR.glob("*.json")):
+    if not events:
+        print(json.dumps({"processed": 0}))
+        return
+
+    processed = 0
+    for evt in events:
         try:
-            with open(fp) as f:
-                plan = json.load(f)
-        except Exception:
+            etype = evt["event_type"]
+            task_id = evt.get("task_id")
+            plan_id = evt.get("plan_id")
+            step_num = evt.get("step_num")
+            payload = evt.get("payload") or {}
+
+            # Resolve plan from task_id if not provided
+            if task_id and not plan_id:
+                plan_id, step_num = _resolve_plan_for_task(store, task_id)
+
+            # step.done or contract.done → mark step done + advance
+            if etype in ("step.done", "contract.done") and plan_id and step_num:
+                result = payload.get("result", "completed")
+                plan = store.get_plan(plan_id)
+                if plan:
+                    try:
+                        cmd_step_done(plan["chat_id"], step_num, result)
+                    except SystemExit:
+                        pass  # cmd_step_done uses sys.exit on error
+
+            # step.failed or contract.fail → mark step failed (use store directly, no cmd_*)
+            elif etype in ("step.failed", "contract.fail") and plan_id and step_num:
+                error = payload.get("error", payload.get("result", "unknown error"))
+                plan = store.get_plan(plan_id)
+                if plan:
+                    # Check idempotency
+                    existing = store.get_step(plan_id, step_num)
+                    if existing and existing.get("status") == "failed":
+                        pass  # Already failed, skip
+                    else:
+                        store.fail_step(plan_id, step_num, error)
+                        if existing and existing.get("task_id"):
+                            task = store.get_task(existing["task_id"])
+                            if task and task.get("status") != "failed":
+                                store.fail_task(existing["task_id"], error)
+                        # Refresh plan and send ONE notification
+                        plan = store.get_plan(plan_id)
+                        send_lark(plan["chat_id"], format_plan(plan))
+                        _update_dashboard(trigger="step_fail")
+
+            # contract.partial → treat as failure (use store directly, no cmd_*)
+            elif etype == "contract.partial" and plan_id and step_num:
+                result = payload.get("result", "partial completion")
+                succeeded = payload.get("succeeded", 0)
+                failed = payload.get("failed", 0)
+                error = f"Partial: {result} ({succeeded} ok, {failed} failed)"
+                plan = store.get_plan(plan_id)
+                if plan:
+                    existing = store.get_step(plan_id, step_num)
+                    if existing and existing.get("status") == "failed":
+                        pass  # Already failed
+                    else:
+                        store.fail_step(plan_id, step_num, error)
+                        if existing and existing.get("task_id"):
+                            task = store.get_task(existing["task_id"])
+                            if task and task.get("status") != "failed":
+                                store.fail_task(existing["task_id"], error)
+                        plan = store.get_plan(plan_id)
+                        send_lark(plan["chat_id"], format_plan(plan))
+                        _update_dashboard(trigger="contract_partial")
+
+            # contract.progress → just ack (informational)
+            elif etype == "contract.progress":
+                pass  # ack below
+
+            # contract.start → just ack (informational)
+            elif etype == "contract.start":
+                pass  # ack below
+
+            store.ack_event(evt["id"])
+            processed += 1
+        except Exception as e:
+            print(f"[planner] event processing error: {e}", file=sys.stderr)
+            store.ack_event(evt["id"])  # ack anyway to avoid infinite loop
+
+    # Also check for expired drafts (>30 min without confirmation)
+    drafts = store.list_plans(status="draft")
+    expired_drafts = 0
+    for d in drafts:
+        created = d.get("created_at")
+        if created:
+            if isinstance(created, str):
+                created = datetime.fromisoformat(created)
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=SGT)
+            age_min = (datetime.now(SGT) - created.astimezone(SGT)).total_seconds() / 60
+            if age_min > 30:
+                store.update_plan_status(d["id"], "cancelled")
+                full = store.get_plan(d["id"])
+                if full:
+                    send_lark(full["chat_id"],
+                              f"⏰ 计划草稿已超时取消（30分钟未确认）\n\n{full['goal']}")
+                expired_drafts += 1
+
+    # Layer 2: Skip test plans in production
+    # (Test plans have chat_id starting with "oc_test_")
+
+    # Layer 3: Auto-pause stale plans (no step completed in 24h)
+    stale_paused = 0
+    active_plans_all = store.list_plans(status="active")
+    for p in (active_plans_all or []):
+        full = store.get_plan(p["id"])
+        if not full:
             continue
 
-        if plan.get("status") != "active":
+        # Layer 2: Skip test plans
+        if full.get("chat_id", "").startswith("oc_test_"):
+            store.update_plan_status(p["id"], "cancelled")
+            print(f"[planner] Cancelled test plan: {p['id']}")
             continue
 
-        chat_id = plan["chat_id"]
-        active_planners.append({
-            "chat_id": chat_id,
-            "goal": plan["goal"],
-            "progress": f"{sum(1 for s in plan['steps'] if s['status'] == 'done')}/{len(plan['steps'])}",
-        })
+        # Layer 3: Check staleness — last step completion > 24h ago
+        steps = full.get("steps", [])
+        last_activity = full.get("created_at")
+        for s in steps:
+            if s.get("completed_at"):
+                completed = s["completed_at"]
+                if isinstance(completed, str):
+                    completed = datetime.fromisoformat(completed)
+                if completed.tzinfo is None:
+                    completed = completed.replace(tzinfo=timezone.utc)
+                if last_activity is None or completed > (
+                    last_activity if isinstance(last_activity, datetime)
+                    else datetime.fromisoformat(str(last_activity)).replace(tzinfo=timezone.utc)
+                ):
+                    last_activity = completed
+            if s.get("started_at"):
+                started = s["started_at"]
+                if isinstance(started, str):
+                    started = datetime.fromisoformat(started)
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=timezone.utc)
+                if last_activity is None or started > (
+                    last_activity if isinstance(last_activity, datetime)
+                    else datetime.fromisoformat(str(last_activity)).replace(tzinfo=timezone.utc)
+                ):
+                    last_activity = started
 
-        # Only report advance needed if NO step is running
-        has_running = any(s["status"] == "running" for s in plan["steps"])
-        if has_running:
+        if last_activity:
+            if isinstance(last_activity, str):
+                last_activity = datetime.fromisoformat(last_activity)
+            if last_activity.tzinfo is None:
+                last_activity = last_activity.replace(tzinfo=timezone.utc)
+            stale_hours = (datetime.now(timezone.utc) - last_activity).total_seconds() / 3600
+            if stale_hours > 24:
+                # Double-check status (another check-contracts run may have already paused it)
+                fresh = store.get_plan(p["id"])
+                if fresh and fresh["status"] == "active":
+                    store.update_plan_status(p["id"], "paused")
+                    send_lark(full["chat_id"],
+                              f"⏸️ 计划已自动暂停（超过 24 小时无进展）\n\n{full['goal'][:60]}\n\n回复 `resume` 恢复。")
+                    stale_paused += 1
+                    print(f"[planner] Stale plan paused: {p['id']} ({stale_hours:.0f}h)")
+
+    # Check for stuck running steps (agent died, session gone)
+    stuck_steps = 0
+    active_plans = store.list_plans(status="active")
+    for p in (active_plans or []):
+        full = store.get_plan(p["id"])
+        if not full:
             continue
-
-        next_pending = None
-        for s in plan["steps"]:
-            if s["status"] == "pending":
-                next_pending = s
-                break
-
-        if next_pending:
-            advances.append({
-                "chat_id": chat_id,
-                "goal": plan["goal"],
-                "next_step": {
-                    "id": next_pending["id"],
-                    "desc": next_pending["desc"],
-                    "detail": next_pending.get("detail", ""),
-                },
-                "spawn_prompt": build_spawn_prompt(plan, next_pending),
-            })
-
-    # Also check pending files (spawn requests from step-done)
-    pending_dir = BASE / "data" / "planner-pending"
-    spawns_needed = []
-    if pending_dir.exists():
-        for pf in pending_dir.glob("*.json"):
-            try:
-                with open(pf) as f:
-                    pending = json.load(f)
-
-                if pending.get("type") == "spawn":
-                    # Direct spawn request from _spawn_via_cron
-                    spawns_needed.append({
-                        "task_id": pending["task_id"],
-                        "prompt": pending["prompt"],
-                        "file": str(pf),
-                    })
-                    pf.unlink()
-                    continue
-
-                # Legacy: advance request with chat_id
-                pending_chat = pending.get("chat_id", "")
-                # Check if already in advances list
-                already = any(a["chat_id"] == pending_chat for a in advances)
-                if not already:
-                    plan = find_planner_by_chat(pending_chat)
-                    if plan and plan["status"] == "active":
-                        # Must check has_running here too (bug fix)
-                        has_running = any(s["status"] == "running" for s in plan["steps"])
-                        if not has_running:
-                            next_pending = None
-                            for s in plan["steps"]:
-                                if s["status"] == "pending":
-                                    next_pending = s
-                                    break
-                            if next_pending:
-                                advances.append({
-                                    "chat_id": pending_chat,
-                                    "goal": plan["goal"],
-                                    "next_step": {
-                                        "id": next_pending["id"],
-                                        "desc": next_pending["desc"],
-                                        "detail": next_pending.get("detail", ""),
-                                    },
-                                    "spawn_prompt": build_spawn_prompt(plan, next_pending),
-                                })
-                # Clean up pending file regardless
-                pf.unlink()
-            except Exception:
+        for step in full.get("steps", []):
+            if step.get("status") != "running":
                 continue
+            # Skip steps whose task is in waiting state (user input pending)
+            if step.get("task_id"):
+                task = store.get_task(step["task_id"])
+                if task and task.get("status") == "waiting":
+                    continue
+            started = step.get("started_at")
+            if not started:
+                continue
+            if isinstance(started, str):
+                started = datetime.fromisoformat(started)
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            age_min = (datetime.now(timezone.utc) - started).total_seconds() / 60
 
-    result = {
-        "planners": active_planners,
-        "advances_needed": advances,
-    }
-    if spawns_needed:
-        result["spawns_needed"] = spawns_needed
-    print(json.dumps(result, ensure_ascii=False))
+            should_fail = False
+            fail_reason = ""
+
+            if age_min > 45:
+                # Hard timeout — always fail
+                should_fail = True
+                fail_reason = f"Auto-failed: step stuck for {age_min:.0f} minutes (timeout=45min)"
+            elif age_min > 2:
+                # Soft check — verify agent process is alive
+                task_id = step.get("task_id", "")
+                task_obj = store.get_task(task_id) if task_id else None
+                task_chat = (task_obj or {}).get("task_chat_id", "")
+                if task_chat:
+                    session_id = f"task-{task_chat[-8:]}"
+                    if not _is_agent_process_alive(session_id):
+                        should_fail = True
+                        circuit = _was_circuit_broken(session_id)
+                        fail_reason = f"Auto-failed: {'circuit breaker (tool loop)' if circuit else 'agent process dead'} after {age_min:.0f} minutes"
+
+            if should_fail:
+                # Use store directly (not cmd_step_fail) to avoid duplicate notifications
+                existing = store.get_step(full["id"], step["step_num"])
+                if existing and existing.get("status") == "failed":
+                    pass  # Already failed
+                else:
+                    store.fail_step(full["id"], step["step_num"], fail_reason)
+                    if existing and existing.get("task_id"):
+                        task = store.get_task(existing["task_id"])
+                        if task and task.get("status") != "failed":
+                            store.fail_task(existing["task_id"], fail_reason)
+                    updated_plan = store.get_plan(full["id"])
+                    send_lark(full["chat_id"], format_plan(updated_plan))
+                    _update_dashboard(trigger="stuck_step_fail")
+                    stuck_steps += 1
+
+    result = {"processed": processed, "total_events": len(events)}
+    if expired_drafts:
+        result["expired_drafts"] = expired_drafts
+    if stuck_steps:
+        result["stuck_steps_failed"] = stuck_steps
+    if stale_paused:
+        result["stale_paused"] = stale_paused
+    print(json.dumps(result))
+
 
 
 def cmd_list():
-    """List all planners (active ones first).
-
-    Output format per planner:
-        <status_icon> [<chat_id_short>] <goal> (<done>/<total>) [| running: Step N]
-
-    Status icons: 🟢 active / ✅ completed / 🚫 cancelled
-    """
-    if not DATA_DIR.exists():
-        print("No planners found.")
-        return
-
-    plans = []
-    for fp in sorted(DATA_DIR.glob("*.json")):
-        try:
-            with open(fp) as f:
-                p = json.load(f)
-            plans.append(p)
-        except Exception:
-            continue
+    """List all planners (active first)."""
+    store = get_store()
+    plans = store.list_plans()
 
     if not plans:
         print("No planners found.")
         return
 
-    # Active first, then completed, then cancelled
-    order = {"active": 0, "completed": 1, "cancelled": 2}
+    # Sort: active first, then completed, then cancelled
+    order = {"active": 0, "draft": 0, "completed": 1, "cancelled": 2}
     plans.sort(key=lambda p: (order.get(p.get("status", ""), 9), p.get("created_at", "")))
 
     for p in plans:
-        status_icon = {"active": "🟢", "completed": "✅", "cancelled": "🚫"}.get(p["status"], "❓")
-        done = sum(1 for s in p["steps"] if s["status"] == "done")
-        total = len(p["steps"])
-        running = [s for s in p["steps"] if s["status"] == "running"]
-        running_info = f" | running: Step {running[0]['id']}" if running else ""
-        print(f"{status_icon} [{chat_id_short(p['chat_id'])}] {p['goal']} ({done}/{total}){running_info}")
+        full = store.get_plan(p["id"])
+        if not full:
+            continue
+        steps = full.get("steps", [])
+        status_icon = {"active": "🟢", "completed": "✅", "cancelled": "🚫", "draft": "📝"}.get(p["status"], "❓")
+        done = sum(1 for s in steps if s["status"] == "done")
+        total = len(steps)
+        running = [s for s in steps if s["status"] == "running"]
+        running_info = f" | running: Step {running[0]['step_num']}" if running else ""
+        print(f"{status_icon} {p['id']} [{chat_id_short(p.get('chat_id', ''))}] {p['goal']} ({done}/{total}){running_info}")
+
 
 
 def cmd_find_by_task(task_id: str):
-    """Find which planner and step a task_id belongs to.
-
-    Args:
-        task_id: Task board task ID (e.g. t008)
-
-    Output JSON:
-        {found, chat_id, goal, planner_status, step, advance, next_step?}
-
-    Useful for tracing a task back to its planner context.
-    """
-    if not DATA_DIR.exists():
+    """Find which planner and step a task_id belongs to."""
+    store = get_store()
+    conn = store.get_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT ps.plan_id, ps.step_num, ps.title, ps.status, ps.result,
+               p.chat_id, p.goal, p.status as plan_status
+        FROM plan_steps ps
+        JOIN plans p ON p.id = ps.plan_id
+        WHERE ps.task_id = %s
+    """, (task_id,))
+    row = cur.fetchone()
+    if not row:
         print(json.dumps({"found": False}))
         return
 
-    for fp in sorted(DATA_DIR.glob("*.json")):
-        try:
-            with open(fp) as f:
-                p = json.load(f)
-        except Exception:
-            continue
+    cols = [d[0] for d in cur.description]
+    data = dict(zip(cols, row))
 
-        for step in p.get("steps", []):
-            if step.get("task_id") == task_id:
-                # Found the step — check if there's a next step to advance to
-                next_step = None
-                advance = False
-                if step["status"] == "done":
-                    for s in p["steps"]:
-                        if s["status"] == "pending":
-                            next_step = s
-                            advance = True
-                            break
-
-                result = {
-                    "found": True,
-                    "chat_id": p["chat_id"],
-                    "goal": p["goal"],
-                    "planner_status": p["status"],
-                    "step": {"id": step["id"], "desc": step["desc"], "status": step["status"]},
-                    "advance": advance,
-                }
-                if next_step:
-                    result["next_step"] = {
-                        "id": next_step["id"],
-                        "desc": next_step["desc"],
-                        "detail": next_step.get("detail", ""),
-                    }
-                print(json.dumps(result, ensure_ascii=False))
-                return
-
-    print(json.dumps({"found": False}))
+    # Check for next pending step
+    next_step = store.next_pending_step(data["plan_id"])
+    result = {
+        "found": True,
+        "chat_id": data["chat_id"],
+        "goal": data["goal"],
+        "planner_status": data["plan_status"],
+        "step": {"id": data["step_num"], "desc": data["title"], "status": data["status"]},
+        "advance": next_step is not None and data["status"] == "done",
+    }
+    if next_step:
+        result["next_step"] = {
+            "id": next_step["step_num"],
+            "desc": next_step["title"],
+            "detail": next_step.get("prompt", ""),
+        }
+    print(json.dumps(result, ensure_ascii=False))
 
 
 # === Main ===
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -1365,51 +1000,70 @@ if __name__ == "__main__":
 
     cmd = sys.argv[1]
 
-    if cmd == "init":
-        if len(sys.argv) < 5:
-            print("Usage: planner.py init <chat_id|message_id> <goal> <steps_json>", file=sys.stderr)
+    if cmd in ("--help", "-h", "help"):
+        print(__doc__)
+        sys.exit(0)
+    elif cmd == "init":
+        if "--template" in sys.argv:
+            tidx = sys.argv.index("--template")
+            tname = sys.argv[tidx + 1] if tidx + 1 < len(sys.argv) else None
+            chat_id = sys.argv[2] if len(sys.argv) > 2 else None
+            # Parse --var key=value pairs
+            tvars = {}
+            for a in sys.argv:
+                if a.startswith("--var=") or (a == "--var"):
+                    pass
+            i = 0
+            while i < len(sys.argv):
+                if sys.argv[i] == "--var" and i + 1 < len(sys.argv):
+                    k, _, v = sys.argv[i + 1].partition("=")
+                    tvars[k] = v
+                    i += 2
+                else:
+                    i += 1
+            if not chat_id or not tname:
+                print("Usage: planner.py init <chat_id> --template <name> [--var key=value ...]", file=sys.stderr)
+                sys.exit(1)
+            cmd_init(chat_id, "", "", template_name=tname, template_vars=tvars)
+        elif len(sys.argv) < 5:
+            print("Usage: planner.py init <chat_id> <goal> <steps_json>", file=sys.stderr)
             sys.exit(1)
-        cmd_init(sys.argv[2], sys.argv[3], sys.argv[4])
+        else:
+            cmd_init(sys.argv[2], sys.argv[3], sys.argv[4])
 
     elif cmd == "start":
         if len(sys.argv) < 3:
-            print("Usage: planner.py start <chat_id|message_id>", file=sys.stderr)
+            print("Usage: planner.py start <chat_id>", file=sys.stderr)
             sys.exit(1)
         cmd_start(sys.argv[2])
 
     elif cmd == "show":
         if len(sys.argv) < 3:
-            print("Usage: planner.py show <chat_id>", file=sys.stderr)
+            print("Usage: planner.py show <chat_id> [--graph]", file=sys.stderr)
             sys.exit(1)
-        cmd_show(sys.argv[2])
+        send_graph = "--graph" in sys.argv
+        cmd_show(sys.argv[2], send_graph=send_graph)
 
     elif cmd == "step-done":
         if len(sys.argv) < 5:
             print("Usage: planner.py step-done <chat_id> <step_id> \"<result>\"", file=sys.stderr)
             sys.exit(1)
-        try:
-            sid = int(sys.argv[3])
-        except ValueError:
-            print(f"Error: step_id must be an integer, got '{sys.argv[3]}'", file=sys.stderr)
-            sys.exit(1)
+        sid = int(sys.argv[3])
         cmd_step_done(sys.argv[2], sid, sys.argv[4])
 
     elif cmd == "step-fail":
         if len(sys.argv) < 5:
             print("Usage: planner.py step-fail <chat_id> <step_id> \"<error>\"", file=sys.stderr)
             sys.exit(1)
-        try:
-            sid = int(sys.argv[3])
-        except ValueError:
-            print(f"Error: step_id must be an integer, got '{sys.argv[3]}'", file=sys.stderr)
-            sys.exit(1)
+        sid = int(sys.argv[3])
         cmd_step_fail(sys.argv[2], sid, sys.argv[4])
 
     elif cmd == "replan":
         if len(sys.argv) < 4:
-            print("Usage: planner.py replan <chat_id> <new_steps_json>", file=sys.stderr)
+            print("Usage: planner.py replan <chat_id> <new_steps_json> [--append]", file=sys.stderr)
             sys.exit(1)
-        cmd_replan(sys.argv[2], sys.argv[3])
+        append_mode = "--append" in sys.argv
+        cmd_replan(sys.argv[2], sys.argv[3], append=append_mode)
 
     elif cmd == "cancel":
         if len(sys.argv) < 3:
@@ -1425,6 +1079,28 @@ if __name__ == "__main__":
 
     elif cmd == "check-advances":
         cmd_check_advances()
+
+    elif cmd == "pause":
+        if len(sys.argv) < 3:
+            print("Usage: planner.py pause <chat_id>", file=sys.stderr)
+            sys.exit(1)
+        cmd_pause(sys.argv[2])
+    elif cmd == "resume":
+        if len(sys.argv) < 3:
+            print("Usage: planner.py resume <plan_id|chat_id|all>", file=sys.stderr)
+            sys.exit(1)
+        cmd_resume(sys.argv[2])
+    elif cmd == "check-contracts":
+        cmd_check_contracts()
+
+    elif cmd == "templates":
+        templates = list_templates()
+        if not templates:
+            print("No templates found.")
+        else:
+            for t in templates:
+                vars_str = ", ".join(t["variables"]) if t["variables"] else "none"
+                print(f"  {t['name']:20} {t['steps']} steps  vars: {vars_str}  — {t['description']}")
 
     elif cmd == "list":
         cmd_list()
