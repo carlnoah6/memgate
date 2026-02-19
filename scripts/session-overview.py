@@ -24,6 +24,8 @@ SESSIONS_FILE = "/home/ubuntu/.openclaw/agents/main/sessions/sessions.json"
 SESSIONS_DIR = "/home/ubuntu/.openclaw/agents/main/sessions"
 OUTPUT_FILE = "/home/ubuntu/.openclaw/workspace/data/session-overview.json"
 CHAT_CACHE = "/home/ubuntu/.openclaw/workspace/data/lark-chats-cache.json"
+PLANNERS_DIR = "/home/ubuntu/.openclaw/workspace/data/planners"
+PLANNER_DIR = "/home/ubuntu/.openclaw/workspace/data/planner"  # Old format planners
 
 
 def load_chat_names():
@@ -37,6 +39,78 @@ def load_chat_names():
                 mapping[c["chat_id"]] = c["name"]
         except Exception:
             pass
+    return mapping
+
+
+def load_planners():
+    """Load chat_id -> planner info mapping from PostgreSQL."""
+    mapping = {}
+    try:
+        from task_store import TaskStore
+        store = TaskStore()
+        all_plans = store.list_plans() or []
+        now = datetime.now(timezone.utc)
+        def _plan_still_relevant(p):
+            """Filter out cancelled plans and completed/failed plans older than 24h."""
+            status = p.get("status", "")
+            if status == "cancelled":
+                return False
+            if status in ("completed", "failed"):
+                created = p.get("created_at")
+                if created and hasattr(created, 'timestamp'):
+                    age_h = (now - created).total_seconds() / 3600
+                    if age_h > 24:
+                        return False
+            return True
+        plans = [p for p in all_plans if _plan_still_relevant(p)]
+        # Sort by most recently updated first
+        plans.sort(key=lambda p: p.get("updated_at") or p.get("created_at") or now, reverse=True)
+        plans = plans[:30]
+        for p in plans:
+            chat_id = p.get("chat_id")
+            if not chat_id:
+                continue
+            # Skip if we already have a higher-priority plan for this chat
+            if chat_id in mapping:
+                continue
+            plan_id = p["id"]
+            full = store.get_plan(plan_id)
+            if not full:
+                continue
+            steps = full.get("steps", [])
+            total = len(steps)
+            done = sum(1 for s in steps if s["status"] == "done")
+            running_step = None
+            for s in steps:
+                if s.get("status") == "running":
+                    running_step = s.get("title", "")
+                    break
+            status = p["status"]
+            if status == "completed":
+                status_text = "\u2705 完成"
+            elif status == "failed":
+                status_text = "\u274c 失败"
+            elif status == "paused":
+                status_text = f"\u23f8\ufe0f 暂停 ({done}/{total})"
+            elif status == "draft":
+                status_text = "\U0001f4dd 草稿"
+            elif running_step:
+                status_text = f"{running_step} ({done}/{total})"
+            elif done > 0:
+                status_text = f"步骤 {done}/{total}"
+            else:
+                status_text = "\U0001f7e1 进行中"
+            mapping[chat_id] = {
+                "goal": full.get("goal", "未命名规划"),
+                "status": status,
+                "current_step": done,
+                "total_steps": total,
+                "status_text": status_text,
+                "plan_id": plan_id,
+            }
+    except Exception as e:
+        import sys
+        print(f"[session-overview] load_planners error: {e}", file=sys.stderr)
     return mapping
 
 
@@ -183,6 +257,7 @@ def generate_overview():
         all_sessions = json.load(f)
 
     chat_names = load_chat_names()
+    planners = load_planners()
 
     # Filter: only real chat sessions (group + dm + main)
     # Exclude: subagents, task auto-created groups (🤖 prefix)
@@ -228,7 +303,10 @@ def generate_overview():
         relative_time = fmt_relative_time(updated_at)
 
         # Usage percentage
-        usage_pct = round(total_tokens / context_tokens * 100) if context_tokens else 0
+        usage_pct = round((total_tokens or 0) / context_tokens * 100) if context_tokens else 0
+
+        # Get planner info for this chat
+        planner_info = planners.get(chat_id) if chat_id else None
 
         chat_sessions.append({
             "key": key,
@@ -241,10 +319,11 @@ def generate_overview():
             "relative_time": relative_time,
             "last_activity": last_activity,
             "compactions": meta.get("compactionCount", 0),
+            "planner": planner_info,
         })
 
     # Sort by updatedAt descending (most recent first)
-    chat_sessions.sort(key=lambda s: s["updated_at"], reverse=True)
+    chat_sessions.sort(key=lambda s: s["name"])
 
     result = {
         "sessions": chat_sessions,
@@ -263,6 +342,9 @@ def generate_overview():
 
 
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h", "help"):
+        print(__doc__)
+        sys.exit(0)
     result = generate_overview()
     if "--stdout" in sys.argv:
         print(json.dumps(result, indent=2, ensure_ascii=False))

@@ -80,9 +80,8 @@ def build_plan_card(chat_id: str) -> dict:
     # Find the most recent plan for this chat (any status)
     all_plans = plan_store.list_plans()
     chat_plans = [p for p in all_plans if p.get("chat_id") == chat_id]
-    # Sort: active/draft/paused first, then by most recent
-    status_priority = {"active": 0, "draft": 1, "paused": 2, "completed": 3, "cancelled": 4}
-    chat_plans.sort(key=lambda p: (status_priority.get(p["status"], 9),))
+    # Sort by most recently updated first
+    chat_plans.sort(key=lambda p: p.get("updated_at") or p.get("created_at") or "", reverse=True)
 
     now = datetime.now(SGT)
     elements = []
@@ -285,43 +284,43 @@ def build_session_section():
     if not sessions:
         return elements
 
+    # Header row
     elements.append({
         "tag": "column_set",
         "flex_mode": "none",
         "background_style": "grey",
         "columns": [
-            _col("**Session**", 3),
-            _col("**状态**", 2),
-            _col("**Tokens**", 2),
-            _col("**时长**", 1),
+            _col("**Session**", 2),
+            _col("**Plan**", 4),
+            _col("**Tokens**", 1),
         ]
     })
 
     for s in sessions[:8]:
         name = s.get("name", "?")[:20]
         planner = s.get("planner")
+
+        # Plan cell
         if planner and planner.get("goal"):
-            goal = planner["goal"][:30]
-            name_cell = f"{name}\n📋 {goal}"
+            goal = planner["goal"][:40]
+            status_text = planner.get("status_text", "")
+            plan_cell = f"📋 {goal}\n{status_text}"
         else:
-            name_cell = name
-        activity = s.get("last_activity") or "—"
-        if planner and planner.get("status_text"):
-            status = planner["status_text"]
-        else:
-            status = activity
+            activity = s.get("last_activity") or "—"
+            plan_cell = f"_{activity}_"
+
+        # Tokens
         tok = s.get("tokens", 0)
         pct = s.get("usage_pct", 0)
         tokens_str = f"{fmt_tokens(tok)} ({pct}%)" if tok else "0"
-        age = s.get("relative_time", "?")
+
         elements.append({
             "tag": "column_set",
             "flex_mode": "none",
             "columns": [
-                _col(name_cell, 3),
-                _col(status, 2),
-                _col(tokens_str, 2),
-                _col(age, 1),
+                _col(f"**{name}**", 2),
+                _col(plan_cell, 4),
+                _col(tokens_str, 1),
             ]
         })
 
