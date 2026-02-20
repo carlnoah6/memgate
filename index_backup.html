@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MemGate — Privacy-Aware Memory Isolation for AI Agents</title>
+    <meta name="description" content="Control what your AI knows — and what it shares. Knowledge-level privacy isolation for OpenClaw and other AI agents.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>">
+    <style>
+        :root {
+            --bg: #0a0a0a;
+            --surface: #141414;
+            --border: #222;
+            --text: #e0e0e0;
+            --text-muted: #888;
+            --accent: #4f9cf7;
+            --accent-glow: rgba(79, 156, 247, 0.15);
+            --green: #4ade80;
+            --red: #f87171;
+            --orange: #fb923c;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+        /* Hero */
+        .hero {
+            padding: 80px 0 60px;
+            text-align: center;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+
+        .hero-badge a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+
+        h1 {
+            font-size: 56px;
+            font-weight: 700;
+            letter-spacing: -2px;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 20px;
+            color: var(--text-muted);
+            max-width: 560px;
+            margin: 0 auto 40px;
+        }
+
+        .cta-group {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 28px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: #fff;
+        }
+
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover { border-color: var(--accent); }
+
+        /* Problem/Solution */
+        .section {
+            padding: 60px 0;
+            border-top: 1px solid var(--border);
+        }
+
+        .section h2 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            letter-spacing: -1px;
+        }
+
+        .section .subtitle {
+            color: var(--text-muted);
+            font-size: 17px;
+            margin-bottom: 40px;
+            max-width: 600px;
+        }
+
+        /* Diagram */
+        .diagram {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            margin: 32px 0;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            white-space: pre;
+            color: var(--text-muted);
+        }
+
+        .diagram .highlight { color: var(--accent); }
+        .diagram .safe { color: var(--green); }
+        .diagram .danger { color: var(--red); }
+
+        /* Feature grid */
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+            margin-top: 32px;
+        }
+
+        .feature {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+        }
+
+        .feature-icon {
+            font-size: 28px;
+            margin-bottom: 12px;
+        }
+
+        .feature h3 {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .feature p {
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Demo */
+        .demo-block {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .demo-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .demo-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .demo-body {
+            padding: 20px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .demo-body .cmd { color: var(--accent); }
+        .demo-body .pass { color: var(--green); }
+        .demo-body .fail { color: var(--red); }
+        .demo-body .dim { color: var(--text-muted); }
+
+        /* Comparison table */
+        .comparison {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 24px;
+        }
+
+        .comparison th, .comparison td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        .comparison th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .check { color: var(--green); }
+        .cross { color: var(--red); }
+
+        /* Install */
+        .install-code {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px 20px;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            font-size: 14px;
+            margin: 16px 0;
+            color: var(--accent);
+        }
+
+        /* Footer */
+        footer {
+            padding: 40px 0;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        footer a { color: var(--accent); text-decoration: none; }
+
+        @media (max-width: 640px) {
+            h1 { font-size: 36px; }
+            .hero { padding: 48px 0 40px; }
+            .section { padding: 40px 0; }
+            .diagram { font-size: 11px; padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <section class="hero">
+        <div class="hero-badge">OpenClaw Skill · <a href="https://github.com/carlnoah6/memgate">Open Source</a></div>
+        <h1>MemGate</h1>
+        <p>Privacy-aware memory isolation for AI agents. Control what your AI knows — and what it shares.</p>
+        <div class="cta-group">
+            <a href="https://github.com/carlnoah6/memgate" class="btn btn-primary">Get Started →</a>
+            <a href="https://github.com/carlnoah6/memgate#quick-start" class="btn btn-secondary">Documentation</a>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>The Problem</h2>
+        <p class="subtitle">AI agents have access to everything. When they serve multiple users, private data leaks between contexts.</p>
+
+        <div class="demo-block">
+            <div class="demo-header">
+                <div class="demo-dot" style="background: var(--red)"></div>
+                <div class="demo-dot" style="background: var(--orange)"></div>
+                <div class="demo-dot" style="background: var(--green)"></div>
+                Without MemGate
+            </div>
+            <div class="demo-body">
+<span class="dim">Group Chat: Alice, Bob, AI Agent</span>
+
+<span class="dim">Bob:</span> Hey AI, what's Alice doing tomorrow?
+<span class="dim">AI:</span>  <span class="fail">Alice has a dentist appointment at 2pm,
+      then picking up her kids from school at 3:30.</span>
+
+<span class="fail">⚠ Private calendar and family data leaked to Bob</span>
+            </div>
+        </div>
+
+        <div class="demo-block">
+            <div class="demo-header">
+                <div class="demo-dot" style="background: var(--red)"></div>
+                <div class="demo-dot" style="background: var(--orange)"></div>
+                <div class="demo-dot" style="background: var(--green)"></div>
+                With MemGate
+            </div>
+            <div class="demo-body">
+<span class="dim">Group Chat: Alice, Bob, AI Agent</span>
+
+<span class="dim">Bob:</span> Hey AI, what's Alice doing tomorrow?
+<span class="dim">AI:</span>  <span class="pass">I can't share Alice's schedule in a group chat.
+      You'd need to ask her directly.</span>
+
+<span class="pass">✓ Private data protected by MemGate</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>Three Layers of Protection</h2>
+        <p class="subtitle">MemGate doesn't just rely on prompts. It enforces privacy at the data layer.</p>
+
+        <div class="features">
+            <div class="feature">
+                <div class="feature-icon">🔍</div>
+                <h3>Context Engine</h3>
+                <p>Analyzes chat participants and determines what knowledge is accessible. Private chat? Full access. Group chat? Public only.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🛡️</div>
+                <h3>Output Reviewer</h3>
+                <p>Scans every outgoing message for private data patterns — emails, schedules, family info — before it's sent.</p>
+            </div>
+            <div class="feature">
+                <div class="feature-icon">🗄️</div>
+                <h3>Knowledge Store</h3>
+                <p>Classifies all user data as public or private. Stored per-user in simple JSONL files. Easy to audit and modify.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <h2>How It Works</h2>
+
+        <div class="diagram"><span class="highlight">Private Chat</span> (You + AI)
+┌─────────────────────────────────────┐
+│  <span class="safe">✓ Public knowledge</span>                 │
+│  <span class="safe">✓ Private knowledge</span>                │
+│  <span class="safe">✓ Calendar, contacts, family</span>       │
+│  <span class="safe">✓ Full memory access</span>               │
+└─────────────────────────────────────┘
+
+<span class="highlight">Group Chat</span> (You + Others + AI)
+┌─────────────────────────────────────┐
+│  <span class="safe">✓ Public knowledge</span>                 │
+│  <span class="danger">✗ Private knowledge</span>     ← blocked  │
+│  <span class="danger">✗ Calendar, contacts</span>    ← blocked  │
+│  <span class="danger">✗ Family, finances</span>      ← blocked  │
+│  <span class="safe">✓ Output review</span>        ← enforced  │
+└─────────────────────────────────────┘</div>
+    </section>
+
+    <section class="section">
+        <h2>vs. Built-in Session Isolation</h2>
+        <p class="subtitle">Session isolation keeps conversations separate. MemGate keeps knowledge separate.</p>
+
+        <table class="comparison">
+            <thead>
+                <tr>
+                    <th>Feature</th>
+                    <th>Session Isolation</th>
+                    <th>MemGate</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Conversation history separation</td>
+                    <td><span class="check">✓</span></td>
+                    <td><span class="check">✓</span></td>
+                </tr>
+                <tr>
+                    <td>Knowledge-level isolation</td>
+                    <td><span class="cross">✗</span></td>
+                    <td><span class="check">✓</span></td>
+                </tr>
+                <tr>
+                    <td>Output leak detection</td>
+                    <td><span class="cross">✗</span></td>
+                    <td><span class="check">✓</span></td>
+                </tr>
+                <tr>
+                    <td>Per-user data classification</td>
+                    <td><span class="cross">✗</span></td>
+                    <td><span class="check">✓</span></td>
+                </tr>
+                <tr>
+                    <td>Private entity scanning</td>
+                    <td><span class="cross">✗</span></td>
+                    <td><span class="check">✓</span></td>
+                </tr>
+                <tr>
+                    <td>Auditable knowledge store</td>
+                    <td><span class="cross">✗</span></td>
+                    <td><span class="check">✓</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <section class="section">
+        <h2>Get Started</h2>
+        <p class="subtitle">Install MemGate as an OpenClaw skill in seconds.</p>
+
+        <div class="install-code">
+            git clone https://github.com/carlnoah6/memgate.git ~/.openclaw/skills/memgate
+        </div>
+
+        <div class="demo-block">
+            <div class="demo-header">
+                <div class="demo-dot" style="background: var(--red)"></div>
+                <div class="demo-dot" style="background: var(--orange)"></div>
+                <div class="demo-dot" style="background: var(--green)"></div>
+                CLI Usage
+            </div>
+            <div class="demo-body">
+<span class="cmd">$</span> python3 memgate/cli.py context --channel-type group --participants "alice,bob"
+<span class="dim">→ Accessible: 8 public items (31 private items blocked)</span>
+
+<span class="cmd">$</span> python3 memgate/cli.py review --message "Alice's meeting is at 3pm" \
+    --channel-type group --participants "alice,bob"
+<span class="fail">→ BLOCKED: calendar data detected (schedule leak)</span>
+
+<span class="cmd">$</span> python3 memgate/cli.py review --message "I think that's a great idea" \
+    --channel-type group --participants "alice,bob"
+<span class="pass">→ PASSED: no private data detected</span>
+            </div>
+        </div>
+    </section>
+</div>
+
+<footer>
+    <div class="container">
+        <p>
+            <a href="https://github.com/carlnoah6/memgate">GitHub</a> ·
+            MIT License ·
+            Built for <a href="https://docs.openclaw.ai">OpenClaw</a>
+        </p>
+    </div>
+</footer>
+
+</body>
+</html>
