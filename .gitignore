@@ -69,3 +69,4 @@ scripts/*.service
 # Workspace submodules/embedded repos
 memgate/
 examples/
+.coverage
