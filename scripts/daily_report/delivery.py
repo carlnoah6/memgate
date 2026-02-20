@@ -65,5 +65,5 @@ class ReportDelivery:
             log(f"⚠️ 交付脚本不存在: {script}")
             return
 
-        result = run_cmd(f"bash {script} {self.data.date_str}", timeout=120)
+        result = run_cmd(f"bash {script} {self.data.date_str} --skip-chat", timeout=120)
         log(f"📤 交付结果:\n{result}")
