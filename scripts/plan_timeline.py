@@ -132,15 +132,17 @@ const statusIcons = {{
     failed: '❌',
 }};
 
-function getPhase(id, memo) {{
+function getPhase(id, memo, visiting) {{
     if (memo[id] !== undefined) return memo[id];
+    if (visiting.has(id)) {{ memo[id] = 0; return 0; }}  // break circular deps
+    visiting.add(id);
     const s = steps.find(s => s.id === id);
-    if (!s.deps.length) {{ memo[id] = 0; return 0; }}
-    memo[id] = Math.max(...s.deps.map(d => getPhase(d, memo))) + 1;
+    if (!s || !s.deps.length) {{ memo[id] = 0; return 0; }}
+    memo[id] = Math.max(...s.deps.filter(d => d !== id).map(d => getPhase(d, memo, visiting))) + 1;
     return memo[id];
 }}
 const phaseMemo = {{}};
-steps.forEach(s => getPhase(s.id, phaseMemo));
+steps.forEach(s => getPhase(s.id, phaseMemo, new Set()));
 
 const maxPhase = Math.max(...Object.values(phaseMemo));
 const phaseGroups = {{}};
