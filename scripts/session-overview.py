@@ -48,7 +48,8 @@ def load_planners():
     try:
         from task_store import TaskStore
         store = TaskStore()
-        all_plans = store.list_plans() or []
+        all_plans_raw = store.list_plans() or []
+        all_plans = [p.to_dict() if hasattr(p, 'to_dict') else p for p in all_plans_raw]
         now = datetime.now(timezone.utc)
         def _plan_still_relevant(p):
             """Filter out cancelled plans and completed/failed plans older than 24h."""
@@ -74,9 +75,10 @@ def load_planners():
             if chat_id in mapping:
                 continue
             plan_id = p["id"]
-            full = store.get_plan(plan_id)
-            if not full:
+            full_raw = store.get_plan(plan_id)
+            if not full_raw:
                 continue
+            full = full_raw.to_dict() if hasattr(full_raw, 'to_dict') else full_raw
             steps = full.get("steps", [])
             total = len(steps)
             done = sum(1 for s in steps if s["status"] == "done")

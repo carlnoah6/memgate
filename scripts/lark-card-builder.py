@@ -78,7 +78,8 @@ def build_plan_card(chat_id: str) -> dict:
     plan_store = get_plan_store()
 
     # Find the most recent plan for this chat (any status)
-    all_plans = plan_store.list_plans()
+    all_plans_raw = plan_store.list_plans()
+    all_plans = [p.to_dict() if hasattr(p, 'to_dict') else p for p in all_plans_raw]
     chat_plans = [p for p in all_plans if p.get("chat_id") == chat_id]
     # Sort by most recently updated first
     chat_plans.sort(key=lambda p: p.get("updated_at") or p.get("created_at") or "", reverse=True)
@@ -189,7 +190,8 @@ def build_global_card() -> dict:
         pass
 
     store = TaskStore()
-    tasks = store.list_tasks()
+    tasks_raw = store.list_tasks()
+    tasks = [t.to_dict() if hasattr(t, 'to_dict') else t for t in tasks_raw]
     now = datetime.now(SGT)
 
     running_tasks = [t for t in tasks if t["status"] == "running"]
